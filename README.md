@@ -58,4 +58,65 @@ A payment service may want to process work by customer:
 * `payment` lane gets higher quota
 * `audit` lane gets lower quota
 * `webhook` lane gets bounded background execution
-* noisy customer keys should not dominate all workers
+## Core Data Model
+
+`go-keylane` uses a simple but powerful data model to define how work is processed.
+
+### Config
+The `Config` struct defines the global settings for the keylane instance.
+
+```go
+type Config struct {
+	ShardCount       int
+	WorkerCount      int
+	QueueSizePerLane int
+	LaneQuotas       map[Lane]int
+}
+```
+
+### Lane
+A `Lane` is a string identifier for a job class. Each lane has its own quota and queue.
+
+```go
+type Lane string
+```
+
+### Job
+A `Job` is a unit of work that contains a routing key, a lane, and the function to execute.
+
+```go
+type Job struct {
+	Key  string
+	Lane Lane
+	Run  func(context.Context) error
+}
+```
+
+### Getting Started
+
+> [!IMPORTANT]
+> `go-keylane` is currently in an **experimental, pre-v0.1 state**. Phase 1 establishes the core data model; shard routing, queue implementation, and worker scheduling are not yet active.
+
+Internal models such as `InternalJob` and `LaneRegistry` are not part of the public API and are subject to change without notice.
+
+```go
+cfg := keylane.Config{
+	ShardCount:       64,
+	WorkerCount:      4,
+	QueueSizePerLane: 1024,
+	LaneQuotas: map[keylane.Lane]int{
+		"payment": 3,
+		"audit":   1,
+		"webhook": 1,
+	},
+}
+
+job := keylane.Job{
+	Key:  "customer-123",
+	Lane: "payment",
+	Run: func(ctx context.Context) error {
+		// Business logic here
+		return nil
+	},
+}
+```
