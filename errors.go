@@ -1,6 +1,10 @@
 package keylane
 
-import "github.com/haluan/go-keylane/internal/core"
+import (
+	"errors"
+
+	"github.com/haluan/go-keylane/internal/core"
+)
 
 var (
 	ErrInvalidConfig      = core.ErrInvalidConfig
@@ -10,6 +14,7 @@ var (
 	ErrInvalidLane        = core.ErrInvalidLane
 	ErrInvalidLaneQuota   = core.ErrInvalidLaneQuota
 	ErrMissingLaneQuotas  = core.ErrMissingLaneQuotas
+	ErrNilQueue           = errors.New("keylane: nil queue")
 	ErrInvalidJob         = core.ErrInvalidJob
 	ErrInvalidKey         = core.ErrInvalidKey
 	ErrNilJobRun          = core.ErrNilJobRun

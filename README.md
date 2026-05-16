@@ -132,14 +132,51 @@ if err := q.Start(ctx); err != nil {
 	log.Fatal(err)
 }
 
-// Submit a job
+// Submit a fire-and-forget job
 err = q.Submit(ctx, job)
-if err != nil {
-	log.Printf("submission failed: %v", err)
-}
+
+// OR: Submit a job and wait for a value
+future, err := keylane.SubmitValue(ctx, q, keylane.ValueJob[int]{
+	Key:  "user-123",
+	Lane: "payment",
+	Run:  func(ctx context.Context) (int, error) { return 42, nil },
+})
+val, err := future.Await(ctx)
 ```
+
+## Avoid Await inside keylane workers
+
+> [!CAUTION]
+> **Never call `Await` inside a worker `Run` function on the same queue.**
+> 
+> Doing so creates a high risk of **resource exhaustion deadlocks**. If your `WorkerCount` is 1, and the single worker processes a job that then blocks on `Await` for another job in the same queue, the system will deadlock forever.
+
+### Deadlock Example
+
+```go
+q, _ := keylane.New(keylane.Config{WorkerCount: 1, ...})
+_ = q.Start(ctx)
+
+// This job will DEADLOCK
+_ = q.Submit(ctx, keylane.Job{
+    Key: "j1", Lane: "default", Run: func(ctx context.Context) error {
+        f, _ := keylane.SubmitValue(ctx, q, otherJob)
+        val, _ := f.Await(ctx) // Blocks the only worker; otherJob never runs
+        return nil
+    },
+})
+```
+
+### Safe Alternatives
+*   **Independent Submission**: Submit all required jobs from the caller side and aggregate results there using a `sync.WaitGroup` or by awaiting multiple futures sequentially.
+*   **Decoupled Queues**: If jobs must wait for each other, use separate `Queue` instances to avoid circular dependencies in the worker pool.
+*   **Larger Worker Pools**: While increasing `WorkerCount` can mitigate the issue, it only delays the problem. Architecture should ideally avoid worker-side blocking.
+
+### Await Timeout and Starvation
+Using `Await` with a timeout (e.g., `context.WithTimeout`) prevents the **caller** from blocking indefinitely. However, it does **not** solve the problem of **scheduler starvation**. If a worker is stuck in an `Await` call, it is unavailable to process other shards until the call returns (either through completion or timeout). The timeout merely protects the caller, not the queue's throughput.
 
 ## Documentation
 
 - [Phase 2: Shard and Lane Queue](docs/phase-2-shard-and-lane-queue.md)
 - [Phase 3: Worker Scheduler](docs/phase-3-worker-scheduler.md)
+- [Phase 4: Future / SubmitValue / Await](docs/phase-4-future-submitvalue-await.md)
