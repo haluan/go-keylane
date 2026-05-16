@@ -95,7 +95,7 @@ type Job struct {
 ### Getting Started
 
 > [!IMPORTANT]
-> `go-keylane` is currently in an **experimental, pre-v0.1 state**. Phase 1 establishes the core data model; shard routing, queue implementation, and worker scheduling are not yet active.
+> `go-keylane` is currently in an **experimental, pre-v0.1 state**. Phase 2 establishes internal shard routing and bounded lane queues; public submission and worker scheduling are not yet active.
 
 Internal models such as `InternalJob` and `LaneRegistry` are not part of the public API and are subject to change without notice.
 
@@ -120,3 +120,7 @@ job := keylane.Job{
 	},
 }
 ```
+
+## Documentation
+
+- [Phase 2: Shard and Lane Queue](docs/phase-2-shard-and-lane-queue.md)
