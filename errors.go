@@ -1,16 +1,19 @@
 package keylane
 
-import "errors"
+import "github.com/haluan/go-keylane/internal/core"
 
 var (
-	ErrInvalidConfig      = errors.New("keylane: invalid config")
-	ErrInvalidShardCount  = errors.New("keylane: invalid shard count")
-	ErrInvalidWorkerCount = errors.New("keylane: invalid worker count")
-	ErrInvalidQueueSize   = errors.New("keylane: invalid queue size per lane")
-	ErrInvalidLane        = errors.New("keylane: invalid lane")
-	ErrInvalidLaneQuota   = errors.New("keylane: invalid lane quota")
-	ErrMissingLaneQuotas  = errors.New("keylane: missing lane quotas")
-	ErrInvalidJob         = errors.New("keylane: invalid job")
-	ErrInvalidKey         = errors.New("keylane: invalid key")
-	ErrNilJobRun          = errors.New("keylane: nil job run function")
+	ErrInvalidConfig      = core.ErrInvalidConfig
+	ErrInvalidShardCount  = core.ErrInvalidShardCount
+	ErrInvalidWorkerCount = core.ErrInvalidWorkerCount
+	ErrInvalidQueueSize   = core.ErrInvalidQueueSize
+	ErrInvalidLane        = core.ErrInvalidLane
+	ErrInvalidLaneQuota   = core.ErrInvalidLaneQuota
+	ErrMissingLaneQuotas  = core.ErrMissingLaneQuotas
+	ErrInvalidJob         = core.ErrInvalidJob
+	ErrInvalidKey         = core.ErrInvalidKey
+	ErrNilJobRun          = core.ErrNilJobRun
+	ErrQueueFull          = core.ErrQueueFull
+	ErrQueueNotStarted    = core.ErrQueueNotStarted
+	ErrQueueAlreadyStarted = core.ErrQueueAlreadyStarted
 )

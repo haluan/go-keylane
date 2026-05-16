@@ -14,8 +14,8 @@ func TestEnqueueIntoShardAddsJobToCorrectLane(t *testing.T) {
 		t.Fatalf("enqueue failed: %v", err)
 	}
 
-	if s.lanes[1].depth() != 1 {
-		t.Errorf("lane 1 depth = %d, want 1", s.lanes[1].depth())
+	if s.Lanes[1].depth() != 1 {
+		t.Errorf("lane 1 depth = %d, want 1", s.Lanes[1].depth())
 	}
 }
 
@@ -31,14 +31,14 @@ func TestEnqueueIntoShardMarksShardReady(t *testing.T) {
 	if !becameReady {
 		t.Error("becameReady should be true for first enqueue")
 	}
-	if !s.ready {
-		t.Error("shard should be marked ready")
+	if !s.Ready {
+		t.Error("shard should be marked Ready")
 	}
 }
 
 func TestEnqueueIntoShardAlreadyReady(t *testing.T) {
 	s := newShard(3, 10)
-	s.ready = true
+	s.Ready = true
 
 	becameReady, err := enqueueIntoShard(&s, InternalJob{LaneID: 1})
 	if err != nil {
@@ -46,13 +46,13 @@ func TestEnqueueIntoShardAlreadyReady(t *testing.T) {
 	}
 
 	if becameReady {
-		t.Error("becameReady should be false if shard was already ready")
+		t.Error("becameReady should be false if shard was already Ready")
 	}
 }
 
 func TestEnqueueIntoShardQueueFull(t *testing.T) {
 	s := newShard(1, 1)
-	_ = s.lanes[0].push(InternalJob{})
+	_ = s.Lanes[0].push(InternalJob{})
 
 	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 0})
 	if !errors.Is(err, errLaneQueueFull) {
@@ -70,7 +70,7 @@ func TestEnqueueIntoShardInvalidLaneID(t *testing.T) {
 
 func TestEnqueueIntoShardFailedPushDoesNotMarkReady(t *testing.T) {
 	s := newShard(1, 1)
-	_ = s.lanes[0].push(InternalJob{}) // fill it
+	_ = s.Lanes[0].push(InternalJob{}) // fill it
 
 	// This enqueue will fail because queue is full
 	becameReady, _ := enqueueIntoShard(&s, InternalJob{LaneID: 0})
@@ -78,11 +78,11 @@ func TestEnqueueIntoShardFailedPushDoesNotMarkReady(t *testing.T) {
 		t.Error("becameReady should be false on failed push")
 	}
 
-	// Reset shard state to check if ready was set even on error
+	// Reset shard state to check if Ready was set even on error
 	s2 := newShard(1, 1)
-	_ = s2.lanes[0].push(InternalJob{})
+	_ = s2.Lanes[0].push(InternalJob{})
 	_, _ = enqueueIntoShard(&s2, InternalJob{LaneID: 0})
-	if s2.ready {
-		t.Error("shard should not be ready if push failed")
+	if s2.Ready {
+		t.Error("shard should not be Ready if push failed")
 	}
 }

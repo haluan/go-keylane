@@ -2,8 +2,6 @@ package core
 
 import (
 	"context"
-
-	"github.com/haluan/go-keylane"
 )
 
 // InternalJob is the hot-path representation of a job.
@@ -17,16 +15,16 @@ type InternalJob struct {
 	Run func(context.Context) error
 }
 
-// NewInternalJob converts a public keylane.Job to an InternalJob.
-// It validates the job before conversion.
-func NewInternalJob(job keylane.Job, keyHash uint64, laneID LaneID) (InternalJob, error) {
-	if err := job.Validate(); err != nil {
-		return InternalJob{}, err
+// NewInternalJob creates an InternalJob from its components.
+// It returns an error if the run function is nil.
+func NewInternalJob(run func(context.Context) error, keyHash uint64, laneID LaneID) (InternalJob, error) {
+	if run == nil {
+		return InternalJob{}, ErrNilJobRun
 	}
 
 	return InternalJob{
 		KeyHash: keyHash,
 		LaneID:  laneID,
-		Run:     job.Run,
+		Run:     run,
 	}, nil
 }

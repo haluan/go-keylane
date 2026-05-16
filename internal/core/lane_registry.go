@@ -3,8 +3,6 @@ package core
 import (
 	"fmt"
 	"sort"
-
-	"github.com/haluan/go-keylane"
 )
 
 // LaneID is a compact representation of a lane.
@@ -19,18 +17,18 @@ type LaneRegistry struct {
 
 // NewLaneRegistry creates a new LaneRegistry from a map of lane quotas.
 // It returns an error if any lane name is empty or any quota is less than 1.
-func NewLaneRegistry(quotas map[keylane.Lane]int) (*LaneRegistry, error) {
+func NewLaneRegistry(quotas map[string]int) (*LaneRegistry, error) {
 	if len(quotas) == 0 {
-		return nil, keylane.ErrMissingLaneQuotas
+		return nil, ErrMissingLaneQuotas
 	}
 
 	// Sort lane names for deterministic LaneID assignment.
 	sortedLanes := make([]string, 0, len(quotas))
 	for lane := range quotas {
 		if lane == "" {
-			return nil, keylane.ErrInvalidLane
+			return nil, ErrInvalidLane
 		}
-		sortedLanes = append(sortedLanes, string(lane))
+		sortedLanes = append(sortedLanes, lane)
 	}
 	sort.Strings(sortedLanes)
 
@@ -41,9 +39,9 @@ func NewLaneRegistry(quotas map[keylane.Lane]int) (*LaneRegistry, error) {
 	}
 
 	for i, name := range sortedLanes {
-		quota := quotas[keylane.Lane(name)]
+		quota := quotas[name]
 		if quota < 1 {
-			return nil, fmt.Errorf("%w: quota for lane %q must be at least 1", keylane.ErrInvalidLaneQuota, name)
+			return nil, fmt.Errorf("%w: quota for lane %q must be at least 1", ErrInvalidLaneQuota, name)
 		}
 
 		id := LaneID(i)
@@ -56,10 +54,11 @@ func NewLaneRegistry(quotas map[keylane.Lane]int) (*LaneRegistry, error) {
 }
 
 // Lookup returns the LaneID for a given lane name.
-func (r *LaneRegistry) Lookup(lane keylane.Lane) (LaneID, bool) {
-	id, ok := r.ids[string(lane)]
+func (r *LaneRegistry) Lookup(lane string) (LaneID, bool) {
+	id, ok := r.ids[lane]
 	return id, ok
 }
+
 
 // Quota returns the quota for a given LaneID.
 func (r *LaneRegistry) Quota(id LaneID) int {

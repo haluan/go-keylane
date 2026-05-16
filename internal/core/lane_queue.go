@@ -1,10 +1,6 @@
 package core
 
-import (
-	"errors"
-)
-
-var errLaneQueueFull = errors.New("keylane: lane queue full")
+var errLaneQueueFull = ErrQueueFull
 
 type laneQueue struct {
 	items []InternalJob

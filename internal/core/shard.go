@@ -6,8 +6,8 @@ import (
 
 type shard struct {
 	mu    sync.Mutex
-	ready bool
-	lanes []laneQueue
+	Ready bool
+	Lanes []laneQueue
 }
 
 func newShard(laneCount int, queueSizePerLane int) shard {
@@ -16,30 +16,30 @@ func newShard(laneCount int, queueSizePerLane int) shard {
 		lanes[i] = newLaneQueue(queueSizePerLane)
 	}
 	return shard{
-		lanes: lanes,
+		Lanes: lanes,
 	}
 }
 
 func (s *shard) totalDepthLocked() int {
 	total := 0
-	for i := range s.lanes {
-		total += s.lanes[i].depth()
+	for i := range s.Lanes {
+		total += s.Lanes[i].depth()
 	}
 	return total
 }
 
 func (s *shard) hasWorkLocked() bool {
-	for i := range s.lanes {
-		if !s.lanes[i].isEmpty() {
+	for i := range s.Lanes {
+		if !s.Lanes[i].isEmpty() {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *shard) laneDepthLocked(id LaneID) int {
-	if int(id) >= len(s.lanes) {
+func (s *shard) laneDepthLocked(laneID LaneID) int {
+	if int(laneID) >= len(s.Lanes) {
 		return 0
 	}
-	return s.lanes[int(id)].depth()
+	return s.Lanes[int(laneID)].depth()
 }

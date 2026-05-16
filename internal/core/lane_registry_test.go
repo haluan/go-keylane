@@ -3,19 +3,17 @@ package core
 import (
 	"errors"
 	"testing"
-
-	"github.com/haluan/go-keylane"
 )
 
 func TestNewLaneRegistry(t *testing.T) {
 	tests := []struct {
 		name    string
-		quotas  map[keylane.Lane]int
+		quotas  map[string]int
 		wantErr error
 	}{
 		{
 			name: "valid registry",
-			quotas: map[keylane.Lane]int{
+			quotas: map[string]int{
 				"default": 10,
 				"high":    20,
 			},
@@ -24,26 +22,26 @@ func TestNewLaneRegistry(t *testing.T) {
 		{
 			name:    "nil quotas",
 			quotas:  nil,
-			wantErr: keylane.ErrMissingLaneQuotas,
+			wantErr: ErrMissingLaneQuotas,
 		},
 		{
 			name:    "empty quotas",
-			quotas:  map[keylane.Lane]int{},
-			wantErr: keylane.ErrMissingLaneQuotas,
+			quotas:  map[string]int{},
+			wantErr: ErrMissingLaneQuotas,
 		},
 		{
 			name: "empty lane name",
-			quotas: map[keylane.Lane]int{
+			quotas: map[string]int{
 				"": 10,
 			},
-			wantErr: keylane.ErrInvalidLane,
+			wantErr: ErrInvalidLane,
 		},
 		{
 			name: "zero quota",
-			quotas: map[keylane.Lane]int{
+			quotas: map[string]int{
 				"default": 0,
 			},
-			wantErr: keylane.ErrInvalidLaneQuota,
+			wantErr: ErrInvalidLaneQuota,
 		},
 	}
 
@@ -67,7 +65,7 @@ func TestNewLaneRegistry(t *testing.T) {
 }
 
 func TestLaneRegistry_Methods(t *testing.T) {
-	quotas := map[keylane.Lane]int{
+	quotas := map[string]int{
 		"alpha": 10,
 		"beta":  20,
 	}
