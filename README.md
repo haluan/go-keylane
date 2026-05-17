@@ -191,8 +191,13 @@ To run the complete correctness and race detector validation suite:
 
 ```bash
 # Run all tests
-go test -v ./...
+make test
 
 # Run all tests with race detection
-go test -race ./...
-```
+make test-race
+
+# Run all tests with benchmarks
+make bench
+
+# Run all tests with benchmarks and race detection
+make bench-race

@@ -8,16 +8,16 @@ format:
 	gofmt -w .
 
 test:
-	go test ./...
+	go test -v ./...
 
 test-race:
-	go test -race ./...
+	go test -race -v ./...
 
 bench:
-	go test ./... -bench=. -benchmem
+	go test -v ./... -bench=. -benchmem
 
 bench-core:
-	go test ./internal/core -bench=. -benchmem
+	go test -v ./internal/core -bench=. -benchmem
 
 bench-submit:
-	go test ./... -bench 'BenchmarkSubmit|BenchmarkSubmitValue' -benchmem
+	go test -v ./... -bench 'BenchmarkSubmit|BenchmarkSubmitValue' -benchmem
