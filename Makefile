@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race
+.PHONY: all fmt format test test-race bench bench-core bench-submit
 
 all: format test
 
@@ -21,6 +21,3 @@ bench-core:
 
 bench-submit:
 	go test ./... -bench 'BenchmarkSubmit|BenchmarkSubmitValue' -benchmem
-
-bench-race:
-	go test -race ./...
