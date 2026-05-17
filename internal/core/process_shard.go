@@ -17,9 +17,19 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	}
 
 	// 2. Collect batch of jobs across all lanes according to quotas
-	batch := make([]InternalJob, 0, totalQuota)
-	for laneID, quota := range s.laneQuotas {
-		batch = shard.Lanes[laneID].popN(quota, batch)
+	var batch []InternalJob
+	if s.Obs.DisablePooling {
+		batch = make([]InternalJob, 0, totalQuota)
+		for laneID, quota := range s.laneQuotas {
+			batch = shard.Lanes[laneID].popN(quota, batch)
+		}
+	} else {
+		batchObj := acquireJobBatch(totalQuota)
+		defer releaseJobBatch(batchObj)
+		for laneID, quota := range s.laneQuotas {
+			batchObj.jobs = shard.Lanes[laneID].popN(quota, batchObj.jobs)
+		}
+		batch = batchObj.jobs
 	}
 
 	// 3. Check if shard still has work

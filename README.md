@@ -49,7 +49,8 @@ It is designed to help with:
 * a guarantee that code will always run faster
 * a way to avoid Go GC pauses
 
-`go-keylane` may help reduce GC pressure caused by uncontrolled concurrency, goroutine explosion, and allocation bursts, but it does not eliminate garbage collection.
+`go-keylane` does not avoid Go GC pauses.
+`go-keylane` helps reduce GC pressure caused by uncontrolled concurrency, goroutine explosion, unbounded queues, and allocation bursts.
 
 ## Example Use Case
 

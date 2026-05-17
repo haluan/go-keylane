@@ -129,3 +129,77 @@ func TestLaneQueuePopNPreservesOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestLaneQueueCapacityDoesNotGrow(t *testing.T) {
+	q := newLaneQueue(10)
+	initialCap := cap(q.items)
+
+	for i := 0; i < 10; i++ {
+		_ = q.push(InternalJob{KeyHash: uint64(i)})
+	}
+
+	if cap(q.items) != initialCap {
+		t.Errorf("expected queue backing slice capacity to remain %d, got %d", initialCap, cap(q.items))
+	}
+}
+
+func TestLaneQueuePushDoesNotGrowBackingSlice(t *testing.T) {
+	q := newLaneQueue(5)
+	ptrBefore := &q.items[0]
+
+	for i := 0; i < 5; i++ {
+		_ = q.push(InternalJob{KeyHash: uint64(i)})
+	}
+
+	ptrAfter := &q.items[0]
+	if ptrBefore != ptrAfter {
+		t.Error("backing slice array reference changed! Push re-allocated memory!")
+	}
+}
+
+func TestLaneQueuePopDoesNotChangeCapacity(t *testing.T) {
+	q := newLaneQueue(5)
+	for i := 0; i < 5; i++ {
+		_ = q.push(InternalJob{KeyHash: uint64(i)})
+	}
+
+	initialCap := cap(q.items)
+	for i := 0; i < 5; i++ {
+		_, _ = q.pop()
+	}
+
+	if cap(q.items) != initialCap {
+		t.Errorf("expected backing slice capacity to remain %d, got %d", initialCap, cap(q.items))
+	}
+}
+
+func TestLaneQueuePopNReusesDestination(t *testing.T) {
+	q := newLaneQueue(10)
+	for i := 0; i < 5; i++ {
+		_ = q.push(InternalJob{KeyHash: uint64(i)})
+	}
+
+	dst := make([]InternalJob, 0, 10)
+	ptrBefore := &dst[:10][0]
+
+	dst = q.popN(5, dst)
+	ptrAfter := &dst[:10][0]
+
+	if ptrBefore != ptrAfter {
+		t.Error("popN grew the slice or re-allocated! Caller-provided destination slice was not reused.")
+	}
+}
+
+func TestLaneQueueWrapAroundCapacityStable(t *testing.T) {
+	q := newLaneQueue(3)
+	initialCap := cap(q.items)
+
+	for i := 0; i < 100; i++ {
+		_ = q.push(InternalJob{KeyHash: uint64(i)})
+		_, _ = q.pop()
+	}
+
+	if cap(q.items) != initialCap {
+		t.Errorf("expected queue backing slice capacity to remain %d after wrap around, got %d", initialCap, cap(q.items))
+	}
+}

@@ -10,6 +10,9 @@ type ObservabilityConfig struct {
 	TrackQueueWait   bool
 	SlowJobThreshold time.Duration
 	OnSlowJob        func(lane string, shardID int, duration time.Duration)
+
+	// Used only for benchmark testing to compare with and without sync.Pool
+	DisablePooling bool
 }
 
 // laneCounters holds atomic metrics counters for a specific lane.
