@@ -1,12 +1,24 @@
 package core
 
+import (
+	"context"
+	"sync"
+	"sync/atomic"
+)
+
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards      []shard
-	ReadyCh     chan int
-	workerCount int
-	laneQuotas  []int         // indexed by LaneID
-	laneReg     *LaneRegistry
+	shards       []shard
+	ReadyCh      chan int
+	workerCount  int
+	laneQuotas   []int // indexed by LaneID
+	laneReg      *LaneRegistry
+	mu           sync.RWMutex
+	state        lifecycleState
+	stopDone     chan struct{}
+	workerCancel context.CancelFunc
+	workerWG     sync.WaitGroup
+	inflight     atomic.Int64
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -31,11 +43,56 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 	}, nil
 }
 
+// Start launches the worker goroutines.
+func (s *Scheduler) Start(ctx context.Context) error {
+	s.mu.Lock()
+	if s.state == stateRunning {
+		s.mu.Unlock()
+		return ErrQueueAlreadyStarted
+	}
+	if s.state != stateNew {
+		s.mu.Unlock()
+		return ErrStopped
+	}
+	s.state = stateRunning
+	workerCtx, workerCancel := context.WithCancel(ctx)
+	s.workerCancel = workerCancel
+	for i := 0; i < s.workerCount; i++ {
+		s.workerWG.Add(1)
+		go func() {
+			defer s.workerWG.Done()
+			s.WorkerLoop(workerCtx)
+		}()
+	}
+	s.mu.Unlock()
+	return nil
+}
+
 // Enqueue routes the job to the correct shard and enqueues it.
-// It returns the shardID and becameReady=true if the shard transitioned to Ready.
 func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.state == stateStopping || s.state == stateStopped {
+		return 0, false, ErrStopped
+	}
+
 	shardID := routeShardID(job.KeyHash, len(s.shards))
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
 	return shardID, becameReady, err
 }
 
+// TryEnqueue routes the job to the correct shard and enqueues it if possible.
+func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.state == stateNew {
+		return 0, false, ErrNotStarted
+	}
+	if s.state != stateRunning {
+		return 0, false, ErrStopped
+	}
+
+	shardID := routeShardID(job.KeyHash, len(s.shards))
+	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
+	return shardID, becameReady, err
+}

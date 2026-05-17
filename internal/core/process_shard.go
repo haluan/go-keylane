@@ -26,15 +26,20 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	if !hasMore {
 		shard.Ready = false
 	}
+	s.inflight.Add(int64(len(batch)))
 	shard.mu.Unlock()
 
 	// 4. Run jobs outside of shard lock
-	for _, job := range batch {
+	for i, job := range batch {
 		if err := ctx.Err(); err != nil {
+			s.inflight.Add(-int64(len(batch) - i))
 			break
 		}
-		// Run the job function. Errors are ignored as per fire-and-forget semantics.
-		_ = job.Run(ctx)
+		func() {
+			defer s.inflight.Add(-1)
+			// Run the job function. Errors are ignored as per fire-and-forget semantics.
+			_ = job.Run(ctx)
+		}()
 	}
 
 	// 5. Requeue if more work remains

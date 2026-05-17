@@ -59,7 +59,6 @@ func (r *LaneRegistry) Lookup(lane string) (LaneID, bool) {
 	return id, ok
 }
 
-
 // Quota returns the quota for a given LaneID.
 func (r *LaneRegistry) Quota(id LaneID) int {
 	if int(id) >= len(r.quotas) {

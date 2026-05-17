@@ -8,7 +8,7 @@ import (
 
 func TestSubmitAcceptsValidJob(t *testing.T) {
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}})
-	
+
 	err := q.Submit(context.Background(), Job{
 		Key:  "k",
 		Lane: "test",
@@ -36,7 +36,7 @@ func TestSubmitContextCancelled(t *testing.T) {
 
 func TestSubmitValidation(t *testing.T) {
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}})
-	
+
 	tests := []struct {
 		name string
 		job  Job
@@ -76,7 +76,7 @@ func TestSubmitValidation(t *testing.T) {
 
 func TestSubmitQueueFull(t *testing.T) {
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}})
-    
+
 	job := Job{
 		Key:  "k",
 		Lane: "test",
@@ -91,18 +91,16 @@ func TestSubmitQueueFull(t *testing.T) {
 
 func TestSubmitNotifiesReadyOncePerShard(t *testing.T) {
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}})
-	
+
 	job := Job{Key: "k", Lane: "test", Run: func(ctx context.Context) error { return nil }}
-	
+
 	_ = q.Submit(context.Background(), job)
 	if len(q.sched.ReadyCh) != 1 {
 		t.Errorf("ReadyCh len = %d, want 1", len(q.sched.ReadyCh))
 	}
-	
+
 	_ = q.Submit(context.Background(), job)
 	if len(q.sched.ReadyCh) != 1 {
 		t.Errorf("ReadyCh len after second submit = %d, want 1", len(q.sched.ReadyCh))
 	}
 }
-
-

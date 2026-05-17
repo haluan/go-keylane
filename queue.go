@@ -2,8 +2,9 @@ package keylane
 
 import (
 	"context"
-	"sync"
+	"errors"
 	"github.com/haluan/go-keylane/internal/core"
+	"sync"
 )
 
 // Queue is the main entry point for the keylane library.
@@ -15,7 +16,6 @@ type Queue struct {
 	start   sync.Once
 	started bool
 }
-
 
 // New creates a new Queue instance with the specified configuration.
 func New(config Config) (*Queue, error) {
@@ -49,17 +49,11 @@ func New(config Config) (*Queue, error) {
 // Start launches the worker goroutines.
 // It returns ErrQueueAlreadyStarted if called more than once.
 func (q *Queue) Start(ctx context.Context) error {
-	started := false
-	q.start.Do(func() {
-		for i := 0; i < q.config.WorkerCount; i++ {
-			go q.sched.WorkerLoop(ctx)
+	if err := q.sched.Start(ctx); err != nil {
+		if errors.Is(err, core.ErrQueueAlreadyStarted) {
+			return ErrQueueAlreadyStarted
 		}
-		q.started = true
-		started = true
-	})
-
-	if !started {
-		return ErrQueueAlreadyStarted
+		return err
 	}
 	return nil
 }

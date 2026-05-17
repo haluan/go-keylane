@@ -137,42 +137,64 @@ func TestAwaitTimeoutBeforeJobCompletion(t *testing.T) {
 func TestSubmitValueFailurePathReturnsCompletedFuture(t *testing.T) {
 	// Test nil queue
 	f1, err1 := SubmitValue(context.Background(), nil, ValueJob[int]{})
-	if f1 == nil { t.Fatal("future should not be nil") }
-	if !errors.Is(err1, ErrNilQueue) { t.Errorf("got %v", err1) }
+	if f1 == nil {
+		t.Fatal("future should not be nil")
+	}
+	if !errors.Is(err1, ErrNilQueue) {
+		t.Errorf("got %v", err1)
+	}
 	_, waitErr1 := f1.Await(context.Background())
-	if !errors.Is(waitErr1, ErrNilQueue) { t.Errorf("Await got %v", waitErr1) }
+	if !errors.Is(waitErr1, ErrNilQueue) {
+		t.Errorf("Await got %v", waitErr1)
+	}
 
 	// Test invalid job
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}})
 	f2, err2 := SubmitValue(context.Background(), q, ValueJob[int]{Key: ""})
-	if !errors.Is(err2, ErrInvalidKey) { t.Errorf("got %v", err2) }
+	if !errors.Is(err2, ErrInvalidKey) {
+		t.Errorf("got %v", err2)
+	}
 	_, waitErr2 := f2.Await(context.Background())
-	if !errors.Is(waitErr2, ErrInvalidKey) { t.Errorf("Await got %v", waitErr2) }
+	if !errors.Is(waitErr2, ErrInvalidKey) {
+		t.Errorf("Await got %v", waitErr2)
+	}
 
 	// Test queue full
 	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}}
 	qFull, _ := New(cfg)
 	_ = qFull.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { time.Sleep(100 * time.Millisecond); return nil }})
 	_ = qFull.Submit(context.Background(), Job{Key: "full", Lane: "test", Run: func(ctx context.Context) error { return nil }})
-	
+
 	f3, err3 := SubmitValue(context.Background(), qFull, ValueJob[int]{Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, nil }})
-	if !errors.Is(err3, ErrQueueFull) { t.Errorf("got %v", err3) }
+	if !errors.Is(err3, ErrQueueFull) {
+		t.Errorf("got %v", err3)
+	}
 	_, waitErr3 := f3.Await(context.Background())
-	if !errors.Is(waitErr3, ErrQueueFull) { t.Errorf("Await got %v", waitErr3) }
+	if !errors.Is(waitErr3, ErrQueueFull) {
+		t.Errorf("Await got %v", waitErr3)
+	}
 
 	// Test unknown lane
 	f4, err4 := SubmitValue(context.Background(), q, ValueJob[int]{Key: "k", Lane: "unknown", Run: func(ctx context.Context) (int, error) { return 0, nil }})
-	if !errors.Is(err4, ErrInvalidLane) { t.Errorf("got %v", err4) }
+	if !errors.Is(err4, ErrInvalidLane) {
+		t.Errorf("got %v", err4)
+	}
 	_, waitErr4 := f4.Await(context.Background())
-	if !errors.Is(waitErr4, ErrInvalidLane) { t.Errorf("Await got %v", waitErr4) }
+	if !errors.Is(waitErr4, ErrInvalidLane) {
+		t.Errorf("Await got %v", waitErr4)
+	}
 
 	// Test context cancelled
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	f5, err5 := SubmitValue(ctx, q, ValueJob[int]{Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, nil }})
-	if !errors.Is(err5, context.Canceled) { t.Errorf("got %v", err5) }
+	if !errors.Is(err5, context.Canceled) {
+		t.Errorf("got %v", err5)
+	}
 	_, waitErr5 := f5.Await(context.Background())
-	if !errors.Is(waitErr5, context.Canceled) { t.Errorf("Await got %v", waitErr5) }
+	if !errors.Is(waitErr5, context.Canceled) {
+		t.Errorf("Await got %v", waitErr5)
+	}
 }
 
 func TestSubmitValueUnknownLane(t *testing.T) {
@@ -187,7 +209,7 @@ func TestSubmitValueContextCancelled(t *testing.T) {
 	q, _ := New(Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	
+
 	_, err := SubmitValue(ctx, q, ValueJob[int]{Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, nil }})
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("got %v, want %v", err, context.Canceled)
@@ -206,17 +228,21 @@ func TestSubmitValueFutureCompletedOnlyOnce(t *testing.T) {
 			return 42, nil
 		},
 	})
-	
+
 	val, _ := future.Await(context.Background())
-	if val != 42 { t.Errorf("got %d", val) }
-	if atomic.LoadInt32(&execCount) != 1 { t.Errorf("execCount = %d", execCount) }
+	if val != 42 {
+		t.Errorf("got %d", val)
+	}
+	if atomic.LoadInt32(&execCount) != 1 {
+		t.Errorf("execCount = %d", execCount)
+	}
 }
 
 func TestSubmitValueUsesQueueSubmitPath(t *testing.T) {
 	// Verify that SubmitValue respects QueueSizePerLane (which is part of q.Submit path)
 	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}}
 	q, _ := New(cfg)
-	
+
 	// Occupy the single queue slot
 	_ = q.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { time.Sleep(100 * time.Millisecond); return nil }})
 	_ = q.Submit(context.Background(), Job{Key: "full", Lane: "test", Run: func(ctx context.Context) error { return nil }})
@@ -256,4 +282,35 @@ func TestSubmitValueConcurrentRace(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestSubmitValueStoppedQueue(t *testing.T) {
+	cfg := Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 1,
+		LaneQuotas: map[Lane]int{
+			"test": 1,
+		},
+	}
+	q, _ := New(cfg)
+	_ = q.Start(context.Background())
+	_ = q.Stop(context.Background())
+
+	f, err := SubmitValue(context.Background(), q, ValueJob[int]{
+		Key:  "k",
+		Lane: "test",
+		Run: func(ctx context.Context) (int, error) {
+			return 100, nil
+		},
+	})
+
+	if !errors.Is(err, ErrStopped) {
+		t.Errorf("expected ErrStopped, got %v", err)
+	}
+
+	_, waitErr := f.Await(context.Background())
+	if !errors.Is(waitErr, ErrStopped) {
+		t.Errorf("expected Await to return ErrStopped, got %v", waitErr)
+	}
 }

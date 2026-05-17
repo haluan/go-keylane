@@ -9,7 +9,7 @@ import (
 func TestProcessShardRespectsLaneQuota(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 2})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	ctx := context.Background()
 	var executed int32
 	run := func(ctx context.Context) error {
@@ -43,7 +43,7 @@ func TestProcessShardRespectsLaneQuota(t *testing.T) {
 func TestProcessShardClearsReadyWhenEmpty(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	ctx := context.Background()
 	_, _, _ = s.Enqueue(InternalJob{LaneID: 0, Run: func(ctx context.Context) error { return nil }})
 
@@ -61,7 +61,7 @@ func TestProcessShardClearsReadyWhenEmpty(t *testing.T) {
 func TestProcessShardPreservesFIFOWithinLane(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	ctx := context.Background()
 	var results []int
 	for i := 0; i < 5; i++ {
@@ -87,10 +87,10 @@ func TestProcessShardPreservesFIFOWithinLane(t *testing.T) {
 func TestProcessShardContinuesAfterJobError(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	ctx := context.Background()
 	var executed int32
-	
+
 	_, _, _ = s.Enqueue(InternalJob{LaneID: 0, Run: func(ctx context.Context) error {
 		atomic.AddInt32(&executed, 1)
 		return context.Canceled // Some error
@@ -110,7 +110,7 @@ func TestProcessShardContinuesAfterJobError(t *testing.T) {
 func TestProcessShardNoisyLaneDoesNotStarveOtherLane(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"noisy": 1, "quiet": 1})
 	s, _ := NewScheduler(1, 1, 100, reg)
-	
+
 	ctx := context.Background()
 	var noisyExec, quietExec int32
 
@@ -141,7 +141,7 @@ func TestProcessShardNoisyLaneDoesNotStarveOtherLane(t *testing.T) {
 func TestProcessShardDoesNotRequeueWhenEmpty(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	ctx := context.Background()
 	_, _, _ = s.Enqueue(InternalJob{LaneID: 0, Run: func(ctx context.Context) error { return nil }})
 
@@ -159,12 +159,16 @@ func TestProcessShardDoesNotRequeueWhenEmpty(t *testing.T) {
 func TestProcessShardDuplicateReadyPrevention(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 10, reg)
-	
+
 	// First enqueue sets Ready=true
 	_, ready1, _ := s.Enqueue(InternalJob{LaneID: 0, Run: func(ctx context.Context) error { return nil }})
-	if !ready1 { t.Fatal("should be ready") }
+	if !ready1 {
+		t.Fatal("should be ready")
+	}
 
 	// Second enqueue to same shard while Ready=true should return becameReady=false
 	_, ready2, _ := s.Enqueue(InternalJob{LaneID: 0, Run: func(ctx context.Context) error { return nil }})
-	if ready2 { t.Error("should NOT be ready again") }
+	if ready2 {
+		t.Error("should NOT be ready again")
+	}
 }

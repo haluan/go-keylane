@@ -202,7 +202,7 @@ func TestQueue_Integration_MultipleShards(t *testing.T) {
 		ShardCount:       16,
 		WorkerCount:      4,
 		QueueSizePerLane: 10,
-		LaneQuotas: map[keylane.Lane]int{"default": 1},
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
 	}
 	q, _ := keylane.New(cfg)
 	ctx, cancel := context.WithCancel(context.Background())

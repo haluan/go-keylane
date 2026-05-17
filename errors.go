@@ -7,18 +7,20 @@ import (
 )
 
 var (
-	ErrInvalidConfig      = core.ErrInvalidConfig
-	ErrInvalidShardCount  = core.ErrInvalidShardCount
-	ErrInvalidWorkerCount = core.ErrInvalidWorkerCount
-	ErrInvalidQueueSize   = core.ErrInvalidQueueSize
-	ErrInvalidLane        = core.ErrInvalidLane
-	ErrInvalidLaneQuota   = core.ErrInvalidLaneQuota
-	ErrMissingLaneQuotas  = core.ErrMissingLaneQuotas
-	ErrNilQueue           = errors.New("keylane: nil queue")
-	ErrInvalidJob         = core.ErrInvalidJob
-	ErrInvalidKey         = core.ErrInvalidKey
-	ErrNilJobRun          = core.ErrNilJobRun
-	ErrQueueFull          = core.ErrQueueFull
-	ErrQueueNotStarted    = core.ErrQueueNotStarted
+	ErrInvalidConfig       = core.ErrInvalidConfig
+	ErrInvalidShardCount   = core.ErrInvalidShardCount
+	ErrInvalidWorkerCount  = core.ErrInvalidWorkerCount
+	ErrInvalidQueueSize    = core.ErrInvalidQueueSize
+	ErrInvalidLane         = core.ErrInvalidLane
+	ErrInvalidLaneQuota    = core.ErrInvalidLaneQuota
+	ErrMissingLaneQuotas   = core.ErrMissingLaneQuotas
+	ErrNilQueue            = errors.New("keylane: nil queue")
+	ErrInvalidJob          = core.ErrInvalidJob
+	ErrInvalidKey          = core.ErrInvalidKey
+	ErrNilJobRun           = core.ErrNilJobRun
+	ErrQueueFull           = core.ErrQueueFull
+	ErrNotStarted          = core.ErrNotStarted
+	ErrQueueNotStarted     = core.ErrQueueNotStarted
 	ErrQueueAlreadyStarted = core.ErrQueueAlreadyStarted
+	ErrStopped             = core.ErrStopped
 )

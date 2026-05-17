@@ -51,7 +51,7 @@ func TestFutureAwaitContextCancelled(t *testing.T) {
 func TestFutureDoneClosesOnComplete(t *testing.T) {
 	f := newResultFuture[int]()
 	done := f.Done()
-	
+
 	select {
 	case <-done:
 		t.Fatal("Done() closed before complete")
@@ -151,7 +151,7 @@ func TestResultFutureFirstCompletionWins(t *testing.T) {
 	f := newResultFuture[int]()
 	f.complete(1, nil)
 	f.complete(2, errors.New("second"))
-	
+
 	val, err := f.Await(context.Background())
 	if val != 1 || err != nil {
 		t.Errorf("got (%d, %v), want (1, nil)", val, err)
@@ -163,7 +163,7 @@ func TestResultFutureConcurrentComplete(t *testing.T) {
 	const count = 10
 	var wg sync.WaitGroup
 	wg.Add(count)
-	
+
 	results := make([]int, count)
 	for i := 0; i < count; i++ {
 		val := i
@@ -175,7 +175,7 @@ func TestResultFutureConcurrentComplete(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	
+
 	// All should have the same result (the winner)
 	winner := results[0]
 	for i, res := range results {
@@ -198,12 +198,12 @@ func TestAwaitTimeoutDoesNotCompleteFuture(t *testing.T) {
 	f := newResultFuture[int]()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	
+
 	_, err := f.Await(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("got %v, want %v", err, context.DeadlineExceeded)
 	}
-	
+
 	select {
 	case <-f.Done():
 		t.Error("Done() should NOT be closed after Await timeout")

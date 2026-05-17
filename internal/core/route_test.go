@@ -36,7 +36,7 @@ func TestRouteJobSameKeySameShard(t *testing.T) {
 
 func TestRouteJobDifferentShardCountsRemainValid(t *testing.T) {
 	job := InternalJob{KeyHash: 12345}
-	
+
 	tests := []int{1, 7, 13, 100, 1024}
 	for _, count := range tests {
 		id := routeJob(job, count)

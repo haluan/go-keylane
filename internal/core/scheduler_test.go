@@ -33,7 +33,7 @@ func TestNewScheduler(t *testing.T) {
 func TestNewSchedulerCreatesShards(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10, "high": 20})
 	s, _ := NewScheduler(4, 2, 50, reg)
-	
+
 	if len(s.shards) != 4 {
 		t.Fatalf("len(s.shards) = %d, want 4", len(s.shards))
 	}
@@ -47,15 +47,15 @@ func TestNewSchedulerCreatesShards(t *testing.T) {
 func TestSchedulerEnqueueRoutesCorrectly(t *testing.T) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(4, 2, 50, reg)
-	
-	// Key "A" hashes to a specific shard. 
+
+	// Key "A" hashes to a specific shard.
 	// Key "B" might hash to another.
 	h1 := HashKey("A")
 	shardID1 := routeShardID(h1, 4)
-	
+
 	ij := InternalJob{KeyHash: h1, LaneID: 0, Run: func(ctx context.Context) error { return nil }}
 	_, _, _ = s.Enqueue(ij)
-	
+
 	if s.shards[shardID1].Lanes[0].depth() != 1 {
 		t.Errorf("shard %d lane 0 depth = %d, want 1", shardID1, s.shards[shardID1].Lanes[0].depth())
 	}
