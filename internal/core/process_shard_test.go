@@ -172,3 +172,104 @@ func TestProcessShardDuplicateReadyPrevention(t *testing.T) {
 		t.Error("should NOT be ready again")
 	}
 }
+
+func TestLaneQuotaFairnessPaymentAudit(t *testing.T) {
+	reg, _ := NewLaneRegistry(map[string]int{"payment": 2, "audit": 1})
+	s, _ := NewScheduler(1, 1, 100, reg)
+	ctx := context.Background()
+
+	var order []int
+	runPayment := func(ctx context.Context) error {
+		order = append(order, 1) // paymentID is 1
+		return nil
+	}
+	runAudit := func(ctx context.Context) error {
+		order = append(order, 0) // auditID is 0
+		return nil
+	}
+
+	auditID, _ := reg.Lookup("audit")
+	paymentID, _ := reg.Lookup("payment")
+
+	for i := 0; i < 5; i++ {
+		_, _, _ = s.Enqueue(InternalJob{LaneID: paymentID, Run: runPayment})
+	}
+	for i := 0; i < 2; i++ {
+		_, _, _ = s.Enqueue(InternalJob{LaneID: auditID, Run: runAudit})
+	}
+
+	s.processShard(ctx, 0)
+
+	if len(order) != 3 {
+		t.Fatalf("expected 3 jobs to execute, got %d", len(order))
+	}
+
+	paymentCount := 0
+	auditCount := 0
+	for _, id := range order {
+		if LaneID(id) == paymentID {
+			paymentCount++
+		} else if LaneID(id) == auditID {
+			auditCount++
+		}
+	}
+
+	if paymentCount != 2 {
+		t.Errorf("paymentCount = %d, want 2", paymentCount)
+	}
+	if auditCount != 1 {
+		t.Errorf("auditCount = %d, want 1", auditCount)
+	}
+}
+
+func TestLaneQuotaDoesNotDrainNoisyLaneInSinglePass(t *testing.T) {
+	reg, _ := NewLaneRegistry(map[string]int{"noisy": 1})
+	s, _ := NewScheduler(1, 1, 100, reg)
+	ctx := context.Background()
+
+	var executed int
+	run := func(ctx context.Context) error {
+		executed++
+		return nil
+	}
+
+	for i := 0; i < 10; i++ {
+		_, _, _ = s.Enqueue(InternalJob{LaneID: 0, Run: run})
+	}
+
+	s.processShard(ctx, 0)
+
+	if executed != 1 {
+		t.Errorf("executed = %d, want 1", executed)
+	}
+}
+
+func TestLaneQuotaProcessesSmallQuotaLane(t *testing.T) {
+	reg, _ := NewLaneRegistry(map[string]int{"large": 10, "small": 1})
+	s, _ := NewScheduler(1, 1, 100, reg)
+	ctx := context.Background()
+
+	var executedLarge, executedSmall int
+	largeID, _ := reg.Lookup("large")
+	smallID, _ := reg.Lookup("small")
+
+	for i := 0; i < 20; i++ {
+		_, _, _ = s.Enqueue(InternalJob{LaneID: largeID, Run: func(ctx context.Context) error {
+			executedLarge++
+			return nil
+		}})
+	}
+	_, _, _ = s.Enqueue(InternalJob{LaneID: smallID, Run: func(ctx context.Context) error {
+		executedSmall++
+		return nil
+	}})
+
+	s.processShard(ctx, 0)
+
+	if executedLarge != 10 {
+		t.Errorf("executedLarge = %d, want 10", executedLarge)
+	}
+	if executedSmall != 1 {
+		t.Errorf("executedSmall = %d, want 1", executedSmall)
+	}
+}

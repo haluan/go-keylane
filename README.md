@@ -177,10 +177,22 @@ _ = q.Submit(ctx, keylane.Job{
 ### Await Timeout and Starvation
 Using `Await` with a timeout (e.g., `context.WithTimeout`) prevents the **caller** from blocking indefinitely. However, it does **not** solve the problem of **scheduler starvation**. If a worker is stuck in an `Await` call, it is unavailable to process other shards until the call returns (either through completion or timeout). The timeout merely protects the caller, not the queue's throughput.
 
-## Documentation
-
 - [Phase 2: Shard and Lane Queue](docs/phase-2-shard-and-lane-queue.md)
 - [Phase 3: Worker Scheduler](docs/phase-3-worker-scheduler.md)
 - [Phase 4: Future / SubmitValue / Await](docs/phase-4-future-submitvalue-await.md)
 - [Phase 5: Backpressure & Shutdown](docs/phase-5-backpressure-and-shutdown.md)
 - [Phase 6: Observability](docs/phase-6-observability.md)
+- [Phase 7: GC Pressure Shaping](docs/phase-7-gc-pressure-shaping.md)
+- [Phase 8: Testing Strategy](docs/phase-8-tests.md)
+
+## Testing
+
+To run the complete correctness and race detector validation suite:
+
+```bash
+# Run all tests
+go test -v ./...
+
+# Run all tests with race detection
+go test -race ./...
+```

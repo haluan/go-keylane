@@ -11,7 +11,6 @@ import (
 func TestFutureAwaitSuccess(t *testing.T) {
 	f := newResultFuture[int]()
 	go func() {
-		time.Sleep(10 * time.Millisecond)
 		f.complete(42, nil)
 	}()
 
@@ -107,8 +106,12 @@ func TestResultFutureConcurrentAwait(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(count)
 
+	var startWg sync.WaitGroup
+	startWg.Add(count)
+
 	for i := 0; i < count; i++ {
 		go func() {
+			startWg.Done()
 			defer wg.Done()
 			val, err := f.Await(context.Background())
 			if err != nil || val != 42 {
@@ -117,7 +120,7 @@ func TestResultFutureConcurrentAwait(t *testing.T) {
 		}()
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	startWg.Wait()
 	f.complete(42, nil)
 	wg.Wait()
 }
@@ -210,4 +213,52 @@ func TestAwaitTimeoutDoesNotCompleteFuture(t *testing.T) {
 	default:
 		// success
 	}
+}
+
+func TestAwaitContextTimeout(t *testing.T) {
+	f := newResultFuture[int]()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err := f.Await(ctx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("got %v, want %v", err, context.DeadlineExceeded)
+	}
+}
+
+func TestAwaitCanSucceedAfterEarlierTimeout(t *testing.T) {
+	f := newResultFuture[int]()
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel1()
+
+	_, err := f.Await(ctx1)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+
+	// Now complete the future
+	f.complete(42, nil)
+
+	// Await with fresh background context should succeed
+	val, err := f.Await(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != 42 {
+		t.Errorf("got val %d, want 42", val)
+	}
+}
+
+func TestAwaitTimeoutNoPanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("panic caught: %v", r)
+		}
+	}()
+
+	f := newResultFuture[int]()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	defer cancel()
+
+	_, _ = f.Await(ctx)
 }

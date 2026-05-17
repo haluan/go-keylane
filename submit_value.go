@@ -28,7 +28,11 @@ func SubmitValue[T any](
 		Lane: job.Lane,
 		Run: func(ctx context.Context) error {
 			val, err := job.Run(ctx)
-			future.complete(val, err)
+			if err != nil {
+				future.complete(zero, err)
+			} else {
+				future.complete(val, nil)
+			}
 			return nil // The scheduler itself only cares about execution flow, not results
 		},
 	}

@@ -45,3 +45,15 @@ func TestRouteJobDifferentShardCountsRemainValid(t *testing.T) {
 		}
 	}
 }
+
+func TestShardRoutingManyKeysWithinRange(t *testing.T) {
+	shardCount := 16
+	for i := 0; i < 1000; i++ {
+		key := findKeyForShard(t, i%shardCount, shardCount)
+		hash := HashKey(key)
+		id := routeShardID(hash, shardCount)
+		if id != i%shardCount {
+			t.Errorf("expected key %q to route to shard %d, got %d", key, i%shardCount, id)
+		}
+	}
+}

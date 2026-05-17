@@ -84,12 +84,9 @@ func TestSubmitValueRejectsInvalidJob(t *testing.T) {
 func TestSubmitValueQueueFull(t *testing.T) {
 	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}}
 	q, _ := New(cfg)
-	// Filling the queue with a slow job
+	// Filling the queue with a job. Since queue is not started, job sits in queue indefinitely.
 	_ = q.Submit(context.Background(), Job{
-		Key: "slow", Lane: "test", Run: func(ctx context.Context) error {
-			time.Sleep(100 * time.Millisecond)
-			return nil
-		},
+		Key: "slow", Lane: "test", Run: func(ctx context.Context) error { return nil },
 	})
 
 	// Submit another one to fill it
@@ -107,25 +104,33 @@ func TestSubmitValueQueueFull(t *testing.T) {
 func TestAwaitTimeoutBeforeJobCompletion(t *testing.T) {
 	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}}
 	q, _ := New(cfg)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := testTimeout(t)
 	_ = q.Start(ctx)
+
+	blockChan := make(chan struct{})
 
 	future, _ := SubmitValue(ctx, q, ValueJob[int]{
 		Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) {
-			time.Sleep(200 * time.Millisecond)
-			return 42, nil
+			select {
+			case <-blockChan:
+				return 42, nil
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			}
 		},
 	})
 
 	// Await with short timeout
-	shortCtx, shortCancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	shortCtx, shortCancel := context.WithTimeout(ctx, 10*time.Millisecond)
 	defer shortCancel()
 
 	_, err := future.Await(shortCtx)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("got error %v, want %v", err, context.DeadlineExceeded)
 	}
+
+	// Unblock the job
+	close(blockChan)
 
 	// Now await with longer timeout
 	val, err := future.Await(ctx)
@@ -162,7 +167,7 @@ func TestSubmitValueFailurePathReturnsCompletedFuture(t *testing.T) {
 	// Test queue full
 	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 1, LaneQuotas: map[Lane]int{"test": 1}}
 	qFull, _ := New(cfg)
-	_ = qFull.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { time.Sleep(100 * time.Millisecond); return nil }})
+	_ = qFull.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { return nil }})
 	_ = qFull.Submit(context.Background(), Job{Key: "full", Lane: "test", Run: func(ctx context.Context) error { return nil }})
 
 	f3, err3 := SubmitValue(context.Background(), qFull, ValueJob[int]{Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, nil }})
@@ -244,7 +249,7 @@ func TestSubmitValueUsesQueueSubmitPath(t *testing.T) {
 	q, _ := New(cfg)
 
 	// Occupy the single queue slot
-	_ = q.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { time.Sleep(100 * time.Millisecond); return nil }})
+	_ = q.Submit(context.Background(), Job{Key: "slow", Lane: "test", Run: func(ctx context.Context) error { return nil }})
 	_ = q.Submit(context.Background(), Job{Key: "full", Lane: "test", Run: func(ctx context.Context) error { return nil }})
 
 	_, err := SubmitValue(context.Background(), q, ValueJob[int]{Key: "v", Lane: "test", Run: func(ctx context.Context) (int, error) { return 1, nil }})
@@ -312,5 +317,96 @@ func TestSubmitValueStoppedQueue(t *testing.T) {
 	_, waitErr := f.Await(context.Background())
 	if !errors.Is(waitErr, ErrStopped) {
 		t.Errorf("expected Await to return ErrStopped, got %v", waitErr)
+	}
+}
+
+func TestSubmitValueReturnsFuture(t *testing.T) {
+	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}}
+	q, _ := New(cfg)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+
+	future, err := SubmitValue(ctx, q, ValueJob[int]{
+		Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 42, nil },
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if future == nil {
+		t.Fatal("future should not be nil")
+	}
+}
+
+func TestSubmitValueAwaitReturnsExpectedValue(t *testing.T) {
+	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}}
+	q, _ := New(cfg)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+
+	future, _ := SubmitValue(ctx, q, ValueJob[string]{
+		Key: "k", Lane: "test", Run: func(ctx context.Context) (string, error) { return "hello", nil },
+	})
+	val, err := future.Await(ctx)
+	if err != nil {
+		t.Fatalf("unexpected Await error: %v", err)
+	}
+	if val != "hello" {
+		t.Errorf("got val %q, want hello", val)
+	}
+}
+
+func TestSubmitValueAwaitReturnsJobError(t *testing.T) {
+	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}}
+	q, _ := New(cfg)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+
+	sentinel := errors.New("sentinel-error")
+	future, _ := SubmitValue(ctx, q, ValueJob[int]{
+		Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, sentinel },
+	})
+	_, err := future.Await(ctx)
+	if !errors.Is(err, sentinel) {
+		t.Errorf("got err %v, want %v", err, sentinel)
+	}
+}
+
+func TestSubmitValueErrorReturnsZeroValue(t *testing.T) {
+	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}}
+	q, _ := New(cfg)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+
+	future, _ := SubmitValue(ctx, q, ValueJob[int]{
+		Key: "k", Lane: "test", Run: func(ctx context.Context) (int, error) { return 42, errors.New("fail") },
+	})
+	val, err := future.Await(ctx)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if val != 0 {
+		t.Errorf("got val %d on error, want 0 (zero-value)", val)
+	}
+}
+
+func TestSubmitValueJobErrorDoesNotStopWorker(t *testing.T) {
+	cfg := Config{ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10, LaneQuotas: map[Lane]int{"test": 1}}
+	q, _ := New(cfg)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+
+	// First job returns an error
+	f1, _ := SubmitValue(ctx, q, ValueJob[int]{
+		Key: "k1", Lane: "test", Run: func(ctx context.Context) (int, error) { return 0, errors.New("fail") },
+	})
+	_, _ = f1.Await(ctx)
+
+	// Second job should succeed, showing the worker is still alive and running
+	f2, _ := SubmitValue(ctx, q, ValueJob[int]{
+		Key: "k2", Lane: "test", Run: func(ctx context.Context) (int, error) { return 99, nil },
+	})
+	val, err := f2.Await(ctx)
+	if err != nil || val != 99 {
+		t.Errorf("worker died or failed subsequent job: val=%d, err=%v", val, err)
 	}
 }
