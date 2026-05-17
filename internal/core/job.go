@@ -13,6 +13,8 @@ type InternalJob struct {
 	LaneID LaneID
 	// Run is the function that will be executed.
 	Run func(context.Context) error
+	// EnqueuedAt is the Unix timestamp in nanoseconds when the job was enqueued.
+	EnqueuedAt int64
 }
 
 // NewInternalJob creates an InternalJob from its components.

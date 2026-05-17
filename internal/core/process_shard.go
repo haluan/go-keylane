@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"time"
 )
 
 // processShard processes jobs from all lanes of a single shard.
@@ -35,10 +36,34 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			s.inflight.Add(-int64(len(batch) - i))
 			break
 		}
+		if s.Obs.TrackQueueWait && job.EnqueuedAt > 0 {
+			waitNanos := time.Now().UnixNano() - job.EnqueuedAt
+			s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
+			s.laneCounters[job.LaneID].queueWaitCount.Add(1)
+		}
 		func() {
 			defer s.inflight.Add(-1)
-			// Run the job function. Errors are ignored as per fire-and-forget semantics.
-			_ = job.Run(ctx)
+
+			var start time.Time
+			if s.Obs.SlowJobThreshold > 0 {
+				start = time.Now()
+			}
+
+			err := job.Run(ctx)
+
+			if err == nil {
+				s.laneCounters[job.LaneID].completedTotal.Add(1)
+			} else {
+				s.laneCounters[job.LaneID].failedTotal.Add(1)
+			}
+
+			if s.Obs.SlowJobThreshold > 0 && s.Obs.OnSlowJob != nil {
+				dur := time.Since(start)
+				if dur >= s.Obs.SlowJobThreshold {
+					laneName := s.laneReg.Name(job.LaneID)
+					s.Obs.OnSlowJob(laneName, shardID, dur)
+				}
+			}
 		}()
 	}
 

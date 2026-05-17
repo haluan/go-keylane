@@ -1,12 +1,23 @@
 package keylane
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Config struct {
 	ShardCount       int
 	WorkerCount      int
 	QueueSizePerLane int
 	LaneQuotas       map[Lane]int
+
+	Observability ObservabilityConfig
+}
+
+type ObservabilityConfig struct {
+	TrackQueueWait   bool
+	SlowJobThreshold time.Duration
+	Hooks            Hooks
 }
 
 // Validate ensures the configuration is valid.

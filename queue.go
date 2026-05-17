@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/haluan/go-keylane/internal/core"
 	"sync"
+	"time"
 )
 
 // Queue is the main entry point for the keylane library.
@@ -39,6 +40,20 @@ func New(config Config) (*Queue, error) {
 		return nil, err
 	}
 
+	sched.Obs = core.ObservabilityConfig{
+		TrackQueueWait:   config.Observability.TrackQueueWait,
+		SlowJobThreshold: config.Observability.SlowJobThreshold,
+	}
+	if config.Observability.Hooks.OnSlowJob != nil {
+		sched.Obs.OnSlowJob = func(lane string, shardID int, duration time.Duration) {
+			config.Observability.Hooks.OnSlowJob(SlowJobEvent{
+				Lane:     Lane(lane),
+				ShardID:  shardID,
+				Duration: duration,
+			})
+		}
+	}
+
 	return &Queue{
 		config: config,
 		sched:  sched,
@@ -56,4 +71,41 @@ func (q *Queue) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// Stats returns a snapshot of the queue's internal metrics.
+func (q *Queue) Stats() Stats {
+	coreShards, totalDepth := q.sched.Stats()
+
+	shards := make([]ShardStats, len(coreShards))
+	for i, cs := range coreShards {
+		lanes := make([]LaneStats, len(cs.Lanes))
+		for j, cl := range cs.Lanes {
+			lanes[j] = LaneStats{
+				Lane:                Lane(cl.LaneName),
+				Depth:               cl.Depth,
+				Capacity:            cl.Capacity,
+				Quota:               cl.Quota,
+				SubmittedTotal:      cl.SubmittedTotal,
+				CompletedTotal:      cl.CompletedTotal,
+				FailedTotal:         cl.FailedTotal,
+				QueueFullTotal:      cl.QueueFullTotal,
+				QueueWaitTotalNanos: cl.QueueWaitTotalNanos,
+				QueueWaitCount:      cl.QueueWaitCount,
+			}
+		}
+		shards[i] = ShardStats{
+			ShardID:    cs.ShardID,
+			Ready:      cs.Ready,
+			TotalDepth: cs.TotalDepth,
+			Lanes:      lanes,
+		}
+	}
+
+	return Stats{
+		ShardCount:  q.config.ShardCount,
+		WorkerCount: q.config.WorkerCount,
+		TotalDepth:  totalDepth,
+		Shards:      shards,
+	}
 }

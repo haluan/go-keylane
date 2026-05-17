@@ -2,8 +2,10 @@ package core
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Scheduler manages the processing of jobs across shards and lanes.
@@ -19,6 +21,8 @@ type Scheduler struct {
 	workerCancel context.CancelFunc
 	workerWG     sync.WaitGroup
 	inflight     atomic.Int64
+	Obs          ObservabilityConfig
+	laneCounters []laneCounters
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -35,11 +39,12 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 	}
 
 	return &Scheduler{
-		shards:      shards,
-		ReadyCh:     make(chan int, shardCount),
-		workerCount: workerCount,
-		laneQuotas:  quotas,
-		laneReg:     reg,
+		shards:       shards,
+		ReadyCh:      make(chan int, shardCount),
+		workerCount:  workerCount,
+		laneQuotas:   quotas,
+		laneReg:      reg,
+		laneCounters: make([]laneCounters, laneCount),
 	}, nil
 }
 
@@ -76,8 +81,17 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 		return 0, false, ErrStopped
 	}
 
+	if s.Obs.TrackQueueWait {
+		job.EnqueuedAt = time.Now().UnixNano()
+	}
+
 	shardID := routeShardID(job.KeyHash, len(s.shards))
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
+	if err == nil {
+		s.laneCounters[job.LaneID].submittedTotal.Add(1)
+	} else if errors.Is(err, ErrQueueFull) {
+		s.laneCounters[job.LaneID].queueFullTotal.Add(1)
+	}
 	return shardID, becameReady, err
 }
 
@@ -92,7 +106,69 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 		return 0, false, ErrStopped
 	}
 
+	if s.Obs.TrackQueueWait {
+		job.EnqueuedAt = time.Now().UnixNano()
+	}
+
 	shardID := routeShardID(job.KeyHash, len(s.shards))
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
+	if err == nil {
+		s.laneCounters[job.LaneID].submittedTotal.Add(1)
+	} else if errors.Is(err, ErrQueueFull) {
+		s.laneCounters[job.LaneID].queueFullTotal.Add(1)
+	}
 	return shardID, becameReady, err
+}
+
+// Stats returns a snapshot of the scheduler's stats.
+func (s *Scheduler) Stats() ([]ShardStats, int) {
+	shardCount := len(s.shards)
+	shards := make([]ShardStats, shardCount)
+	totalDepth := 0
+
+	for i := 0; i < shardCount; i++ {
+		shard := &s.shards[i]
+		shard.mu.Lock()
+
+		ready := shard.Ready
+		shardDepth := 0
+		laneCount := len(shard.Lanes)
+		lanes := make([]LaneStats, laneCount)
+
+		for j := 0; j < laneCount; j++ {
+			laneID := LaneID(j)
+			depth := shard.Lanes[j].depth()
+			capacity := shard.Lanes[j].capacity()
+			quota := s.laneQuotas[j]
+			laneName := s.laneReg.Name(laneID)
+
+			counters := &s.laneCounters[j]
+
+			lanes[j] = LaneStats{
+				LaneName:            laneName,
+				Depth:               depth,
+				Capacity:            capacity,
+				Quota:               quota,
+				SubmittedTotal:      counters.submittedTotal.Load(),
+				CompletedTotal:      counters.completedTotal.Load(),
+				FailedTotal:         counters.failedTotal.Load(),
+				QueueFullTotal:      counters.queueFullTotal.Load(),
+				QueueWaitTotalNanos: counters.queueWaitTotalNanos.Load(),
+				QueueWaitCount:      counters.queueWaitCount.Load(),
+			}
+			shardDepth += depth
+		}
+
+		shard.mu.Unlock()
+
+		shards[i] = ShardStats{
+			ShardID:    i,
+			Ready:      ready,
+			TotalDepth: shardDepth,
+			Lanes:      lanes,
+		}
+		totalDepth += shardDepth
+	}
+
+	return shards, totalDepth
 }

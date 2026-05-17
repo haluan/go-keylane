@@ -71,6 +71,7 @@ type Config struct {
 	WorkerCount      int
 	QueueSizePerLane int
 	LaneQuotas       map[Lane]int
+	Observability    ObservabilityConfig
 }
 ```
 
@@ -181,3 +182,4 @@ Using `Await` with a timeout (e.g., `context.WithTimeout`) prevents the **caller
 - [Phase 3: Worker Scheduler](docs/phase-3-worker-scheduler.md)
 - [Phase 4: Future / SubmitValue / Await](docs/phase-4-future-submitvalue-await.md)
 - [Phase 5: Backpressure & Shutdown](docs/phase-5-backpressure-and-shutdown.md)
+- [Phase 6: Observability](docs/phase-6-observability.md)
