@@ -5,6 +5,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -58,7 +59,9 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				s.inflight.Add(-int64(remaining))
 				s.shardInflight[shardID].Add(-int64(remaining))
 				for j := i; j < batchLen; j++ {
-					s.laneInflight[batch[j].LaneID].Add(-1)
+					laneID := batch[j].LaneID
+					s.laneInflight[laneID].Add(-1)
+					s.laneCounters[laneID].canceled.Add(1)
 				}
 			}
 			break
@@ -82,10 +85,13 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 
 			err := job.Run(ctx)
 
+			counters := &s.laneCounters[job.LaneID]
 			if err == nil {
-				s.laneCounters[job.LaneID].completedTotal.Add(1)
+				counters.completedTotal.Add(1)
+			} else if errors.Is(err, context.Canceled) {
+				counters.canceled.Add(1)
 			} else {
-				s.laneCounters[job.LaneID].failedTotal.Add(1)
+				counters.failedTotal.Add(1)
 			}
 
 			if s.Obs.SlowJobThreshold > 0 && s.Obs.OnSlowJob != nil {

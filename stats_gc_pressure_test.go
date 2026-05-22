@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,6 +57,19 @@ func checkStatsGCPressureSane(cfg keylane.Config, snap keylane.StatsGCPressureSn
 		}
 		if lane.InFlight > maxInFlight {
 			return errors.New("lane InFlight exceeds worker * quota bound")
+		}
+		c := lane.Counters
+		// Admission counters may be briefly skewed across separate atomic loads under
+		// concurrency; allow one in-flight submit (Submitted++) before Accepted/Rejected.
+		if c.Submitted+1 < c.Accepted+c.Rejected {
+			return errors.New("lane Submitted < Accepted + Rejected")
+		}
+		if c.QueueFull > c.Rejected+1 {
+			return errors.New("lane QueueFull exceeds Rejected")
+		}
+		terminal := c.Completed + c.Failed + c.Canceled + c.Panicked
+		if terminal > c.Accepted+1 {
+			return errors.New("lane terminal outcomes exceed Accepted")
 		}
 	}
 	return nil
@@ -226,10 +240,14 @@ func TestStatsGCPressureDoesNotExposeInternalMutableState(t *testing.T) {
 
 	snap1 := q.StatsGCPressure()
 	snap1.Shards[0].PerLane[0].Queued = 999
+	snap1.Lanes[0].Counters.Submitted = 999
 
 	snap2 := q.StatsGCPressure()
 	if snap2.Shards[0].PerLane[0].Queued != 1 {
 		t.Error("StatsGCPressure leaked internal mutable array references")
+	}
+	if snap2.Lanes[0].Counters.Submitted != 1 {
+		t.Error("StatsGCPressure leaked internal counter values")
 	}
 }
 
@@ -259,6 +277,136 @@ func TestStatsGCPressureQueueFullState(t *testing.T) {
 	assertStatsGCPressureSane(t, cfg, snap)
 	if snap.TotalQueued > 2 {
 		t.Errorf("TotalQueued = %d, want at most 2", snap.TotalQueued)
+	}
+}
+
+func TestLaneCountersGCPressureSubmitAccepted(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+
+	c := q.StatsGCPressure().Lanes[0].Counters
+	if c.Submitted != 1 || c.Accepted != 1 || c.Rejected != 0 {
+		t.Errorf("counters = %+v, want Submitted=1 Accepted=1 Rejected=0", c)
+	}
+}
+
+func TestLaneCountersGCPressureQueueFull(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 2,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	for i := 0; i < 5; i++ {
+		_ = q.Submit(context.Background(), keylane.Job{
+			Key:  "key",
+			Lane: "default",
+			Run:  func(ctx context.Context) error { return nil },
+		})
+	}
+
+	c := q.StatsGCPressure().Lanes[0].Counters
+	if c.Submitted < c.Accepted+c.Rejected {
+		t.Errorf("Submitted %d < Accepted %d + Rejected %d", c.Submitted, c.Accepted, c.Rejected)
+	}
+	if c.QueueFull == 0 {
+		t.Error("expected QueueFull > 0")
+	}
+}
+
+func TestLaneCountersConcurrentSubmitRunAndStatsGCPressure(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       4,
+		WorkerCount:      4,
+		QueueSizePerLane: 50,
+		LaneQuotas:       map[keylane.Lane]int{"default": 2, "fast": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	var wg sync.WaitGroup
+	var errMu sync.Mutex
+	var firstErr error
+	recordErr := func(err error) {
+		if err == nil {
+			return
+		}
+		errMu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		errMu.Unlock()
+	}
+
+	lastSubmitted := make([]atomic.Uint64, 2)
+
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			lane := "default"
+			if i%3 == 0 {
+				lane = "fast"
+			}
+			_ = q.Submit(context.Background(), keylane.Job{
+				Key:  "key",
+				Lane: keylane.Lane(lane),
+				Run:  func(ctx context.Context) error { return nil },
+			})
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			snap := q.StatsGCPressure()
+			recordErr(checkStatsGCPressureSane(cfg, snap))
+			for li, lane := range snap.Lanes {
+				if li >= len(lastSubmitted) {
+					break
+				}
+				sub := lane.Counters.Submitted
+				prev := lastSubmitted[li].Load()
+				if sub < prev {
+					recordErr(errors.New("lane Submitted counter decreased"))
+				} else if sub > prev {
+					lastSubmitted[li].Store(sub)
+				}
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 50; i++ {
+			snap := q.StatsGCPressure()
+			recordErr(checkStatsGCPressureSane(cfg, snap))
+			time.Sleep(2 * time.Millisecond)
+		}
+	}()
+
+	wg.Wait()
+	if firstErr != nil {
+		t.Fatal(firstErr)
 	}
 }
 

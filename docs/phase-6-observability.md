@@ -8,7 +8,7 @@ Go-Keylane provides lightweight, dependency-free observability built directly in
 
 The `Queue.Stats()` method returns a deep-copy, thread-safe value snapshot of the entire queue's state.
 
-For GC pressure diagnostics (queued depth and in-flight jobs per shard/lane, without throughput counters), use `Queue.StatsGCPressure()` instead. See the `StatsGCPressureSnapshot` godoc for best-effort consistency semantics.
+For GC pressure diagnostics (queued depth, in-flight jobs, and cumulative per-lane counters), use `Queue.StatsGCPressure()` instead. Each lane exposes `Counters` (`Submitted`, `Accepted`, `Rejected`, `Completed`, `Failed`, `QueueFull`, `Canceled`, `Panicked`). See `LaneCountersGCPressure` godoc for semantics. v1 `Stats()` retains legacy fields such as `SubmittedTotal` (successful enqueues only).
 
 ```go
 stats := q.Stats()
@@ -26,7 +26,22 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 2. Lane Throughput Counters
+## 2. Cumulative Lane Counters (StatsGCPressure)
+
+`Queue.StatsGCPressure()` exposes per-lane `Counters` since queue start:
+
+- **`Submitted`**: Every admission attempt after the lane is resolved.
+- **`Accepted`**: Successfully enqueued jobs.
+- **`Rejected`**: Failed admission (includes queue-full and stopped-queue cases).
+- **`QueueFull`**: Rejections due to bounded lane capacity.
+- **`Completed`**, **`Failed`**, **`Canceled`**: Terminal worker outcomes (`context.Canceled` counts as canceled, not failed).
+- **`Panicked`**: Reserved; always zero until panic recovery exists.
+
+Counters are best-effort under concurrency and are not durable audit logs.
+
+---
+
+## 3. Lane Throughput Counters (Stats v1)
 
 Each lane tracks standard throughput counters since queue startup:
 - **`SubmittedTotal`**: Total number of successfully enqueued jobs.
@@ -45,7 +60,7 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 3. Queue Wait Latency (Opt-in)
+## 4. Queue Wait Latency (Opt-in)
 
 To prevent unneeded epoch polling on hot execution paths, wait-time tracking is fully opt-in and disabled by default. Enable it in the configuration:
 
@@ -67,7 +82,7 @@ fmt.Printf("Average queue wait: %v\n", avgWait)
 
 ---
 
-## 4. Slow Job Hook (Opt-in Callback)
+## 5. Slow Job Hook (Opt-in Callback)
 
 You can register callback hooks to notify when job executions are unusually slow:
 
@@ -93,7 +108,7 @@ cfg := keylane.Config{
 
 ---
 
-## 5. High-Cardinality Warning
+## 6. High-Cardinality Warning
 
 > [!WARNING]
 > **Do not use high-cardinality values as Lane names.**
@@ -109,7 +124,7 @@ cfg := keylane.Config{
 
 ---
 
-## 6. Out-of-Scope Telemetry Integrations
+## 7. Out-of-Scope Telemetry Integrations
 
 To keep `go-keylane` lightweight and free from external dependencies:
 - It **does not** bundle built-in Prometheus metric exporters.
