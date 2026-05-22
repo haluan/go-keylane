@@ -37,6 +37,11 @@ Use `benchstat` to compare before and after KL-1201/KL-1202/KL-1203/KL-1204:
 - **processShard path:** `BenchmarkProcessShardSingleLane` and `BenchmarkProcessShardSingleLaneInflightGuardrail` (same workload; documents shardInflight/laneInflight atomic cost).
 - **Queue wait (KL-1203):** `BenchmarkRecordGCPressureQueueWait` (atomic update path); `BenchmarkStatsGCPressure` includes queue-wait fields. Successful enqueue stamps `AcceptedAt` (`time.Time`) on the queued job copy after `push`.
 - **Run duration (KL-1204):** `BenchmarkRecordGCPressureRunDuration`; `StatsGCPressure` version `"4"` adds `Run` fields. Compare `BenchmarkProcessShardNoHooks`, `BenchmarkProcessShardNilHooks`, and `BenchmarkProcessShardLightweightHooks` for hook overhead.
+- **Debug snapshot (KL-1205):** `BenchmarkDebugSnapshot` and `BenchmarkPressure` measure caller-triggered diagnostic snapshot cost (not worker hot path).
+
+```bash
+go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
+```
 
 ### Core Scheduler Benchmarks
 To run the internal lane queue and process shard loop benchmarks:
