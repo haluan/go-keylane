@@ -280,6 +280,178 @@ func TestStatsGCPressureQueueFullState(t *testing.T) {
 	}
 }
 
+func TestQueueWaitGCPressureAcceptedJob(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx, keylane.WithDrain(true))
+
+	qw := q.StatsGCPressure().QueueWait
+	if qw.Count != 1 {
+		t.Fatalf("QueueWait Count = %d, want 1", qw.Count)
+	}
+}
+
+func TestQueueWaitGCPressureQueueFullNoSample(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 2,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	for i := 0; i < 5; i++ {
+		_ = q.Submit(context.Background(), keylane.Job{
+			Key:  "key",
+			Lane: "default",
+			Run:  func(ctx context.Context) error { return nil },
+		})
+	}
+
+	if q.StatsGCPressure().QueueWait.Count != 0 {
+		t.Errorf("Count = %d, want 0 without worker execution", q.StatsGCPressure().QueueWait.Count)
+	}
+}
+
+func sumLaneQueueWaitGCPressure(lanes []keylane.LaneStatsGCPressure) (count, total uint64) {
+	for _, lane := range lanes {
+		count += lane.QueueWait.Count
+		total += lane.QueueWait.TotalNanos
+	}
+	return count, total
+}
+
+func TestQueueWaitGCPressureGlobalEqualsSumOfLanes(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"laneA": 1, "laneB": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-a",
+		Lane: "laneA",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-b",
+		Lane: "laneB",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx, keylane.WithDrain(true))
+
+	snap := q.StatsGCPressure()
+	laneCount, laneTotal := sumLaneQueueWaitGCPressure(snap.Lanes)
+
+	if snap.QueueWait.Count != laneCount {
+		t.Errorf("global Count = %d, sum of lanes = %d", snap.QueueWait.Count, laneCount)
+	}
+	if snap.QueueWait.TotalNanos != laneTotal {
+		t.Errorf("global TotalNanos = %d, sum of lanes = %d", snap.QueueWait.TotalNanos, laneTotal)
+	}
+	if snap.Lanes[0].QueueWait.Count != 1 || snap.Lanes[1].QueueWait.Count != 1 {
+		t.Errorf("per-lane Count: laneA=%d laneB=%d, want 1 each",
+			snap.Lanes[0].QueueWait.Count, snap.Lanes[1].QueueWait.Count)
+	}
+}
+
+func TestQueueWaitGCPressureAverageHelper(t *testing.T) {
+	qw := keylane.QueueWaitStatsGCPressure{Count: 2, TotalNanos: 100, MaxNanos: 80}
+	if qw.AverageNanos() != 50 {
+		t.Errorf("AverageNanos = %d, want 50", qw.AverageNanos())
+	}
+	if qw.AverageDuration() != 50*time.Nanosecond {
+		t.Errorf("AverageDuration = %v", qw.AverageDuration())
+	}
+	if qw.MaxDuration() != 80*time.Nanosecond {
+		t.Errorf("MaxDuration = %v", qw.MaxDuration())
+	}
+}
+
+func TestQueueWaitConcurrentSubmitAndStats(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       4,
+		WorkerCount:      4,
+		QueueSizePerLane: 50,
+		LaneQuotas:       map[keylane.Lane]int{"default": 2},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	var wg sync.WaitGroup
+	var errMu sync.Mutex
+	var firstErr error
+	recordErr := func(err error) {
+		if err == nil {
+			return
+		}
+		errMu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		errMu.Unlock()
+	}
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			_ = q.Submit(context.Background(), keylane.Job{
+				Key:  "key",
+				Lane: "default",
+				Run:  func(ctx context.Context) error { return nil },
+			})
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			snap := q.StatsGCPressure()
+			recordErr(checkStatsGCPressureSane(cfg, snap))
+			qw := snap.QueueWait
+			if qw.Count > 0 && qw.MaxNanos > qw.TotalNanos {
+				recordErr(errors.New("MaxNanos exceeds TotalNanos"))
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	wg.Wait()
+	if firstErr != nil {
+		t.Fatal(firstErr)
+	}
+}
+
 func TestLaneCountersGCPressureSubmitAccepted(t *testing.T) {
 	cfg := keylane.Config{
 		ShardCount:       1,

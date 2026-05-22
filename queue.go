@@ -114,11 +114,10 @@ func (q *Queue) Stats() Stats {
 }
 
 // StatsGCPressure returns a read-only best-effort snapshot of scheduler GC pressure
-// state: queue depths, in-flight jobs, worker/shard/lane configuration, capacity, and
-// cumulative per-lane counters in Lanes[].Counters. The snapshot is safe to read
-// concurrently with submit and worker activity. Counter fields are cumulative since
-// queue start and intended for diagnostics and lightweight observability, not strict
-// accounting. See LaneCountersGCPressure for per-field semantics.
+// state: queue depths, in-flight jobs, worker/shard/lane configuration, capacity,
+// cumulative per-lane counters, and queue-wait timing. Queue-wait stats are always
+// collected for accepted jobs. The snapshot is safe to read concurrently with submit
+// and worker activity. See LaneCountersGCPressure and QueueWaitStatsGCPressure for semantics.
 func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 	cs := q.sched.StatsGCPressure()
 
@@ -132,22 +131,24 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 			}
 		}
 		shards[i] = ShardStatsGCPressure{
-			ShardID:  shard.ShardID,
-			Queued:   shard.Queued,
-			InFlight: shard.InFlight,
-			Capacity: shard.Capacity,
-			PerLane:  perLane,
+			ShardID:   shard.ShardID,
+			Queued:    shard.Queued,
+			InFlight:  shard.InFlight,
+			Capacity:  shard.Capacity,
+			QueueWait: copyQueueWaitStatsGCPressure(shard.QueueWait),
+			PerLane:   perLane,
 		}
 	}
 
 	lanes := make([]LaneStatsGCPressure, len(cs.Lanes))
 	for i, lane := range cs.Lanes {
 		lanes[i] = LaneStatsGCPressure{
-			LaneID:   lane.LaneID,
-			Name:     lane.Name,
-			Queued:   lane.Queued,
-			InFlight: lane.InFlight,
-			Capacity: lane.Capacity,
+			LaneID:    lane.LaneID,
+			Name:      lane.Name,
+			Queued:    lane.Queued,
+			InFlight:  lane.InFlight,
+			Capacity:  lane.Capacity,
+			QueueWait: copyQueueWaitStatsGCPressure(lane.QueueWait),
 			Counters: LaneCountersGCPressure{
 				Submitted: lane.Counters.Submitted,
 				Accepted:  lane.Counters.Accepted,
@@ -168,7 +169,16 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 		WorkerCount:   cs.WorkerCount,
 		TotalQueued:   cs.TotalQueued,
 		TotalInFlight: cs.TotalInFlight,
+		QueueWait:     copyQueueWaitStatsGCPressure(cs.QueueWait),
 		Shards:        shards,
 		Lanes:         lanes,
+	}
+}
+
+func copyQueueWaitStatsGCPressure(in core.QueueWaitStatsGCPressure) QueueWaitStatsGCPressure {
+	return QueueWaitStatsGCPressure{
+		Count:      in.Count,
+		TotalNanos: in.TotalNanos,
+		MaxNanos:   in.MaxNanos,
 	}
 }

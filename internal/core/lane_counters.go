@@ -17,6 +17,11 @@ type laneCounters struct {
 	canceled  atomic.Uint64
 	panicked  atomic.Uint64
 
+	// StatsGCPressure queue wait (always on).
+	gcQueueWaitCount      atomic.Uint64
+	gcQueueWaitTotalNanos atomic.Uint64
+	gcQueueWaitMaxNanos   atomic.Uint64
+
 	// Stats() counters (successful enqueue semantics for submittedTotal, non-GC Pressure).
 	submittedTotal      atomic.Int64
 	completedTotal      atomic.Int64
@@ -24,6 +29,14 @@ type laneCounters struct {
 	queueFullTotal      atomic.Int64
 	queueWaitTotalNanos atomic.Int64
 	queueWaitCount      atomic.Int64
+}
+
+func (c *laneCounters) snapshotGCPressureQueueWait() QueueWaitStatsGCPressure {
+	return QueueWaitStatsGCPressure{
+		Count:      c.gcQueueWaitCount.Load(),
+		TotalNanos: c.gcQueueWaitTotalNanos.Load(),
+		MaxNanos:   c.gcQueueWaitMaxNanos.Load(),
+	}
 }
 
 // snapshotGCPressure returns a read-only copy of cumulative lane counters for StatsGCPressure.

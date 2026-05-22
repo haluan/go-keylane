@@ -1,7 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
 	"context"
+	"time"
 )
 
 // InternalJob is the hot-path representation of a job.
@@ -13,8 +17,12 @@ type InternalJob struct {
 	LaneID LaneID
 	// Run is the function that will be executed.
 	Run func(context.Context) error
-	// EnqueuedAt is the Unix timestamp in nanoseconds when the job was enqueued.
-	EnqueuedAt int64
+	// AcceptedAt is when the job was admitted to the lane queue (set immediately before
+	// a successful push). Zero means not admitted. Used for StatsGCPressure queue-wait timing.
+	AcceptedAt time.Time
+	// EnqueuedAt is when v1 queue-wait tracking is enabled (TrackQueueWait). Set on the
+	// same successful admission as AcceptedAt. Zero means not set.
+	EnqueuedAt time.Time
 }
 
 // NewInternalJob creates an InternalJob from its components.

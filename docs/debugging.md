@@ -11,7 +11,7 @@ Follow these 10 steps to isolate scheduler performance problems:
 1. **Verify if the queue scheduler is started:** Check if `q.Start(ctx)` was executed and returned nil.
 2. **Review configuration settings:** Check `ShardCount`, `WorkerCount`, and `QueueSizePerLane` for capacity mismatches.
 3. **Inspect the queue backpressure dropped counter:** Read `Stats().QueueFullTotal` to see if jobs are being rejected.
-3b. **Inspect scheduler pressure and lane history:** Use `StatsGCPressure()` for queue depth, in-flight jobs, and cumulative per-lane counters (`Submitted`, `Accepted`, `Rejected`, `QueueFull`, etc.). Use `Stats()` for v1 per-lane totals (`SubmittedTotal` counts only successful enqueues) and queue-wait latency.
+3b. **Inspect scheduler pressure and lane history:** Use `StatsGCPressure()` for queue depth, in-flight jobs, cumulative per-lane counters, and **queue-wait duration** (`QueueWait.Count`, `TotalNanos`, `MaxNanos` — always on for accepted jobs). High average or max queue wait usually means lane pressure, hot shards, or too few workers. Use `Stats()` for v1 opt-in queue-wait (`TrackQueueWait`) and legacy `SubmittedTotal` semantics.
 4. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard.
 5. **Run the Go race detector:** Execute `go test -race ./...` to verify there are no active data races.
 6. **Analyze active workers stack traces:** Collect a pprof goroutine dump (`go tool pprof`) to verify if worker goroutines are blocked.

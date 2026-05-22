@@ -66,8 +66,12 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			}
 			break
 		}
-		if s.Obs.TrackQueueWait && job.EnqueuedAt > 0 {
-			waitNanos := time.Now().UnixNano() - job.EnqueuedAt
+		if !job.AcceptedAt.IsZero() {
+			waitNanos := uint64(time.Since(job.AcceptedAt).Nanoseconds())
+			s.recordGCPressureQueueWait(shardID, job.LaneID, waitNanos)
+		}
+		if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
+			waitNanos := time.Since(job.EnqueuedAt).Nanoseconds()
 			s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
 			s.laneCounters[job.LaneID].queueWaitCount.Add(1)
 		}

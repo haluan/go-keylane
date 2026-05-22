@@ -3,8 +3,10 @@
 
 package core
 
+import "time"
+
 // StatsGCPressureVersion is the schema version of StatsGCPressureSnapshot.
-const StatsGCPressureVersion = "2"
+const StatsGCPressureVersion = "3"
 
 // StatsGCPressureSnapshot is a read-only, best-effort snapshot of scheduler queue
 // depth, in-flight pressure, and cumulative per-lane counters. It is safe to read
@@ -22,17 +24,51 @@ type StatsGCPressureSnapshot struct {
 	TotalQueued   uint64
 	TotalInFlight uint64
 
+	QueueWait QueueWaitStatsGCPressure
+
 	Shards []ShardStatsGCPressure
 	Lanes  []LaneStatsGCPressure
 }
 
-// ShardStatsGCPressure reports queued depth, in-flight jobs, and capacity for one shard.
+// QueueWaitStatsGCPressure holds cumulative queue-wait timing for accepted jobs from
+// admission until job execution starts (excludes user Run duration). Values are
+// best-effort under concurrent updates and intended for diagnostics, not strict accounting.
+type QueueWaitStatsGCPressure struct {
+	// Count is the number of accepted jobs that started execution and contributed a wait sample.
+	Count uint64
+	// TotalNanos is the sum of queue-wait durations in nanoseconds.
+	TotalNanos uint64
+	// MaxNanos is the maximum observed queue-wait duration in nanoseconds.
+	MaxNanos uint64
+}
+
+// AverageNanos returns the average queue-wait duration in nanoseconds, or zero if Count is zero.
+func (s QueueWaitStatsGCPressure) AverageNanos() uint64 {
+	if s.Count == 0 {
+		return 0
+	}
+	return s.TotalNanos / s.Count
+}
+
+// AverageDuration returns the average queue-wait duration.
+func (s QueueWaitStatsGCPressure) AverageDuration() time.Duration {
+	return time.Duration(s.AverageNanos())
+}
+
+// MaxDuration returns the maximum observed queue-wait duration.
+func (s QueueWaitStatsGCPressure) MaxDuration() time.Duration {
+	return time.Duration(s.MaxNanos)
+}
+
+// ShardStatsGCPressure reports queued depth, in-flight jobs, capacity, and queue-wait
+// timing for one shard.
 type ShardStatsGCPressure struct {
-	ShardID  uint32
-	Queued   uint64
-	InFlight uint64
-	Capacity uint64
-	PerLane  []LaneDepthGCPressure
+	ShardID   uint32
+	Queued    uint64
+	InFlight  uint64
+	Capacity  uint64
+	QueueWait QueueWaitStatsGCPressure
+	PerLane   []LaneDepthGCPressure
 }
 
 // LaneCountersGCPressure holds cumulative per-lane counters since scheduler start.
@@ -78,6 +114,8 @@ type LaneStatsGCPressure struct {
 	// Counters holds cumulative per-lane admission and terminal-outcome totals since
 	// scheduler start. See LaneCountersGCPressure for per-field semantics.
 	Counters LaneCountersGCPressure
+	// QueueWait holds cumulative queue-wait timing for this lane across all shards.
+	QueueWait QueueWaitStatsGCPressure
 }
 
 // LaneDepthGCPressure reports queued depth for one lane within a single shard.
@@ -135,11 +173,12 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 		totalInFlight += shardInflight
 
 		shards[i] = ShardStatsGCPressure{
-			ShardID:  uint32(i),
-			Queued:   shardQueued,
-			InFlight: shardInflight,
-			Capacity: shardCapacity,
-			PerLane:  perLane,
+			ShardID:   uint32(i),
+			Queued:    shardQueued,
+			InFlight:  shardInflight,
+			Capacity:  shardCapacity,
+			QueueWait: s.shardQueueWait[i].snapshot(),
+			PerLane:   perLane,
 		}
 	}
 
@@ -147,12 +186,13 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 	for i := 0; i < laneCount; i++ {
 		laneID := LaneID(i)
 		lanes[i] = LaneStatsGCPressure{
-			LaneID:   uint16(laneID),
-			Name:     s.laneReg.Name(laneID),
-			Queued:   laneQueued[i],
-			InFlight: uint64(s.laneInflight[i].Load()),
-			Capacity: laneCapacity[i],
-			Counters: s.laneCounters[i].snapshotGCPressure(),
+			LaneID:    uint16(laneID),
+			Name:      s.laneReg.Name(laneID),
+			Queued:    laneQueued[i],
+			InFlight:  uint64(s.laneInflight[i].Load()),
+			Capacity:  laneCapacity[i],
+			Counters:  s.laneCounters[i].snapshotGCPressure(),
+			QueueWait: s.laneCounters[i].snapshotGCPressureQueueWait(),
 		}
 	}
 
@@ -163,6 +203,7 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 		WorkerCount:   s.workerCount,
 		TotalQueued:   totalQueued,
 		TotalInFlight: totalInFlight,
+		QueueWait:     s.queueWaitGlobal.snapshot(),
 		Shards:        shards,
 		Lanes:         lanes,
 	}

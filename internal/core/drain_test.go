@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -26,7 +29,7 @@ func TestDrainDetection(t *testing.T) {
 
 	// 3. Job enqueued -> not drained
 	job, _ := NewInternalJob(func(ctx context.Context) error { return nil }, 0, 0)
-	_, err = enqueueIntoShard(&s.shards[0], job)
+	_, err = enqueueIntoShard(&s.shards[0], job, false)
 	if err != nil {
 		t.Fatalf("failed to enqueue: %v", err)
 	}

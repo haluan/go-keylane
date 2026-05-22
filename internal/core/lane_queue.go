@@ -1,4 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
+
+import "time"
 
 var errLaneQueueFull = ErrQueueFull
 
@@ -23,6 +28,18 @@ func (q *laneQueue) push(job InternalJob) error {
 	q.tail = (q.tail + 1) % len(q.items)
 	q.size++
 	return nil
+}
+
+// stampNewestAccepted sets admission timestamps on the job most recently pushed.
+func (q *laneQueue) stampNewestAccepted(acceptedAt time.Time, trackQueueWait bool) {
+	if q.size == 0 {
+		return
+	}
+	idx := (q.tail - 1 + len(q.items)) % len(q.items)
+	q.items[idx].AcceptedAt = acceptedAt
+	if trackQueueWait {
+		q.items[idx].EnqueuedAt = acceptedAt
+	}
 }
 
 func (q *laneQueue) pop() (InternalJob, bool) {
