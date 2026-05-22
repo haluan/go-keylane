@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -107,5 +110,53 @@ func (q *Queue) Stats() Stats {
 		WorkerCount: q.config.WorkerCount,
 		TotalDepth:  totalDepth,
 		Shards:      shards,
+	}
+}
+
+// StatsGCPressure returns a read-only best-effort snapshot of scheduler GC pressure
+// state: queue depths, in-flight jobs, worker/shard/lane configuration, and capacity.
+// The snapshot is safe to read concurrently with submit and worker activity. It is
+// intended for diagnostics and lightweight observability, not strict accounting.
+func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
+	cs := q.sched.StatsGCPressure()
+
+	shards := make([]ShardStatsGCPressure, len(cs.Shards))
+	for i, shard := range cs.Shards {
+		perLane := make([]LaneDepthGCPressure, len(shard.PerLane))
+		for j, pl := range shard.PerLane {
+			perLane[j] = LaneDepthGCPressure{
+				LaneID: pl.LaneID,
+				Queued: pl.Queued,
+			}
+		}
+		shards[i] = ShardStatsGCPressure{
+			ShardID:  shard.ShardID,
+			Queued:   shard.Queued,
+			InFlight: shard.InFlight,
+			Capacity: shard.Capacity,
+			PerLane:  perLane,
+		}
+	}
+
+	lanes := make([]LaneStatsGCPressure, len(cs.Lanes))
+	for i, lane := range cs.Lanes {
+		lanes[i] = LaneStatsGCPressure{
+			LaneID:   lane.LaneID,
+			Name:     lane.Name,
+			Queued:   lane.Queued,
+			InFlight: lane.InFlight,
+			Capacity: lane.Capacity,
+		}
+	}
+
+	return StatsGCPressureSnapshot{
+		Version:       cs.Version,
+		ShardCount:    cs.ShardCount,
+		LaneCount:     cs.LaneCount,
+		WorkerCount:   cs.WorkerCount,
+		TotalQueued:   cs.TotalQueued,
+		TotalInFlight: cs.TotalInFlight,
+		Shards:        shards,
+		Lanes:         lanes,
 	}
 }

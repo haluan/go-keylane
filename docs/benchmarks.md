@@ -23,6 +23,19 @@ To only run public enqueuing and value submission benchmarks:
 go test -bench='BenchmarkSubmit' -benchmem .
 ```
 
+### GC Pressure Snapshot Guardrails
+To benchmark `StatsGCPressure()` snapshot cost and verify Submit enqueue path allocations were not regressed by in-flight accounting (which runs only in `processShard`, not on Submit):
+```bash
+make bench-gc-pressure
+# or:
+go test -bench='BenchmarkStatsGCPressure|BenchmarkSubmit' -benchmem .
+go test -bench='BenchmarkStatsGCPressure|BenchmarkProcessShard' -benchmem ./internal/core
+```
+
+Use `benchstat` to compare before and after KL-1201:
+- **Submit path:** `BenchmarkSubmitSingleLane` and `BenchmarkSubmitHotPathAllocGuardrail` (queue never started; enqueue-only).
+- **processShard path:** `BenchmarkProcessShardSingleLane` and `BenchmarkProcessShardSingleLaneInflightGuardrail` (same workload; documents shardInflight/laneInflight atomic cost).
+
 ### Core Scheduler Benchmarks
 To run the internal lane queue and process shard loop benchmarks:
 ```bash

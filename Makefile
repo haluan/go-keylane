@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race bench bench-core bench-submit
+.PHONY: all fmt format test test-race bench bench-core bench-submit bench-gc-pressure
 
 all: format test
 
@@ -21,3 +21,7 @@ bench-core:
 
 bench-submit:
 	go test -v ./... -bench 'BenchmarkSubmit|BenchmarkSubmitValue' -benchmem
+
+bench-gc-pressure:
+	go test -v . -bench 'BenchmarkStatsGCPressure|BenchmarkSubmit' -benchmem
+	go test -v ./internal/core -bench 'BenchmarkStatsGCPressure|BenchmarkProcessShardSingleLane' -benchmem

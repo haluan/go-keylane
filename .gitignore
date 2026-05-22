@@ -33,3 +33,14 @@ go.work.sum
 
 # Internal folders
 internalx/
+
+# AGENTS folders
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+graphify-out/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
