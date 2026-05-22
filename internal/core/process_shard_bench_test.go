@@ -184,6 +184,62 @@ func BenchmarkProcessShardLightweightHooks(b *testing.B) {
 	})
 }
 
+// BenchmarkKeylaneProcessShardWithLaneQuota measures processShard with unequal lane quotas.
+func BenchmarkKeylaneProcessShardWithLaneQuota(b *testing.B) {
+	reg, _ := NewLaneRegistry(map[string]int{"noisy": 8, "sensitive": 1})
+	s, _ := NewScheduler(1, 1, 1000, reg)
+	ctx := context.Background()
+	noisy := InternalJob{KeyHash: 1, LaneID: 0, Run: dummyRun}
+	sensitive := InternalJob{KeyHash: 1, LaneID: 1, Run: dummyRun}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for k := 0; k < 8; k++ {
+			_ = s.shards[0].Lanes[0].push(noisy)
+		}
+		_ = s.shards[0].Lanes[1].push(sensitive)
+		s.shards[0].Ready = true
+		s.processShard(ctx, 0)
+	}
+}
+
+// BenchmarkKeylaneProcessShardRequeue measures the ReadyCh requeue path when work remains after a quota-limited pass.
+func BenchmarkKeylaneProcessShardRequeue(b *testing.B) {
+	reg, _ := NewLaneRegistry(map[string]int{"default": 2})
+	s, _ := NewScheduler(1, 1, 1000, reg)
+	ctx := context.Background()
+	job := InternalJob{KeyHash: 1, LaneID: 0, Run: dummyRun}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for k := 0; k < 5; k++ {
+			_ = s.shards[0].Lanes[0].push(job)
+		}
+		s.shards[0].Ready = true
+		s.processShard(ctx, 0)
+		<-s.ReadyCh
+		s.processShard(ctx, 0)
+		for {
+			drainReadyCh(s.ReadyCh)
+			s.shards[0].mu.Lock()
+			more := s.shards[0].hasWorkLocked()
+			if !more {
+				s.shards[0].mu.Unlock()
+				break
+			}
+			s.shards[0].Ready = true
+			s.shards[0].mu.Unlock()
+			s.processShard(ctx, 0)
+			select {
+			case <-s.ReadyCh:
+			default:
+			}
+		}
+	}
+}
+
 func BenchmarkProcessShardWithPool(b *testing.B) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 1000, reg)

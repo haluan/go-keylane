@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race bench bench-core bench-submit bench-gc-pressure
+.PHONY: all fmt format test test-race bench bench-production bench-core bench-submit bench-gc-pressure
 
 all: format test
 
@@ -15,6 +15,9 @@ test-race:
 
 bench:
 	go test -v ./... -bench=. -benchmem
+
+bench-production:
+	go test -bench='Keylane|Fairness|GCPressure' -benchmem ./benchmarks
 
 bench-core:
 	go test -v ./internal/core -bench=. -benchmem

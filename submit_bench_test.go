@@ -94,7 +94,7 @@ func BenchmarkSubmitManyKeys(b *testing.B) {
 // BenchmarkSubmitHotPathAllocGuardrail is the guardrail for the Submit enqueue path.
 // The queue is never started, so processShard and shardInflight/laneInflight atomics are not
 // exercised. Compare allocs/op with benchstat against BenchmarkSubmitSingleLane before/after
-// KL-1201; neither benchmark should gain allocations from stats/inflight wiring.
+// GC Pressure Snapshot; neither benchmark should gain allocations from stats/inflight wiring.
 func BenchmarkSubmitHotPathAllocGuardrail(b *testing.B) {
 	cfg := Config{
 		ShardCount:       16,

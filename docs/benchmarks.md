@@ -11,6 +11,17 @@ This document describes the commands and methodology for running and analyzing b
 
 ## 1. Running Benchmarks
 
+### Production benchmark suite (KL-1206)
+Scenario and API benchmarks with stable names live under [`benchmarks/README.md`](../benchmarks/README.md).
+
+```bash
+make bench-production
+# or:
+go test -bench='Keylane|Fairness|GCPressure' -benchmem ./benchmarks
+```
+
+Regex: `Keylane|Fairness|GCPressure`. Fairness benches emit `wait_p50_ns`, `latency_p95_ns`, `completed_jobs/op`, etc. Use `benchstat` with `-count=5` for trends — no hard thresholds in CI.
+
 ### Full Benchmark Suite
 To run all benchmarks (including public and internal core packages) showing memory allocation statistics:
 ```bash
@@ -46,8 +57,10 @@ go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 ### Core Scheduler Benchmarks
 To run the internal lane queue and process shard loop benchmarks:
 ```bash
-go test -bench='BenchmarkProcessShard|BenchmarkLaneQueue' -benchmem ./internal/core
+go test -bench='BenchmarkProcessShard|BenchmarkLaneQueue|BenchmarkKeylaneProcessShard' -benchmem ./internal/core
 ```
+
+KL-1206 adds `BenchmarkKeylaneProcessShardWithLaneQuota` and `BenchmarkKeylaneProcessShardRequeue` for unequal quotas and ReadyCh requeue paths.
 
 ---
 
