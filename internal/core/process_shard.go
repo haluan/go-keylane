@@ -61,7 +61,9 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				for j := i; j < batchLen; j++ {
 					laneID := batch[j].LaneID
 					s.laneInflight[laneID].Add(-1)
-					s.laneCounters[laneID].canceled.Add(1)
+					if s.Obs.EnableCounters {
+						s.laneCounters[laneID].canceled.Add(1)
+					}
 				}
 			}
 			break
@@ -73,29 +75,42 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				s.laneInflight[job.LaneID].Add(-1)
 			}()
 
-			startedAt := time.Now()
-			var queueWait time.Duration
-			if !job.AcceptedAt.IsZero() {
-				queueWait = startedAt.Sub(job.AcceptedAt)
-				s.recordGCPressureQueueWait(shardID, job.LaneID, uint64(queueWait.Nanoseconds()))
-			}
-			if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
-				waitNanos := startedAt.Sub(job.EnqueuedAt).Nanoseconds()
-				s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
-				s.laneCounters[job.LaneID].queueWaitCount.Add(1)
+			needQueueWait, needRunDuration := s.jobNeedsWorkerTimestamps(job)
+			var (
+				startedAt   time.Time
+				queueWait   time.Duration
+				runDuration time.Duration
+			)
+			if needQueueWait || needRunDuration {
+				startedAt = time.Now()
+				if s.Obs.EnableQueueWaitTiming && !job.AcceptedAt.IsZero() {
+					queueWait = startedAt.Sub(job.AcceptedAt)
+					s.recordGCPressureQueueWait(shardID, job.LaneID, uint64(queueWait.Nanoseconds()))
+				}
+				if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
+					waitNanos := startedAt.Sub(job.EnqueuedAt).Nanoseconds()
+					s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
+					s.laneCounters[job.LaneID].queueWaitCount.Add(1)
+				}
 			}
 
 			err := job.Run(ctx)
-			runDuration := time.Since(startedAt)
-			s.recordGCPressureRunDuration(shardID, job.LaneID, uint64(runDuration.Nanoseconds()))
+			if needRunDuration {
+				runDuration = time.Since(startedAt)
+				if s.Obs.EnableRunTiming {
+					s.recordGCPressureRunDuration(shardID, job.LaneID, uint64(runDuration.Nanoseconds()))
+				}
+			}
 
-			counters := &s.laneCounters[job.LaneID]
-			if err == nil {
-				counters.completedTotal.Add(1)
-			} else if errors.Is(err, context.Canceled) {
-				counters.canceled.Add(1)
-			} else {
-				counters.failedTotal.Add(1)
+			if s.Obs.EnableCounters {
+				counters := &s.laneCounters[job.LaneID]
+				if err == nil {
+					counters.completedTotal.Add(1)
+				} else if errors.Is(err, context.Canceled) {
+					counters.canceled.Add(1)
+				} else {
+					counters.failedTotal.Add(1)
+				}
 			}
 
 			s.emitObservabilityHooks(shardID, job.LaneID, queueWait, runDuration, err)

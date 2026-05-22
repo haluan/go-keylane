@@ -165,7 +165,19 @@ type LaneDepthGCPressure struct {
 // per-shard locks or atomic loads; totals are summed from those per-shard copies and
 // may be briefly inconsistent across shards under heavy load. Counter values are
 // cumulative since scheduler start and are not strict accounting records.
+func (s *Scheduler) emptyStatsGCPressureSnapshot() StatsGCPressureSnapshot {
+	return StatsGCPressureSnapshot{
+		Version:     StatsGCPressureVersion,
+		ShardCount:  len(s.shards),
+		LaneCount:   s.laneReg.Len(),
+		WorkerCount: s.workerCount,
+	}
+}
+
 func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
+	if !s.Obs.EnableStats {
+		return s.emptyStatsGCPressureSnapshot()
+	}
 	shardCount := len(s.shards)
 	laneCount := s.laneReg.Len()
 

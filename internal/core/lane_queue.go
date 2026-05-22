@@ -31,12 +31,14 @@ func (q *laneQueue) push(job InternalJob) error {
 }
 
 // stampNewestAccepted sets admission timestamps on the job most recently pushed.
-func (q *laneQueue) stampNewestAccepted(acceptedAt time.Time, trackQueueWait bool) {
+func (q *laneQueue) stampNewestAccepted(acceptedAt time.Time, stampAcceptedAt, trackQueueWait bool) {
 	if q.size == 0 {
 		return
 	}
 	idx := (q.tail - 1 + len(q.items)) % len(q.items)
-	q.items[idx].AcceptedAt = acceptedAt
+	if stampAcceptedAt {
+		q.items[idx].AcceptedAt = acceptedAt
+	}
 	if trackQueueWait {
 		q.items[idx].EnqueuedAt = acceptedAt
 	}

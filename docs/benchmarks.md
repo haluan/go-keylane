@@ -62,6 +62,19 @@ go test -bench='BenchmarkProcessShard|BenchmarkLaneQueue|BenchmarkKeylaneProcess
 
 KL-1206 adds `BenchmarkKeylaneProcessShardWithLaneQuota` and `BenchmarkKeylaneProcessShardRequeue` for unequal quotas and ReadyCh requeue paths.
 
+### Low-allocation observability (KL-1207)
+
+Compare default vs low-allocation submit/worker overhead:
+
+```bash
+make bench-low-alloc
+# or:
+go test -bench='BenchmarkKeylaneSubmit.*Observability|BenchmarkKeylaneSubmitValue.*Observability' -benchmem ./benchmarks
+go test -bench='BenchmarkKeylaneWorker.*Observability' -benchmem ./internal/core
+```
+
+See [production-tuning.md](production-tuning.md) for mode selection.
+
 ---
 
 ## 2. Before/After Optimization Workflow

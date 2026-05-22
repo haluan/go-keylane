@@ -29,7 +29,7 @@ func TestDrainDetection(t *testing.T) {
 
 	// 3. Job enqueued -> not drained
 	job, _ := NewInternalJob(func(ctx context.Context) error { return nil }, 0, 0)
-	_, err = enqueueIntoShard(&s.shards[0], job, false)
+	_, err = enqueueIntoShard(&s.shards[0], job, false, false)
 	if err != nil {
 		t.Fatalf("failed to enqueue: %v", err)
 	}

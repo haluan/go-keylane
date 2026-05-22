@@ -62,8 +62,9 @@ Compare Keylane vs global FIFO with `benchstat` on the same machine; numbers are
 | Location | Names | Role |
 |----------|-------|------|
 | `./benchmarks` | `BenchmarkKeylane*`, `BenchmarkFairness*`, `BenchmarkGCPressure*` | Production-oriented API + scenario suite |
-| `.` (root) | `BenchmarkSubmit*`, `BenchmarkSubmitHotPathAllocGuardrail`, `BenchmarkStatsGCPressure`, `BenchmarkDebugSnapshot`, `BenchmarkGCPressureLowAllocationMode` | KL-1201–1205 guardrails + low-allocation pooling compare |
-| `./internal/core` | `BenchmarkProcessShard*`, `BenchmarkKeylaneProcessShardWithLaneQuota`, `BenchmarkKeylaneProcessShardRequeue` | Scheduler hot path |
+| `./benchmarks` | `BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand` | KL-1207 visibility vs low-allocation |
+| `.` (root) | `BenchmarkSubmit*`, `BenchmarkSubmitHotPathAllocGuardrail`, `BenchmarkStatsGCPressure`, `BenchmarkDebugSnapshot`, `BenchmarkGCPressureLowAllocationMode` | KL-1201–1205 guardrails; root low-alloc bench is **sync.Pool** only |
+| `./internal/core` | `BenchmarkProcessShard*`, `BenchmarkKeylaneProcessShard*`, `BenchmarkKeylaneWorker*Observability` | Scheduler hot path |
 
 ## Groups
 
@@ -71,7 +72,8 @@ Compare Keylane vs global FIFO with `benchstat` on the same machine; numbers are
 2. **Future / Await** — `future_benchmark_test.go`.
 3. **Shard** — `./internal/core -bench='ProcessShard|KeylaneProcessShard'`.
 4. **Fairness** — `fairness_benchmark_test.go` + in-package global FIFO baseline (`global_fifo_baseline_test.go`).
-5. **GC pressure** — `gc_pressure_benchmark_test.go`; low-allocation pooling compare is `BenchmarkGCPressureLowAllocationMode` in repo root (`gc_pressure_low_alloc_bench_test.go`, internal `DisablePooling` until KL-1207).
+5. **GC pressure** — `gc_pressure_benchmark_test.go`.
+6. **Observability modes (KL-1207)** — `observability_benchmark_test.go` (`BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand`). Worker compare: `./internal/core -bench=BenchmarkKeylaneWorker.*Observability`. Root `BenchmarkGCPressureLowAllocationMode` compares **sync.Pool** (`DisablePooling`), not observability config.
 
 ## Observability matrix
 

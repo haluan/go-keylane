@@ -14,7 +14,7 @@ var errInvalidLaneID = errors.New("keylane: invalid lane id")
 // It returns becameReady=true if the shard was not Ready and is now Ready.
 // Admission timestamps are stamped immediately before a successful push so queue
 // wait excludes time spent waiting on the shard lock or admission checks.
-func enqueueIntoShard(s *shard, job InternalJob, trackQueueWait bool) (becameReady bool, err error) {
+func enqueueIntoShard(s *shard, job InternalJob, stampAcceptedAt, trackQueueWait bool) (becameReady bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -26,8 +26,9 @@ func enqueueIntoShard(s *shard, job InternalJob, trackQueueWait bool) (becameRea
 	if err := lane.push(job); err != nil {
 		return false, err
 	}
-	acceptedAt := time.Now()
-	lane.stampNewestAccepted(acceptedAt, trackQueueWait)
+	if stampAcceptedAt || trackQueueWait {
+		lane.stampNewestAccepted(time.Now(), stampAcceptedAt, trackQueueWait)
+	}
 
 	if !s.Ready {
 		s.Ready = true

@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race bench bench-production bench-core bench-submit bench-gc-pressure
+.PHONY: all fmt format test test-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure
 
 all: format test
 
@@ -18,6 +18,10 @@ bench:
 
 bench-production:
 	go test -bench='Keylane|Fairness|GCPressure' -benchmem ./benchmarks
+
+bench-low-alloc:
+	go test -bench='BenchmarkKeylaneSubmit.*Observability|BenchmarkKeylaneSubmitValue.*Observability|BenchmarkKeylaneDebugSnapshotOnDemand' -benchmem ./benchmarks
+	go test -bench='BenchmarkKeylaneWorker.*Observability' -benchmem ./internal/core
 
 bench-core:
 	go test -v ./internal/core -bench=. -benchmem

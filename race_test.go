@@ -213,3 +213,55 @@ func TestRaceConcurrentDebugSnapshotAndPressure(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestRaceConcurrentLowAllocationObservability(t *testing.T) {
+	ctx := testTimeout(t)
+	cfg := newTestConfig()
+	cfg.Observability = LowAllocationObservabilityConfig()
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	const count = 50
+	var wg sync.WaitGroup
+	wg.Add(count * 5)
+
+	for i := 0; i < count; i++ {
+		key := fmt.Sprintf("key-%d", i)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{
+				Key:  key,
+				Lane: "default",
+				Run:  func(ctx context.Context) error { return nil },
+			})
+		}()
+		go func() {
+			defer wg.Done()
+			f, _ := SubmitValue(ctx, q, ValueJob[int]{
+				Key:  key,
+				Lane: "default",
+				Run:  func(ctx context.Context) (int, error) { return 1, nil },
+			})
+			_, _ = f.Await(ctx)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.StatsGCPressure()
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.DebugSnapshot()
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.Pressure()
+		}()
+	}
+
+	wg.Wait()
+}

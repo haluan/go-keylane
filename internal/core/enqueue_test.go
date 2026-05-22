@@ -12,7 +12,7 @@ func TestEnqueueIntoShardAddsJobToCorrectLane(t *testing.T) {
 	s := newShard(3, 10)
 	job := InternalJob{LaneID: 1, KeyHash: 123}
 
-	_, err := enqueueIntoShard(&s, job, false)
+	_, err := enqueueIntoShard(&s, job, false, false)
 	if err != nil {
 		t.Fatalf("enqueue failed: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestEnqueueIntoShardMarksShardReady(t *testing.T) {
 	s := newShard(3, 10)
 	job := InternalJob{LaneID: 1}
 
-	becameReady, err := enqueueIntoShard(&s, job, false)
+	becameReady, err := enqueueIntoShard(&s, job, false, false)
 	if err != nil {
 		t.Fatalf("enqueue failed: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestEnqueueIntoShardAlreadyReady(t *testing.T) {
 	s := newShard(3, 10)
 	s.Ready = true
 
-	becameReady, err := enqueueIntoShard(&s, InternalJob{LaneID: 1}, false)
+	becameReady, err := enqueueIntoShard(&s, InternalJob{LaneID: 1}, false, false)
 	if err != nil {
 		t.Fatalf("enqueue failed: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestEnqueueIntoShardQueueFull(t *testing.T) {
 	s := newShard(1, 1)
 	_ = s.Lanes[0].push(InternalJob{})
 
-	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false)
+	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false, false)
 	if !errors.Is(err, errLaneQueueFull) {
 		t.Errorf("expected errLaneQueueFull, got %v", err)
 	}
@@ -65,7 +65,7 @@ func TestEnqueueIntoShardQueueFull(t *testing.T) {
 
 func TestEnqueueIntoShardInvalidLaneID(t *testing.T) {
 	s := newShard(1, 10)
-	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 99}, false)
+	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 99}, false, false)
 	if !errors.Is(err, errInvalidLaneID) {
 		t.Errorf("expected errInvalidLaneID, got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestEnqueueIntoShardSetsAcceptedAtAfterSuccessfulPush(t *testing.T) {
 	s := newShard(1, 10)
 	job := InternalJob{LaneID: 0, KeyHash: 1}
 
-	_, err := enqueueIntoShard(&s, job, false)
+	_, err := enqueueIntoShard(&s, job, true, false)
 	if err != nil {
 		t.Fatalf("enqueue failed: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestEnqueueIntoShardSetsAcceptedAtAfterSuccessfulPush(t *testing.T) {
 		t.Fatal("expected queued job")
 	}
 	if queued.AcceptedAt.IsZero() {
-		t.Error("AcceptedAt should be set after successful admission")
+		t.Error("AcceptedAt should be set when stampAcceptedAt is enabled")
 	}
 }
 
@@ -93,7 +93,7 @@ func TestEnqueueIntoShardFailedPushLeavesAcceptedAtZero(t *testing.T) {
 	s := newShard(1, 1)
 	_ = s.Lanes[0].push(InternalJob{})
 
-	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false)
+	_, err := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false, false)
 	if !errors.Is(err, errLaneQueueFull) {
 		t.Fatalf("expected errLaneQueueFull, got %v", err)
 	}
@@ -111,7 +111,7 @@ func TestEnqueueIntoShardSetsEnqueuedAtWhenTrackQueueWait(t *testing.T) {
 	s := newShard(1, 10)
 	job := InternalJob{LaneID: 0}
 
-	_, err := enqueueIntoShard(&s, job, true)
+	_, err := enqueueIntoShard(&s, job, true, true)
 	if err != nil {
 		t.Fatalf("enqueue failed: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestEnqueueIntoShardFailedPushDoesNotMarkReady(t *testing.T) {
 	_ = s.Lanes[0].push(InternalJob{}) // fill it
 
 	// This enqueue will fail because queue is full
-	becameReady, _ := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false)
+	becameReady, _ := enqueueIntoShard(&s, InternalJob{LaneID: 0}, false, false)
 	if becameReady {
 		t.Error("becameReady should be false on failed push")
 	}
@@ -145,7 +145,7 @@ func TestEnqueueIntoShardFailedPushDoesNotMarkReady(t *testing.T) {
 	// Reset shard state to check if Ready was set even on error
 	s2 := newShard(1, 1)
 	_ = s2.Lanes[0].push(InternalJob{})
-	_, _ = enqueueIntoShard(&s2, InternalJob{LaneID: 0}, false)
+	_, _ = enqueueIntoShard(&s2, InternalJob{LaneID: 0}, false, false)
 	if s2.Ready {
 		t.Error("shard should not be Ready if push failed")
 	}
