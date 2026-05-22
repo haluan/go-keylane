@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -37,13 +40,27 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	if !hasMore {
 		shard.Ready = false
 	}
-	s.inflight.Add(int64(len(batch)))
+	batchLen := len(batch)
+	if batchLen > 0 {
+		s.inflight.Add(int64(batchLen))
+		s.shardInflight[shardID].Add(int64(batchLen))
+		for _, job := range batch {
+			s.laneInflight[job.LaneID].Add(1)
+		}
+	}
 	shard.mu.Unlock()
 
 	// 4. Run jobs outside of shard lock
 	for i, job := range batch {
 		if err := ctx.Err(); err != nil {
-			s.inflight.Add(-int64(len(batch) - i))
+			remaining := batchLen - i
+			if remaining > 0 {
+				s.inflight.Add(-int64(remaining))
+				s.shardInflight[shardID].Add(-int64(remaining))
+				for j := i; j < batchLen; j++ {
+					s.laneInflight[batch[j].LaneID].Add(-1)
+				}
+			}
 			break
 		}
 		if s.Obs.TrackQueueWait && job.EnqueuedAt > 0 {
@@ -52,7 +69,11 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			s.laneCounters[job.LaneID].queueWaitCount.Add(1)
 		}
 		func() {
-			defer s.inflight.Add(-1)
+			defer func() {
+				s.inflight.Add(-1)
+				s.shardInflight[shardID].Add(-1)
+				s.laneInflight[job.LaneID].Add(-1)
+			}()
 
 			var start time.Time
 			if s.Obs.SlowJobThreshold > 0 {

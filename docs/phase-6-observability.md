@@ -8,6 +8,8 @@ Go-Keylane provides lightweight, dependency-free observability built directly in
 
 The `Queue.Stats()` method returns a deep-copy, thread-safe value snapshot of the entire queue's state.
 
+For GC pressure diagnostics (queued depth and in-flight jobs per shard/lane, without throughput counters), use `Queue.StatsGCPressure()` instead. See the `StatsGCPressureSnapshot` godoc for best-effort consistency semantics.
+
 ```go
 stats := q.Stats()
 fmt.Printf("Active Workers: %d\n", stats.WorkerCount)

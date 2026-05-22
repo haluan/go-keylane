@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -144,6 +147,34 @@ func TestRaceConcurrentStats(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			_ = q.Stats()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestRaceConcurrentStatsGCPressure(t *testing.T) {
+	ctx := testTimeout(t)
+	q := newStartedTestQueue(t, ctx)
+
+	const count = 50
+	var wg sync.WaitGroup
+	wg.Add(count * 2)
+
+	for i := 0; i < count; i++ {
+		key := fmt.Sprintf("key-%d", i)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{
+				Key:  key,
+				Lane: "default",
+				Run:  func(ctx context.Context) error { return nil },
+			})
+		}()
+
+		go func() {
+			defer wg.Done()
+			_ = q.StatsGCPressure()
 		}()
 	}
 

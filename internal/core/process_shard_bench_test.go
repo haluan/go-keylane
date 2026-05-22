@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -19,6 +22,18 @@ func BenchmarkProcessShardEmpty(b *testing.B) {
 }
 
 func BenchmarkProcessShardSingleLane(b *testing.B) {
+	benchmarkProcessShardSingleLane(b)
+}
+
+// BenchmarkProcessShardSingleLaneInflightGuardrail is the GC Pressure Snapshot guardrail for the
+// processShard pop/execute hot path where shardInflight and laneInflight atomics are
+// updated. It mirrors BenchmarkProcessShardSingleLane; compare allocs/op with benchstat
+// before and after GC Pressure Snapshot to confirm in-flight accounting does not regress B/op or allocs/op.
+func BenchmarkProcessShardSingleLaneInflightGuardrail(b *testing.B) {
+	benchmarkProcessShardSingleLane(b)
+}
+
+func benchmarkProcessShardSingleLane(b *testing.B) {
 	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
 	s, _ := NewScheduler(1, 1, 1000, reg)
 	ctx := context.Background()
@@ -27,7 +42,6 @@ func BenchmarkProcessShardSingleLane(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Fill to exact quota
 		for k := 0; k < 10; k++ {
 			_ = s.shards[0].Lanes[0].push(job)
 		}

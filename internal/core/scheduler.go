@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -10,19 +13,21 @@ import (
 
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards       []shard
-	ReadyCh      chan int
-	workerCount  int
-	laneQuotas   []int // indexed by LaneID
-	laneReg      *LaneRegistry
-	mu           sync.RWMutex
-	state        lifecycleState
-	stopDone     chan struct{}
-	workerCancel context.CancelFunc
-	workerWG     sync.WaitGroup
-	inflight     atomic.Int64
-	Obs          ObservabilityConfig
-	laneCounters []laneCounters
+	shards        []shard
+	ReadyCh       chan int
+	workerCount   int
+	laneQuotas    []int // indexed by LaneID
+	laneReg       *LaneRegistry
+	mu            sync.RWMutex
+	state         lifecycleState
+	stopDone      chan struct{}
+	workerCancel  context.CancelFunc
+	workerWG      sync.WaitGroup
+	inflight      atomic.Int64
+	shardInflight []atomic.Int64
+	laneInflight  []atomic.Int64
+	Obs           ObservabilityConfig
+	laneCounters  []laneCounters
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -38,13 +43,18 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		quotas[i] = reg.Quota(LaneID(i))
 	}
 
+	shardInflight := make([]atomic.Int64, shardCount)
+	laneInflight := make([]atomic.Int64, laneCount)
+
 	return &Scheduler{
-		shards:       shards,
-		ReadyCh:      make(chan int, shardCount),
-		workerCount:  workerCount,
-		laneQuotas:   quotas,
-		laneReg:      reg,
-		laneCounters: make([]laneCounters, laneCount),
+		shards:        shards,
+		ReadyCh:       make(chan int, shardCount),
+		workerCount:   workerCount,
+		laneQuotas:    quotas,
+		laneReg:       reg,
+		shardInflight: shardInflight,
+		laneInflight:  laneInflight,
+		laneCounters:  make([]laneCounters, laneCount),
 	}, nil
 }
 

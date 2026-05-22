@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -85,5 +88,35 @@ func BenchmarkSubmitManyKeys(b *testing.B) {
 			Lane: "default",
 			Run:  dummyRun,
 		})
+	}
+}
+
+// BenchmarkSubmitHotPathAllocGuardrail is the guardrail for the Submit enqueue path.
+// The queue is never started, so processShard and shardInflight/laneInflight atomics are not
+// exercised. Compare allocs/op with benchstat against BenchmarkSubmitSingleLane before/after
+// KL-1201; neither benchmark should gain allocations from stats/inflight wiring.
+func BenchmarkSubmitHotPathAllocGuardrail(b *testing.B) {
+	cfg := Config{
+		ShardCount:       16,
+		WorkerCount:      4,
+		QueueSizePerLane: 10000,
+		LaneQuotas:       map[Lane]int{"default": 1},
+	}
+	q, err := New(cfg)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	ctx := context.Background()
+	job := Job{
+		Key:  "guardrail-key",
+		Lane: "default",
+		Run:  dummyRun,
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = q.Submit(ctx, job)
 	}
 }
