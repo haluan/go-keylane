@@ -114,9 +114,11 @@ func (q *Queue) Stats() Stats {
 }
 
 // StatsGCPressure returns a read-only best-effort snapshot of scheduler GC pressure
-// state: queue depths, in-flight jobs, worker/shard/lane configuration, and capacity.
-// The snapshot is safe to read concurrently with submit and worker activity. It is
-// intended for diagnostics and lightweight observability, not strict accounting.
+// state: queue depths, in-flight jobs, worker/shard/lane configuration, capacity, and
+// cumulative per-lane counters in Lanes[].Counters. The snapshot is safe to read
+// concurrently with submit and worker activity. Counter fields are cumulative since
+// queue start and intended for diagnostics and lightweight observability, not strict
+// accounting. See LaneCountersGCPressure for per-field semantics.
 func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 	cs := q.sched.StatsGCPressure()
 
@@ -146,6 +148,16 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 			Queued:   lane.Queued,
 			InFlight: lane.InFlight,
 			Capacity: lane.Capacity,
+			Counters: LaneCountersGCPressure{
+				Submitted: lane.Counters.Submitted,
+				Accepted:  lane.Counters.Accepted,
+				Rejected:  lane.Counters.Rejected,
+				Completed: lane.Counters.Completed,
+				Failed:    lane.Counters.Failed,
+				QueueFull: lane.Counters.QueueFull,
+				Canceled:  lane.Counters.Canceled,
+				Panicked:  lane.Counters.Panicked,
+			},
 		}
 	}
 

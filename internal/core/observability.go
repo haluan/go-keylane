@@ -1,9 +1,9 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
-import (
-	"sync/atomic"
-	"time"
-)
+import "time"
 
 // ObservabilityConfig holds internal configuration for scheduler metrics and hooks.
 type ObservabilityConfig struct {
@@ -13,14 +13,4 @@ type ObservabilityConfig struct {
 
 	// Used only for benchmark testing to compare with and without sync.Pool
 	DisablePooling bool
-}
-
-// laneCounters holds atomic metrics counters for a specific lane.
-type laneCounters struct {
-	submittedTotal      atomic.Int64
-	completedTotal      atomic.Int64
-	failedTotal         atomic.Int64
-	queueFullTotal      atomic.Int64
-	queueWaitTotalNanos atomic.Int64
-	queueWaitCount      atomic.Int64
 }

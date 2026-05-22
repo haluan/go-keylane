@@ -5,7 +5,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -87,7 +86,11 @@ func (s *Scheduler) Start(ctx context.Context) error {
 func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	c := &s.laneCounters[job.LaneID]
+	c.recordLaneAdmissionAttempt()
 	if s.state == stateStopping || s.state == stateStopped {
+		c.recordLaneAdmissionRejected()
 		return 0, false, ErrStopped
 	}
 
@@ -97,11 +100,7 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
-	if err == nil {
-		s.laneCounters[job.LaneID].submittedTotal.Add(1)
-	} else if errors.Is(err, ErrQueueFull) {
-		s.laneCounters[job.LaneID].queueFullTotal.Add(1)
-	}
+	c.recordLaneAdmissionResult(err)
 	return shardID, becameReady, err
 }
 
@@ -109,10 +108,15 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	c := &s.laneCounters[job.LaneID]
+	c.recordLaneAdmissionAttempt()
 	if s.state == stateNew {
+		c.recordLaneAdmissionRejected()
 		return 0, false, ErrNotStarted
 	}
 	if s.state != stateRunning {
+		c.recordLaneAdmissionRejected()
 		return 0, false, ErrStopped
 	}
 
@@ -122,11 +126,7 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
-	if err == nil {
-		s.laneCounters[job.LaneID].submittedTotal.Add(1)
-	} else if errors.Is(err, ErrQueueFull) {
-		s.laneCounters[job.LaneID].queueFullTotal.Add(1)
-	}
+	c.recordLaneAdmissionResult(err)
 	return shardID, becameReady, err
 }
 
