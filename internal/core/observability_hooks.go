@@ -34,7 +34,33 @@ func callObservabilityHook(fn func()) {
 	fn()
 }
 
+// obsHooksNeedRunDuration reports whether the worker must measure run duration for hooks.
+func (s *Scheduler) obsHooksNeedRunDuration() bool {
+	if !s.Obs.EnableHooks {
+		return false
+	}
+	if s.Obs.OnJobTiming != nil {
+		return true
+	}
+	return s.Obs.OnSlowJob != nil && s.Obs.SlowJobThreshold > 0
+}
+
+// jobNeedsWorkerTimestamps reports whether time.Now/Since are required for this job.
+func (s *Scheduler) jobNeedsWorkerTimestamps(job InternalJob) (needQueueWait bool, needRunDuration bool) {
+	if s.Obs.EnableQueueWaitTiming && !job.AcceptedAt.IsZero() {
+		needQueueWait = true
+	}
+	if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
+		needQueueWait = true
+	}
+	needRunDuration = s.Obs.EnableRunTiming || s.obsHooksNeedRunDuration()
+	return needQueueWait, needRunDuration
+}
+
 func (s *Scheduler) emitObservabilityHooks(shardID int, laneID LaneID, queueWait, runDuration time.Duration, err error) {
+	if !s.Obs.EnableHooks {
+		return
+	}
 	outcome := jobOutcomeFromError(err)
 	needTiming := s.Obs.OnJobTiming != nil
 	needSlow := s.Obs.SlowJobThreshold > 0 && s.Obs.OnSlowJob != nil && runDuration >= s.Obs.SlowJobThreshold

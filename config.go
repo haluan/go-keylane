@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -15,6 +18,22 @@ type Config struct {
 }
 
 type ObservabilityConfig struct {
+	// EnableStats controls StatsGCPressure snapshot assembly (pull API; may allocate).
+	EnableStats bool
+	// EnableCounters controls cumulative admission and terminal counters on the hot path.
+	EnableCounters bool
+	// EnableQueueWaitTiming controls AcceptedAt stamping and StatsGCPressure queue-wait samples.
+	EnableQueueWaitTiming bool
+	// EnableRunTiming controls StatsGCPressure run-duration samples on the worker path.
+	EnableRunTiming bool
+	// EnableHooks controls OnJobTiming and OnSlowJob dispatch (Hooks are ignored when false).
+	EnableHooks bool
+	// EnableDebugSnapshot controls DebugSnapshot (Pressure remains available).
+	EnableDebugSnapshot bool
+	// LowAllocationMode applies LowAllocationObservabilityConfig at queue construction.
+	LowAllocationMode bool
+
+	// TrackQueueWait enables v1 Stats() queue-wait counters (EnqueuedAt); independent of EnableQueueWaitTiming.
 	TrackQueueWait   bool
 	SlowJobThreshold time.Duration
 	Hooks            Hooks

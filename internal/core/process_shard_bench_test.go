@@ -184,6 +184,36 @@ func BenchmarkProcessShardLightweightHooks(b *testing.B) {
 	})
 }
 
+func BenchmarkKeylaneWorkerDefaultObservability(b *testing.B) {
+	benchmarkKeylaneWorkerObservability(b, defaultObservabilityConfig())
+}
+
+func BenchmarkKeylaneWorkerLowAllocationObservability(b *testing.B) {
+	obs := defaultObservabilityConfig()
+	obs.EnableQueueWaitTiming = false
+	obs.EnableRunTiming = false
+	obs.EnableHooks = false
+	benchmarkKeylaneWorkerObservability(b, obs)
+}
+
+func benchmarkKeylaneWorkerObservability(b *testing.B, obs ObservabilityConfig) {
+	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
+	s, _ := NewScheduler(1, 1, 1000, reg)
+	s.Obs = obs
+	ctx := context.Background()
+	job := InternalJob{KeyHash: 1, LaneID: 0, Run: dummyRun}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for k := 0; k < 10; k++ {
+			_ = s.shards[0].Lanes[0].push(job)
+		}
+		s.shards[0].Ready = true
+		s.processShard(ctx, 0)
+	}
+}
+
 // BenchmarkKeylaneProcessShardWithLaneQuota measures processShard with unequal lane quotas.
 func BenchmarkKeylaneProcessShardWithLaneQuota(b *testing.B) {
 	reg, _ := NewLaneRegistry(map[string]int{"noisy": 8, "sensitive": 1})

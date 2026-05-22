@@ -58,6 +58,7 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		laneReg:          reg,
 		shardInflight:    shardInflight,
 		laneInflight:     laneInflight,
+		Obs:              defaultObservabilityConfig(),
 		laneCounters:     make([]laneCounters, laneCount),
 		shardQueueWait:   shardQueueWait,
 		shardRunDuration: shardRunDuration,
@@ -95,15 +96,21 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 	defer s.mu.RUnlock()
 
 	c := &s.laneCounters[job.LaneID]
-	c.recordLaneAdmissionAttempt()
+	if s.Obs.EnableCounters {
+		c.recordLaneAdmissionAttempt()
+	}
 	if s.state == stateStopping || s.state == stateStopped {
-		c.recordLaneAdmissionRejected()
+		if s.Obs.EnableCounters {
+			c.recordLaneAdmissionRejected()
+		}
 		return 0, false, ErrStopped
 	}
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
-	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.TrackQueueWait)
-	c.recordLaneAdmissionResult(err)
+	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.EnableQueueWaitTiming, s.Obs.TrackQueueWait)
+	if s.Obs.EnableCounters {
+		c.recordLaneAdmissionResult(err)
+	}
 	return shardID, becameReady, err
 }
 
@@ -113,19 +120,27 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 	defer s.mu.RUnlock()
 
 	c := &s.laneCounters[job.LaneID]
-	c.recordLaneAdmissionAttempt()
+	if s.Obs.EnableCounters {
+		c.recordLaneAdmissionAttempt()
+	}
 	if s.state == stateNew {
-		c.recordLaneAdmissionRejected()
+		if s.Obs.EnableCounters {
+			c.recordLaneAdmissionRejected()
+		}
 		return 0, false, ErrNotStarted
 	}
 	if s.state != stateRunning {
-		c.recordLaneAdmissionRejected()
+		if s.Obs.EnableCounters {
+			c.recordLaneAdmissionRejected()
+		}
 		return 0, false, ErrStopped
 	}
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
-	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.TrackQueueWait)
-	c.recordLaneAdmissionResult(err)
+	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.EnableQueueWaitTiming, s.Obs.TrackQueueWait)
+	if s.Obs.EnableCounters {
+		c.recordLaneAdmissionResult(err)
+	}
 	return shardID, becameReady, err
 }
 

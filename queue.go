@@ -43,37 +43,9 @@ func New(config Config) (*Queue, error) {
 		return nil, err
 	}
 
-	sched.Obs = core.ObservabilityConfig{
-		TrackQueueWait:   config.Observability.TrackQueueWait,
-		SlowJobThreshold: config.Observability.SlowJobThreshold,
-	}
-	if config.Observability.Hooks.OnJobTiming != nil {
-		h := config.Observability.Hooks.OnJobTiming
-		sched.Obs.OnJobTiming = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration time.Duration, outcome core.JobOutcome) {
-			h(JobTimingEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Outcome:     JobOutcome(outcome),
-			})
-		}
-	}
-	if config.Observability.Hooks.OnSlowJob != nil {
-		h := config.Observability.Hooks.OnSlowJob
-		sched.Obs.OnSlowJob = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome core.JobOutcome) {
-			h(SlowJobEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Threshold:   threshold,
-				Outcome:     JobOutcome(outcome),
-			})
-		}
-	}
+	obs := ResolveObservabilityConfig(config.Observability)
+	config.Observability = obs
+	wireSchedulerObservability(sched, obs)
 
 	return &Queue{
 		config: config,
@@ -132,10 +104,9 @@ func (q *Queue) Stats() Stats {
 }
 
 // StatsGCPressure returns a read-only best-effort snapshot of scheduler GC pressure
-// state: queue depths, in-flight jobs, worker/shard/lane configuration, capacity,
-// cumulative per-lane counters, and queue-wait timing. Queue-wait stats are always
-// collected for accepted jobs. The snapshot is safe to read concurrently with submit
-// and worker activity. See LaneCountersGCPressure and QueueWaitStatsGCPressure for semantics.
+// state when EnableStats is true. Queue-wait and run-duration samples require
+// EnableQueueWaitTiming and EnableRunTiming respectively. The snapshot is safe to read
+// concurrently with submit and worker activity. See LaneCountersGCPressure for semantics.
 func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 	cs := q.sched.StatsGCPressure()
 
@@ -209,6 +180,49 @@ func copyRunStatsGCPressure(in core.RunStatsGCPressure) RunStatsGCPressure {
 		Count:      in.Count,
 		TotalNanos: in.TotalNanos,
 		MaxNanos:   in.MaxNanos,
+	}
+}
+
+func wireSchedulerObservability(sched *core.Scheduler, obs ObservabilityConfig) {
+	sched.Obs = core.ObservabilityConfig{
+		EnableStats:           obs.EnableStats,
+		EnableCounters:        obs.EnableCounters,
+		EnableQueueWaitTiming: obs.EnableQueueWaitTiming,
+		EnableRunTiming:       obs.EnableRunTiming,
+		EnableHooks:           obs.EnableHooks,
+		EnableDebugSnapshot:   obs.EnableDebugSnapshot,
+		TrackQueueWait:        obs.TrackQueueWait,
+		SlowJobThreshold:      obs.SlowJobThreshold,
+	}
+	if !obs.EnableHooks {
+		return
+	}
+	if obs.Hooks.OnJobTiming != nil {
+		h := obs.Hooks.OnJobTiming
+		sched.Obs.OnJobTiming = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration time.Duration, outcome core.JobOutcome) {
+			h(JobTimingEvent{
+				ShardID:     shardID,
+				LaneID:      uint16(laneID),
+				Lane:        Lane(laneName),
+				QueueWait:   queueWait,
+				RunDuration: runDuration,
+				Outcome:     JobOutcome(outcome),
+			})
+		}
+	}
+	if obs.Hooks.OnSlowJob != nil {
+		h := obs.Hooks.OnSlowJob
+		sched.Obs.OnSlowJob = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome core.JobOutcome) {
+			h(SlowJobEvent{
+				ShardID:     shardID,
+				LaneID:      uint16(laneID),
+				Lane:        Lane(laneName),
+				QueueWait:   queueWait,
+				RunDuration: runDuration,
+				Threshold:   threshold,
+				Outcome:     JobOutcome(outcome),
+			})
+		}
 	}
 }
 

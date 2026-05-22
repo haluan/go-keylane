@@ -69,9 +69,11 @@ Counters are best-effort under concurrency and are not durable audit logs.
 
 ---
 
-## 4. Queue Wait Duration (StatsGCPressure, always on)
+## 4. Queue Wait Duration (StatsGCPressure)
 
-`StatsGCPressure()` always includes queue-wait timing for **accepted** jobs, from admission until execution starts (before `Run()`). It does **not** include user job run time or caller latency after submit.
+When `EnableQueueWaitTiming` is true (default in visibility mode), `StatsGCPressure()` includes queue-wait timing for **accepted** jobs, from admission until execution starts (before `Run()`). It does **not** include user job run time or caller latency after submit.
+
+Low-allocation mode (`LowAllocationObservabilityConfig` or `LowAllocationMode: true`) disables hot-path queue-wait samples; `QueueWait.Count` stays zero. See [production-tuning.md](production-tuning.md).
 
 Global, per-lane, and per-shard `QueueWait` fields expose:
 
@@ -81,7 +83,7 @@ Global, per-lane, and per-shard `QueueWait` fields expose:
 
 Use `AverageDuration()` / `MaxDuration()` helpers on `QueueWaitStatsGCPressure` for convenience.
 
-**v1 opt-in:** `Config.Observability.TrackQueueWait` still gates legacy `QueueWaitCount` / `QueueWaitTotalNanos` on `Stats()` only. StatsGCPressure queue-wait is independent and always collected.
+**v1 opt-in:** `Config.Observability.TrackQueueWait` gates legacy `QueueWaitCount` / `QueueWaitTotalNanos` on `Stats()` only. StatsGCPressure queue-wait uses `EnableQueueWaitTiming` (separate flag).
 
 | Metric | Meaning |
 |--------|---------|
@@ -92,9 +94,11 @@ Use `AverageDuration()` / `MaxDuration()` helpers on `QueueWaitStatsGCPressure` 
 
 ---
 
-## 5. Run Duration (StatsGCPressure, always on)
+## 5. Run Duration (StatsGCPressure)
 
-`StatsGCPressure()` always includes run-duration timing for **accepted** jobs, from immediately before `Run()` until `Run()` returns. It does **not** include queue wait or caller latency before submit.
+When `EnableRunTiming` is true (default in visibility mode), `StatsGCPressure()` includes run-duration timing for **accepted** jobs, from immediately before `Run()` until `Run()` returns. It does **not** include queue wait or caller latency before submit.
+
+Low-allocation mode disables hot-path run-duration samples; `Run.Count` stays zero.
 
 Global, per-lane, and per-shard `Run` fields expose:
 
@@ -110,7 +114,7 @@ Use `AverageDuration()` / `MaxDuration()` helpers on `RunStatsGCPressure`.
 - **Low queue wait, high run duration** — slow user code or downstream dependencies inside `Run`.
 - **Both high** — overload plus slow work once admitted.
 
-Run stats are always collected. `SlowJobThreshold` only gates the `OnSlowJob` callback, not cumulative run stats.
+Run stats require `EnableRunTiming`. `SlowJobThreshold` only gates the `OnSlowJob` callback when `EnableHooks` is true.
 
 ---
 
@@ -157,9 +161,11 @@ fmt.Printf("Average queue wait: %v\n", avgWait)
 
 ## 8. Observability Hooks (Opt-in Callbacks)
 
+Hooks run only when `EnableHooks` is true. In low-allocation mode, hooks are disabled even if `Hooks` is populated.
+
 ### OnJobTiming
 
-Called after every completed job when registered:
+Called after every completed job when `EnableHooks` is true and `OnJobTiming` is registered:
 
 ```go
 Hooks: keylane.Hooks{
@@ -189,8 +195,8 @@ Observability: keylane.ObservabilityConfig{
 ```
 
 ### Design Commitments
-- **Run stats always on**: Cumulative run duration in `StatsGCPressure()` is independent of hooks and threshold.
-- **Slow detection gated**: `SlowJobThreshold <= 0` disables `OnSlowJob` only.
+- **Run stats configurable**: Cumulative run duration in `StatsGCPressure()` uses `EnableRunTiming` (on by default).
+- **Slow detection gated**: `SlowJobThreshold <= 0` or `EnableHooks: false` disables `OnSlowJob`.
 - **Lock Isolation**: Hooks execute **outside** shard and scheduler locks.
 - **Nil Safety**: Nil hooks are skipped with a branch only.
 - **Hook panics**: Hook panics are recovered so a bad observer cannot kill worker goroutines.
@@ -198,7 +204,13 @@ Observability: keylane.ObservabilityConfig{
 
 ---
 
-## 9. High-Cardinality Warning
+## 9. Low-Allocation Observability Mode (KL-1207)
+
+See [production-tuning.md](production-tuning.md) for when to enable `LowAllocationMode` or `LowAllocationObservabilityConfig()`, and how to benchmark visibility vs low-allocation overhead.
+
+---
+
+## 10. High-Cardinality Warning
 
 > [!WARNING]
 > **Do not use high-cardinality values as Lane names.**
@@ -214,7 +226,7 @@ Observability: keylane.ObservabilityConfig{
 
 ---
 
-## 10. Out-of-Scope Telemetry Integrations
+## 11. Out-of-Scope Telemetry Integrations
 
 To keep `go-keylane` lightweight and free from external dependencies:
 - It **does not** bundle built-in Prometheus metric exporters.

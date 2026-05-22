@@ -90,7 +90,20 @@ type DebugSnapshot struct {
 // DebugSnapshot returns a near-time diagnostic snapshot of scheduler queue state.
 // It is safe to read concurrently with submit and worker activity but does not
 // guarantee a globally atomic view across shards.
+func (s *Scheduler) emptyDebugSnapshot() DebugSnapshot {
+	return DebugSnapshot{
+		Version:     DebugSnapshotVersion,
+		GeneratedAt: time.Now(),
+		ShardCount:  len(s.shards),
+		LaneCount:   s.laneReg.Len(),
+		WorkerCount: s.workerCount,
+	}
+}
+
 func (s *Scheduler) DebugSnapshot() DebugSnapshot {
+	if !s.Obs.EnableDebugSnapshot {
+		return s.emptyDebugSnapshot()
+	}
 	view := s.collectSchedulerDebugView()
 	totalDepth, totalCapacity, totalInFlight := debugViewTotals(view)
 

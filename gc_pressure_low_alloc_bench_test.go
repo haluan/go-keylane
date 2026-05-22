@@ -11,7 +11,8 @@ import (
 const gcPressureBurstSize = 32
 
 // BenchmarkGCPressureLowAllocationMode compares scheduler batch pooling on a SubmitValue burst.
-// Lives in package keylane because DisablePooling is internal.
+// Lives in package keylane because DisablePooling is internal. For observability mode overhead,
+// use BenchmarkKeylaneSubmitLowAllocationObservability in ./benchmarks.
 func BenchmarkGCPressureLowAllocationMode(b *testing.B) {
 	b.Run("pooling_on", func(b *testing.B) {
 		benchmarkGCPressureLowAllocationMode(b, false)
