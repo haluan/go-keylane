@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure
+.PHONY: all fmt format test test-race test-adapters bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure
 
 all: format test
 
@@ -12,6 +12,10 @@ test:
 
 test-race:
 	go test -race -v ./...
+
+test-adapters:
+	cd metrics/prometheus && go test ./...
+	cd tracing/otel && go test ./...
 
 bench:
 	go test -v ./... -bench=. -benchmem

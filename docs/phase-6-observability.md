@@ -226,12 +226,12 @@ See [production-tuning.md](production-tuning.md) for when to enable `LowAllocati
 
 ---
 
-## 11. Out-of-Scope Telemetry Integrations
+## 11. Optional Prometheus and OpenTelemetry adapters (KL-1208)
 
-To keep `go-keylane` lightweight and free from external dependencies:
-- It **does not** bundle built-in Prometheus metric exporters.
-- It **does not** depend on or package OpenTelemetry SDK/API integrations.
-- It **does not** include custom structured loggers or tracing frameworks.
+The **core** package has no Prometheus or OpenTelemetry imports. Optional adapters:
 
-If you need to expose queue metrics to Prometheus or OpenTelemetry, you can easily pull stats on a timer via `q.Stats()` and publish them to your organization's telemetry system from your application's entrypoint.
+- [metrics-prometheus.md](metrics-prometheus.md) — `github.com/haluan/go-keylane/metrics/prometheus`
+- [tracing-opentelemetry.md](tracing-opentelemetry.md) — `github.com/haluan/go-keylane/tracing/otel`
+
+You can still call `StatsGCPressure()` or wire custom exporters without these modules.
 
