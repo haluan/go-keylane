@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane_test
 
 import (
@@ -897,8 +900,17 @@ func TestSlowJobEventFields(t *testing.T) {
 	if capturedEvent.ShardID != 0 {
 		t.Errorf("expected ShardID 0, got %d", capturedEvent.ShardID)
 	}
-	if capturedEvent.Duration < 5*time.Millisecond {
-		t.Errorf("expected Duration >= 5ms, got %v", capturedEvent.Duration)
+	if capturedEvent.RunDuration < 5*time.Millisecond {
+		t.Errorf("expected RunDuration >= 5ms, got %v", capturedEvent.RunDuration)
+	}
+	if capturedEvent.Threshold != 5*time.Millisecond {
+		t.Errorf("expected Threshold 5ms, got %v", capturedEvent.Threshold)
+	}
+	if capturedEvent.Outcome != keylane.JobOutcomeCompleted {
+		t.Errorf("expected Outcome Completed, got %v", capturedEvent.Outcome)
+	}
+	if capturedEvent.LaneID != 0 {
+		t.Errorf("expected LaneID 0, got %d", capturedEvent.LaneID)
 	}
 }
 
@@ -955,5 +967,258 @@ func TestSlowJobHookNotCalledInsideShardLock(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("Deadlocked! Hook executed inside shard lock, causing reentrant stats retrieval to block.")
+	}
+}
+
+func TestJobTimingHookCalled(t *testing.T) {
+	var timingCount int64
+	timingDone := make(chan keylane.JobTimingEvent, 2)
+
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+		Observability: keylane.ObservabilityConfig{
+			Hooks: keylane.Hooks{
+				OnJobTiming: func(ev keylane.JobTimingEvent) {
+					atomic.AddInt64(&timingCount, 1)
+					select {
+					case timingDone <- ev:
+					default:
+					}
+				},
+			},
+		},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	blockA := make(chan struct{})
+	startedA := make(chan struct{})
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-a",
+		Lane: "default",
+		Run: func(ctx context.Context) error {
+			close(startedA)
+			<-blockA
+			return nil
+		},
+	})
+	<-startedA
+	time.Sleep(25 * time.Millisecond)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-b",
+		Lane: "default",
+		Run: func(ctx context.Context) error {
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		},
+	})
+
+	if q.StatsGCPressure().TotalQueued == 0 {
+		t.Fatal("expected job B queued behind A before unblocking")
+	}
+	time.Sleep(25 * time.Millisecond)
+
+	close(blockA)
+
+	var captured keylane.JobTimingEvent
+	var foundQueued bool
+	deadline := time.After(500 * time.Millisecond)
+	for i := 0; i < 2; i++ {
+		select {
+		case ev := <-timingDone:
+			if ev.QueueWait >= 10*time.Millisecond {
+				captured = ev
+				foundQueued = true
+			}
+		case <-deadline:
+			t.Fatal("OnJobTiming not called twice before timeout")
+		}
+	}
+	if !foundQueued {
+		t.Fatal("expected OnJobTiming event with non-zero QueueWait for job queued behind a blocker")
+	}
+
+	if atomic.LoadInt64(&timingCount) != 2 {
+		t.Fatalf("OnJobTiming calls = %d, want 2", timingCount)
+	}
+	if captured.Outcome != keylane.JobOutcomeCompleted {
+		t.Errorf("Outcome = %v, want Completed", captured.Outcome)
+	}
+	if captured.RunDuration < 5*time.Millisecond {
+		t.Errorf("RunDuration = %v, want >= 5ms", captured.RunDuration)
+	}
+	if captured.QueueWait < 10*time.Millisecond {
+		t.Errorf("QueueWait = %v, want >= 10ms", captured.QueueWait)
+	}
+	if captured.Lane != "default" {
+		t.Errorf("Lane = %q, want default", captured.Lane)
+	}
+	if captured.LaneID != 0 {
+		t.Errorf("LaneID = %d, want 0", captured.LaneID)
+	}
+	if captured.ShardID != 0 {
+		t.Errorf("ShardID = %d, want 0", captured.ShardID)
+	}
+}
+
+func TestJobTimingHookNilSafe(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+		Observability: keylane.ObservabilityConfig{
+			Hooks: keylane.Hooks{OnJobTiming: nil},
+		},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	done := make(chan struct{})
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { close(done); return nil },
+	})
+	<-done
+}
+
+func TestJobTimingHookCanceledOutcome(t *testing.T) {
+	timingDone := make(chan keylane.JobTimingEvent, 1)
+
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+		Observability: keylane.ObservabilityConfig{
+			Hooks: keylane.Hooks{
+				OnJobTiming: func(ev keylane.JobTimingEvent) {
+					select {
+					case timingDone <- ev:
+					default:
+					}
+				},
+			},
+		},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { return context.Canceled },
+	})
+
+	var captured keylane.JobTimingEvent
+	select {
+	case captured = <-timingDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("OnJobTiming not called")
+	}
+
+	if captured.Outcome != keylane.JobOutcomeCanceled {
+		t.Errorf("Outcome = %v, want Canceled", captured.Outcome)
+	}
+}
+
+func TestJobTimingHookFailedOutcome(t *testing.T) {
+	timingDone := make(chan keylane.JobTimingEvent, 1)
+
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+		Observability: keylane.ObservabilityConfig{
+			Hooks: keylane.Hooks{
+				OnJobTiming: func(ev keylane.JobTimingEvent) {
+					select {
+					case timingDone <- ev:
+					default:
+					}
+				},
+			},
+		},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { return errors.New("fail") },
+	})
+
+	var captured keylane.JobTimingEvent
+	select {
+	case captured = <-timingDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("OnJobTiming not called")
+	}
+
+	if captured.Outcome != keylane.JobOutcomeFailed {
+		t.Errorf("Outcome = %v, want Failed", captured.Outcome)
+	}
+}
+
+func TestHookPanicDoesNotKillWorker(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+		Observability: keylane.ObservabilityConfig{
+			SlowJobThreshold: time.Millisecond,
+			Hooks: keylane.Hooks{
+				OnJobTiming: func(ev keylane.JobTimingEvent) {
+					panic("observer panic")
+				},
+			},
+		},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	for i := 0; i < 3; i++ {
+		done := make(chan struct{})
+		_ = q.Submit(context.Background(), keylane.Job{
+			Key:  "key",
+			Lane: "default",
+			Run: func(ctx context.Context) error {
+				time.Sleep(2 * time.Millisecond)
+				close(done)
+				return nil
+			},
+		})
+		<-done
+	}
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx, keylane.WithDrain(true))
+
+	if q.StatsGCPressure().Run.Count != 3 {
+		t.Errorf("Run.Count = %d, want 3 after hook panics", q.StatsGCPressure().Run.Count)
 	}
 }

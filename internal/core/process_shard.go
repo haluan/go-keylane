@@ -66,15 +66,6 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			}
 			break
 		}
-		if !job.AcceptedAt.IsZero() {
-			waitNanos := uint64(time.Since(job.AcceptedAt).Nanoseconds())
-			s.recordGCPressureQueueWait(shardID, job.LaneID, waitNanos)
-		}
-		if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
-			waitNanos := time.Since(job.EnqueuedAt).Nanoseconds()
-			s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
-			s.laneCounters[job.LaneID].queueWaitCount.Add(1)
-		}
 		func() {
 			defer func() {
 				s.inflight.Add(-1)
@@ -82,12 +73,21 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				s.laneInflight[job.LaneID].Add(-1)
 			}()
 
-			var start time.Time
-			if s.Obs.SlowJobThreshold > 0 {
-				start = time.Now()
+			startedAt := time.Now()
+			var queueWait time.Duration
+			if !job.AcceptedAt.IsZero() {
+				queueWait = startedAt.Sub(job.AcceptedAt)
+				s.recordGCPressureQueueWait(shardID, job.LaneID, uint64(queueWait.Nanoseconds()))
+			}
+			if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
+				waitNanos := startedAt.Sub(job.EnqueuedAt).Nanoseconds()
+				s.laneCounters[job.LaneID].queueWaitTotalNanos.Add(waitNanos)
+				s.laneCounters[job.LaneID].queueWaitCount.Add(1)
 			}
 
 			err := job.Run(ctx)
+			runDuration := time.Since(startedAt)
+			s.recordGCPressureRunDuration(shardID, job.LaneID, uint64(runDuration.Nanoseconds()))
 
 			counters := &s.laneCounters[job.LaneID]
 			if err == nil {
@@ -98,13 +98,7 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				counters.failedTotal.Add(1)
 			}
 
-			if s.Obs.SlowJobThreshold > 0 && s.Obs.OnSlowJob != nil {
-				dur := time.Since(start)
-				if dur >= s.Obs.SlowJobThreshold {
-					laneName := s.laneReg.Name(job.LaneID)
-					s.Obs.OnSlowJob(laneName, shardID, dur)
-				}
-			}
+			s.emitObservabilityHooks(shardID, job.LaneID, queueWait, runDuration, err)
 		}()
 	}
 

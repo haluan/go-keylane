@@ -4,7 +4,7 @@
 package keylane
 
 // StatsGCPressureVersion is the schema version of StatsGCPressureSnapshot.
-const StatsGCPressureVersion = "3"
+const StatsGCPressureVersion = "4"
 
 // StatsGCPressureSnapshot is a read-only, best-effort snapshot of queue depth,
 // in-flight pressure, and cumulative per-lane counters across shards and lanes.
@@ -21,6 +21,7 @@ type StatsGCPressureSnapshot struct {
 	TotalInFlight uint64
 
 	QueueWait QueueWaitStatsGCPressure
+	Run       RunStatsGCPressure
 
 	Shards []ShardStatsGCPressure
 	Lanes  []LaneStatsGCPressure
@@ -34,6 +35,7 @@ type ShardStatsGCPressure struct {
 	InFlight  uint64
 	Capacity  uint64
 	QueueWait QueueWaitStatsGCPressure
+	Run       RunStatsGCPressure
 	PerLane   []LaneDepthGCPressure
 }
 
@@ -82,6 +84,8 @@ type LaneStatsGCPressure struct {
 	Counters LaneCountersGCPressure
 	// QueueWait holds cumulative queue-wait timing for this lane across all shards.
 	QueueWait QueueWaitStatsGCPressure
+	// Run holds cumulative run-duration timing for this lane across all shards.
+	Run RunStatsGCPressure
 }
 
 // LaneDepthGCPressure reports queued depth for one lane within a single shard.

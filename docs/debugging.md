@@ -67,14 +67,25 @@ Workers are constantly active and CPU utilization is pinned at 100%:
 
 ## 6. Queue Wait vs. Run Time
 
-To accurately diagnose scheduler bottlenecks, compare a job's queue wait latency against its actual execution runtime:
-- **How to measure queue wait:** 
-  $$\text{Average Queue Wait} = \frac{\text{QueueWaitTotalNanos}}{\text{QueueWaitCount}}$$
-  This measures the average duration a job spends sitting in the queue before a worker processes it.
-- **How to measure execution time:** Implement logging or metrics around the job's `Run` block.
-- **Analysis:**
-  - If **Queue Wait > Run Time**: Workers are saturated or shards are processing too slowly. Increase worker threads or adjust lane quotas.
-  - If **Run Time > Queue Wait**: The performance bottleneck lies inside the application job callback logic itself (e.g., slow database queries or latent API requests).
+Use `StatsGCPressure()` to separate scheduler delay from user execution time:
+
+- **Queue wait** (`QueueWait`): time from admission to the lane queue until execution starts (before `Run()`).
+- **Run duration** (`Run`): time spent inside `Run()` only.
+
+```text
+Average queue wait = QueueWait.TotalNanos / QueueWait.Count
+Average run duration = Run.TotalNanos / Run.Count
+```
+
+Or use `QueueWait.AverageDuration()` and `Run.AverageDuration()`.
+
+**Analysis:**
+
+- **High queue wait, low run duration** — scheduler pressure, insufficient workers, hot lane/shard, or lane quota tuning.
+- **Low queue wait, high run duration** — slow user code, DB/HTTP latency, or blocking inside `Run`.
+- **Both high** — overload and slow work once admitted; consider backpressure, worker tuning, and profiling `Run`.
+
+Optional hooks: `OnJobTiming` reports per-job queue wait and run duration; `OnSlowJob` fires when run duration exceeds `SlowJobThreshold`.
 
 ---
 

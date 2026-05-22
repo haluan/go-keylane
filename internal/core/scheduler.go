@@ -11,23 +11,25 @@ import (
 
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards          []shard
-	ReadyCh         chan int
-	workerCount     int
-	laneQuotas      []int // indexed by LaneID
-	laneReg         *LaneRegistry
-	mu              sync.RWMutex
-	state           lifecycleState
-	stopDone        chan struct{}
-	workerCancel    context.CancelFunc
-	workerWG        sync.WaitGroup
-	inflight        atomic.Int64
-	shardInflight   []atomic.Int64
-	laneInflight    []atomic.Int64
-	Obs             ObservabilityConfig
-	laneCounters    []laneCounters
-	queueWaitGlobal queueWaitAccum
-	shardQueueWait  []queueWaitAccum
+	shards            []shard
+	ReadyCh           chan int
+	workerCount       int
+	laneQuotas        []int // indexed by LaneID
+	laneReg           *LaneRegistry
+	mu                sync.RWMutex
+	state             lifecycleState
+	stopDone          chan struct{}
+	workerCancel      context.CancelFunc
+	workerWG          sync.WaitGroup
+	inflight          atomic.Int64
+	shardInflight     []atomic.Int64
+	laneInflight      []atomic.Int64
+	Obs               ObservabilityConfig
+	laneCounters      []laneCounters
+	queueWaitGlobal   queueWaitAccum
+	shardQueueWait    []queueWaitAccum
+	runDurationGlobal runDurationAccum
+	shardRunDuration  []runDurationAccum
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -46,17 +48,19 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 	shardInflight := make([]atomic.Int64, shardCount)
 	laneInflight := make([]atomic.Int64, laneCount)
 	shardQueueWait := make([]queueWaitAccum, shardCount)
+	shardRunDuration := make([]runDurationAccum, shardCount)
 
 	return &Scheduler{
-		shards:         shards,
-		ReadyCh:        make(chan int, shardCount),
-		workerCount:    workerCount,
-		laneQuotas:     quotas,
-		laneReg:        reg,
-		shardInflight:  shardInflight,
-		laneInflight:   laneInflight,
-		laneCounters:   make([]laneCounters, laneCount),
-		shardQueueWait: shardQueueWait,
+		shards:           shards,
+		ReadyCh:          make(chan int, shardCount),
+		workerCount:      workerCount,
+		laneQuotas:       quotas,
+		laneReg:          reg,
+		shardInflight:    shardInflight,
+		laneInflight:     laneInflight,
+		laneCounters:     make([]laneCounters, laneCount),
+		shardQueueWait:   shardQueueWait,
+		shardRunDuration: shardRunDuration,
 	}, nil
 }
 

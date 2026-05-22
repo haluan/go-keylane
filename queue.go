@@ -47,12 +47,30 @@ func New(config Config) (*Queue, error) {
 		TrackQueueWait:   config.Observability.TrackQueueWait,
 		SlowJobThreshold: config.Observability.SlowJobThreshold,
 	}
+	if config.Observability.Hooks.OnJobTiming != nil {
+		h := config.Observability.Hooks.OnJobTiming
+		sched.Obs.OnJobTiming = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration time.Duration, outcome core.JobOutcome) {
+			h(JobTimingEvent{
+				ShardID:     shardID,
+				LaneID:      uint16(laneID),
+				Lane:        Lane(laneName),
+				QueueWait:   queueWait,
+				RunDuration: runDuration,
+				Outcome:     JobOutcome(outcome),
+			})
+		}
+	}
 	if config.Observability.Hooks.OnSlowJob != nil {
-		sched.Obs.OnSlowJob = func(lane string, shardID int, duration time.Duration) {
-			config.Observability.Hooks.OnSlowJob(SlowJobEvent{
-				Lane:     Lane(lane),
-				ShardID:  shardID,
-				Duration: duration,
+		h := config.Observability.Hooks.OnSlowJob
+		sched.Obs.OnSlowJob = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome core.JobOutcome) {
+			h(SlowJobEvent{
+				ShardID:     shardID,
+				LaneID:      uint16(laneID),
+				Lane:        Lane(laneName),
+				QueueWait:   queueWait,
+				RunDuration: runDuration,
+				Threshold:   threshold,
+				Outcome:     JobOutcome(outcome),
 			})
 		}
 	}
@@ -136,6 +154,7 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 			InFlight:  shard.InFlight,
 			Capacity:  shard.Capacity,
 			QueueWait: copyQueueWaitStatsGCPressure(shard.QueueWait),
+			Run:       copyRunStatsGCPressure(shard.Run),
 			PerLane:   perLane,
 		}
 	}
@@ -149,6 +168,7 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 			InFlight:  lane.InFlight,
 			Capacity:  lane.Capacity,
 			QueueWait: copyQueueWaitStatsGCPressure(lane.QueueWait),
+			Run:       copyRunStatsGCPressure(lane.Run),
 			Counters: LaneCountersGCPressure{
 				Submitted: lane.Counters.Submitted,
 				Accepted:  lane.Counters.Accepted,
@@ -170,6 +190,7 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 		TotalQueued:   cs.TotalQueued,
 		TotalInFlight: cs.TotalInFlight,
 		QueueWait:     copyQueueWaitStatsGCPressure(cs.QueueWait),
+		Run:           copyRunStatsGCPressure(cs.Run),
 		Shards:        shards,
 		Lanes:         lanes,
 	}
@@ -177,6 +198,14 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 
 func copyQueueWaitStatsGCPressure(in core.QueueWaitStatsGCPressure) QueueWaitStatsGCPressure {
 	return QueueWaitStatsGCPressure{
+		Count:      in.Count,
+		TotalNanos: in.TotalNanos,
+		MaxNanos:   in.MaxNanos,
+	}
+}
+
+func copyRunStatsGCPressure(in core.RunStatsGCPressure) RunStatsGCPressure {
+	return RunStatsGCPressure{
 		Count:      in.Count,
 		TotalNanos: in.TotalNanos,
 		MaxNanos:   in.MaxNanos,

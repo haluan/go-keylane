@@ -9,7 +9,8 @@ import "time"
 type ObservabilityConfig struct {
 	TrackQueueWait   bool
 	SlowJobThreshold time.Duration
-	OnSlowJob        func(lane string, shardID int, duration time.Duration)
+	OnJobTiming      func(shardID int, laneID LaneID, laneName string, queueWait, runDuration time.Duration, outcome JobOutcome)
+	OnSlowJob        func(shardID int, laneID LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome JobOutcome)
 
 	// Used only for benchmark testing to compare with and without sync.Pool
 	DisablePooling bool

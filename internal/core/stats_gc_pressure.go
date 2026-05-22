@@ -6,7 +6,7 @@ package core
 import "time"
 
 // StatsGCPressureVersion is the schema version of StatsGCPressureSnapshot.
-const StatsGCPressureVersion = "3"
+const StatsGCPressureVersion = "4"
 
 // StatsGCPressureSnapshot is a read-only, best-effort snapshot of scheduler queue
 // depth, in-flight pressure, and cumulative per-lane counters. It is safe to read
@@ -25,6 +25,7 @@ type StatsGCPressureSnapshot struct {
 	TotalInFlight uint64
 
 	QueueWait QueueWaitStatsGCPressure
+	Run       RunStatsGCPressure
 
 	Shards []ShardStatsGCPressure
 	Lanes  []LaneStatsGCPressure
@@ -60,6 +61,36 @@ func (s QueueWaitStatsGCPressure) MaxDuration() time.Duration {
 	return time.Duration(s.MaxNanos)
 }
 
+// RunStatsGCPressure holds cumulative run-duration timing for accepted jobs from
+// job start until Run returns (excludes queue wait). Values are best-effort under
+// concurrent updates and intended for diagnostics, not strict accounting.
+type RunStatsGCPressure struct {
+	// Count is the number of accepted jobs that finished Run and contributed a run sample.
+	Count uint64
+	// TotalNanos is the sum of run durations in nanoseconds.
+	TotalNanos uint64
+	// MaxNanos is the maximum observed run duration in nanoseconds.
+	MaxNanos uint64
+}
+
+// AverageNanos returns the average run duration in nanoseconds, or zero if Count is zero.
+func (s RunStatsGCPressure) AverageNanos() uint64 {
+	if s.Count == 0 {
+		return 0
+	}
+	return s.TotalNanos / s.Count
+}
+
+// AverageDuration returns the average run duration.
+func (s RunStatsGCPressure) AverageDuration() time.Duration {
+	return time.Duration(s.AverageNanos())
+}
+
+// MaxDuration returns the maximum observed run duration.
+func (s RunStatsGCPressure) MaxDuration() time.Duration {
+	return time.Duration(s.MaxNanos)
+}
+
 // ShardStatsGCPressure reports queued depth, in-flight jobs, capacity, and queue-wait
 // timing for one shard.
 type ShardStatsGCPressure struct {
@@ -68,6 +99,7 @@ type ShardStatsGCPressure struct {
 	InFlight  uint64
 	Capacity  uint64
 	QueueWait QueueWaitStatsGCPressure
+	Run       RunStatsGCPressure
 	PerLane   []LaneDepthGCPressure
 }
 
@@ -116,6 +148,8 @@ type LaneStatsGCPressure struct {
 	Counters LaneCountersGCPressure
 	// QueueWait holds cumulative queue-wait timing for this lane across all shards.
 	QueueWait QueueWaitStatsGCPressure
+	// Run holds cumulative run-duration timing for this lane across all shards.
+	Run RunStatsGCPressure
 }
 
 // LaneDepthGCPressure reports queued depth for one lane within a single shard.
@@ -178,6 +212,7 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 			InFlight:  shardInflight,
 			Capacity:  shardCapacity,
 			QueueWait: s.shardQueueWait[i].snapshot(),
+			Run:       s.shardRunDuration[i].snapshot(),
 			PerLane:   perLane,
 		}
 	}
@@ -193,6 +228,7 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 			Capacity:  laneCapacity[i],
 			Counters:  s.laneCounters[i].snapshotGCPressure(),
 			QueueWait: s.laneCounters[i].snapshotGCPressureQueueWait(),
+			Run:       s.laneCounters[i].snapshotGCPressureRun(),
 		}
 	}
 
@@ -204,6 +240,7 @@ func (s *Scheduler) StatsGCPressure() StatsGCPressureSnapshot {
 		TotalQueued:   totalQueued,
 		TotalInFlight: totalInFlight,
 		QueueWait:     s.queueWaitGlobal.snapshot(),
+		Run:           s.runDurationGlobal.snapshot(),
 		Shards:        shards,
 		Lanes:         lanes,
 	}
