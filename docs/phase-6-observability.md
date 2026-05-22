@@ -26,7 +26,35 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 2. Cumulative Lane Counters (StatsGCPressure)
+## 2. Debug Snapshot and Pressure (KL-1205)
+
+For **point-in-time** queue state (not cumulative metrics), use `Queue.DebugSnapshot()` and `Queue.Pressure()`.
+
+| API | Use when |
+|-----|----------|
+| `Pressure()` | Cheap admission/degradation check (`IsHealthy`, `IsPressured`, `IsOverloaded`) |
+| `DebugSnapshot()` | Full diagnostic view: per-shard/lane depth, hot rankings, embedded pressure |
+| `StatsGCPressure()` | Cumulative counters and timing since queue start |
+
+`Pressure` uses queue depth vs total capacity (`PressuredDepthRatio` = 0.70, `OverloadedDepthRatio` = 0.90). It is **queue-depth pressure only** — not CPU, GC, or latency SLOs.
+
+```go
+p := q.Pressure()
+if p.IsOverloaded {
+    return errSchedulerBusy
+}
+
+snap := q.DebugSnapshot()
+for _, hs := range snap.HotShards {
+    fmt.Printf("hot shard %d depth=%d ratio=%.2f\n", hs.ShardID, hs.Depth, hs.DepthRatio)
+}
+```
+
+`DebugSnapshot` is a **near-time** diagnostic view: safe under concurrent workers, but not a globally atomic stop-the-world snapshot. It does not expose mutable scheduler internals.
+
+---
+
+## 3. Cumulative Lane Counters (StatsGCPressure)
 
 `Queue.StatsGCPressure()` exposes per-lane `Counters` since queue start:
 
@@ -41,7 +69,7 @@ Counters are best-effort under concurrency and are not durable audit logs.
 
 ---
 
-## 3. Queue Wait Duration (StatsGCPressure, always on)
+## 4. Queue Wait Duration (StatsGCPressure, always on)
 
 `StatsGCPressure()` always includes queue-wait timing for **accepted** jobs, from admission until execution starts (before `Run()`). It does **not** include user job run time or caller latency after submit.
 
@@ -64,7 +92,7 @@ Use `AverageDuration()` / `MaxDuration()` helpers on `QueueWaitStatsGCPressure` 
 
 ---
 
-## 4. Run Duration (StatsGCPressure, always on)
+## 5. Run Duration (StatsGCPressure, always on)
 
 `StatsGCPressure()` always includes run-duration timing for **accepted** jobs, from immediately before `Run()` until `Run()` returns. It does **not** include queue wait or caller latency before submit.
 
@@ -86,7 +114,7 @@ Run stats are always collected. `SlowJobThreshold` only gates the `OnSlowJob` ca
 
 ---
 
-## 5. Lane Throughput Counters (Stats v1)
+## 6. Lane Throughput Counters (Stats v1)
 
 Each lane tracks standard throughput counters since queue startup:
 - **`SubmittedTotal`**: Total number of successfully enqueued jobs.
@@ -105,7 +133,7 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 6. Queue Wait Latency (Stats v1 opt-in)
+## 7. Queue Wait Latency (Stats v1 opt-in)
 
 To prevent unneeded epoch polling on hot execution paths, wait-time tracking is fully opt-in and disabled by default. Enable it in the configuration:
 
@@ -127,7 +155,7 @@ fmt.Printf("Average queue wait: %v\n", avgWait)
 
 ---
 
-## 7. Observability Hooks (Opt-in Callbacks)
+## 8. Observability Hooks (Opt-in Callbacks)
 
 ### OnJobTiming
 
@@ -170,7 +198,7 @@ Observability: keylane.ObservabilityConfig{
 
 ---
 
-## 8. High-Cardinality Warning
+## 9. High-Cardinality Warning
 
 > [!WARNING]
 > **Do not use high-cardinality values as Lane names.**
@@ -186,7 +214,7 @@ Observability: keylane.ObservabilityConfig{
 
 ---
 
-## 9. Out-of-Scope Telemetry Integrations
+## 10. Out-of-Scope Telemetry Integrations
 
 To keep `go-keylane` lightweight and free from external dependencies:
 - It **does not** bundle built-in Prometheus metric exporters.

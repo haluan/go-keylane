@@ -211,3 +211,105 @@ func copyRunStatsGCPressure(in core.RunStatsGCPressure) RunStatsGCPressure {
 		MaxNanos:   in.MaxNanos,
 	}
 }
+
+// Pressure returns a cheap queue-depth pressure signal for admission control and
+// degradation decisions. It does not allocate a full debug snapshot.
+func (q *Queue) Pressure() Pressure {
+	return copyPressure(q.sched.Pressure())
+}
+
+// DebugSnapshot returns a near-time diagnostic view of queue depth, capacity,
+// in-flight jobs, pressure, and hot shard/lane rankings. Safe for concurrent reads
+// while workers run; not a globally atomic stop-the-world snapshot.
+func (q *Queue) DebugSnapshot() DebugSnapshot {
+	return copyDebugSnapshot(q.sched.DebugSnapshot())
+}
+
+func copyPressure(in core.Pressure) Pressure {
+	return Pressure{
+		TotalDepth:      in.TotalDepth,
+		TotalCapacity:   in.TotalCapacity,
+		TotalInFlight:   in.TotalInFlight,
+		TotalDepthRatio: in.TotalDepthRatio,
+		IsHealthy:       in.IsHealthy,
+		IsPressured:     in.IsPressured,
+		IsOverloaded:    in.IsOverloaded,
+	}
+}
+
+func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
+	hotShards := make([]HotShard, len(in.HotShards))
+	for i, hs := range in.HotShards {
+		hotShards[i] = HotShard{
+			ShardID:    hs.ShardID,
+			Depth:      hs.Depth,
+			Capacity:   hs.Capacity,
+			InFlight:   hs.InFlight,
+			DepthRatio: hs.DepthRatio,
+		}
+	}
+	hotLanes := make([]HotLane, len(in.HotLanes))
+	for i, hl := range in.HotLanes {
+		hotLanes[i] = HotLane{
+			LaneID:     hl.LaneID,
+			Name:       hl.Name,
+			Depth:      hl.Depth,
+			Capacity:   hl.Capacity,
+			InFlight:   hl.InFlight,
+			DepthRatio: hl.DepthRatio,
+		}
+	}
+	shards := make([]ShardSnapshot, len(in.Shards))
+	for i, sh := range in.Shards {
+		laneDepths := make([]LaneDepthSnapshot, len(sh.LaneDepths))
+		for j, ld := range sh.LaneDepths {
+			laneDepths[j] = LaneDepthSnapshot{
+				LaneID: ld.LaneID,
+				Name:   ld.Name,
+				Depth:  ld.Depth,
+			}
+		}
+		shards[i] = ShardSnapshot{
+			ShardID:    sh.ShardID,
+			Depth:      sh.Depth,
+			Capacity:   sh.Capacity,
+			InFlight:   sh.InFlight,
+			DepthRatio: sh.DepthRatio,
+			LaneDepths: laneDepths,
+		}
+	}
+	lanes := make([]LaneSnapshot, len(in.Lanes))
+	for i, ln := range in.Lanes {
+		lanes[i] = LaneSnapshot{
+			LaneID:              ln.LaneID,
+			Name:                ln.Name,
+			Depth:               ln.Depth,
+			Capacity:            ln.Capacity,
+			InFlight:            ln.InFlight,
+			DepthRatio:          ln.DepthRatio,
+			Submitted:           ln.Submitted,
+			Completed:           ln.Completed,
+			Failed:              ln.Failed,
+			QueueFull:           ln.QueueFull,
+			QueueWaitNanosTotal: ln.QueueWaitNanosTotal,
+			QueueWaitNanosMax:   ln.QueueWaitNanosMax,
+			RunNanosTotal:       ln.RunNanosTotal,
+			RunNanosMax:         ln.RunNanosMax,
+		}
+	}
+	return DebugSnapshot{
+		Version:       in.Version,
+		GeneratedAt:   in.GeneratedAt,
+		ShardCount:    in.ShardCount,
+		LaneCount:     in.LaneCount,
+		WorkerCount:   in.WorkerCount,
+		TotalDepth:    in.TotalDepth,
+		TotalCapacity: in.TotalCapacity,
+		TotalInFlight: in.TotalInFlight,
+		Pressure:      copyPressure(in.Pressure),
+		HotShards:     hotShards,
+		HotLanes:      hotLanes,
+		Shards:        shards,
+		Lanes:         lanes,
+	}
+}
