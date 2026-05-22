@@ -69,6 +69,19 @@ go test -bench=BenchmarkKeylaneDebugSnapshotOnDemand -benchmem ./benchmarks
 
 Compare with `benchstat` (`-count=5` recommended). Root `BenchmarkGCPressureLowAllocationMode` measures **sync.Pool** batch recycling (`DisablePooling`), not observability mode.
 
+## Optional adapters (KL-1208)
+
+Prometheus and OpenTelemetry live in **separate modules** — the core package never imports them.
+
+| Adapter | Module | Integration |
+|---------|--------|-------------|
+| Prometheus | `github.com/haluan/go-keylane/metrics/prometheus` | Pull collector on `StatsGCPressure()` + `Pressure()` |
+| OpenTelemetry | `github.com/haluan/go-keylane/tracing/otel` | `NewHooks()` wired into `Observability.Hooks` |
+
+- See [metrics-prometheus.md](metrics-prometheus.md) and [tracing-opentelemetry.md](tracing-opentelemetry.md).
+- In low-allocation mode: Prometheus scrape stays off the hot path; disable `EnableHooks` to avoid OTEL span creation per job.
+- Do not add job `Key` or request IDs as metric/trace labels.
+
 ## Pull API cost
 
 - `StatsGCPressure()` and `DebugSnapshot()` may allocate when called; that is acceptable on demand.
