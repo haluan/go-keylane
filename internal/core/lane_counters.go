@@ -22,6 +22,11 @@ type laneCounters struct {
 	gcQueueWaitTotalNanos atomic.Uint64
 	gcQueueWaitMaxNanos   atomic.Uint64
 
+	// StatsGCPressure run duration (always on).
+	gcRunCount      atomic.Uint64
+	gcRunTotalNanos atomic.Uint64
+	gcRunMaxNanos   atomic.Uint64
+
 	// Stats() counters (successful enqueue semantics for submittedTotal, non-GC Pressure).
 	submittedTotal      atomic.Int64
 	completedTotal      atomic.Int64
@@ -36,6 +41,14 @@ func (c *laneCounters) snapshotGCPressureQueueWait() QueueWaitStatsGCPressure {
 		Count:      c.gcQueueWaitCount.Load(),
 		TotalNanos: c.gcQueueWaitTotalNanos.Load(),
 		MaxNanos:   c.gcQueueWaitMaxNanos.Load(),
+	}
+}
+
+func (c *laneCounters) snapshotGCPressureRun() RunStatsGCPressure {
+	return RunStatsGCPressure{
+		Count:      c.gcRunCount.Load(),
+		TotalNanos: c.gcRunTotalNanos.Load(),
+		MaxNanos:   c.gcRunMaxNanos.Load(),
 	}
 }
 

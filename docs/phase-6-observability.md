@@ -60,11 +60,33 @@ Use `AverageDuration()` / `MaxDuration()` helpers on `QueueWaitStatsGCPressure` 
 | Queued depth | How much work is waiting right now |
 | Per-lane counters | How much work has passed through each lane over time |
 | Queue wait duration | How long accepted work waited before execution |
-| Run duration (KL-1204) | How long user code runs after scheduling starts it |
+| Run duration | How long user code runs after execution starts |
 
 ---
 
-## 4. Lane Throughput Counters (Stats v1)
+## 4. Run Duration (StatsGCPressure, always on)
+
+`StatsGCPressure()` always includes run-duration timing for **accepted** jobs, from immediately before `Run()` until `Run()` returns. It does **not** include queue wait or caller latency before submit.
+
+Global, per-lane, and per-shard `Run` fields expose:
+
+- **`Count`**: Jobs that finished `Run` and contributed a run sample.
+- **`TotalNanos`**: Sum of run durations.
+- **`MaxNanos`**: Maximum observed run duration.
+
+Use `AverageDuration()` / `MaxDuration()` helpers on `RunStatsGCPressure`.
+
+**Queue wait vs run duration:**
+
+- **High queue wait, low run duration** — scheduler pressure, lane backlog, hot shard, or too few workers.
+- **Low queue wait, high run duration** — slow user code or downstream dependencies inside `Run`.
+- **Both high** — overload plus slow work once admitted.
+
+Run stats are always collected. `SlowJobThreshold` only gates the `OnSlowJob` callback, not cumulative run stats.
+
+---
+
+## 5. Lane Throughput Counters (Stats v1)
 
 Each lane tracks standard throughput counters since queue startup:
 - **`SubmittedTotal`**: Total number of successfully enqueued jobs.
@@ -83,7 +105,7 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 5. Queue Wait Latency (Stats v1 opt-in)
+## 6. Queue Wait Latency (Stats v1 opt-in)
 
 To prevent unneeded epoch polling on hot execution paths, wait-time tracking is fully opt-in and disabled by default. Enable it in the configuration:
 
@@ -105,33 +127,50 @@ fmt.Printf("Average queue wait: %v\n", avgWait)
 
 ---
 
-## 6. Slow Job Hook (Opt-in Callback)
+## 7. Observability Hooks (Opt-in Callbacks)
 
-You can register callback hooks to notify when job executions are unusually slow:
+### OnJobTiming
+
+Called after every completed job when registered:
 
 ```go
-cfg := keylane.Config{
-    // ... basic config ...
-    Observability: keylane.ObservabilityConfig{
-        SlowJobThreshold: 100 * time.Millisecond,
-        Hooks: keylane.Hooks{
-            OnSlowJob: func(ev keylane.SlowJobEvent) {
-                log.Printf("[WARNING] Slow job executed in lane %s (shard %d): took %v", 
-                    ev.Lane, ev.ShardID, ev.Duration)
-            },
+Hooks: keylane.Hooks{
+    OnJobTiming: func(ev keylane.JobTimingEvent) {
+        log.Printf("lane=%s shard=%d wait=%v run=%v outcome=%v",
+            ev.Lane, ev.ShardID, ev.QueueWait, ev.RunDuration, ev.Outcome)
+    },
+},
+```
+
+`JobTimingEvent` includes shard ID, lane ID/name, queue wait, run duration, and `JobOutcome` (`Completed`, `Failed`, `Canceled`).
+
+### OnSlowJob
+
+Called when run duration meets or exceeds `SlowJobThreshold`:
+
+```go
+Observability: keylane.ObservabilityConfig{
+    SlowJobThreshold: 100 * time.Millisecond,
+    Hooks: keylane.Hooks{
+        OnSlowJob: func(ev keylane.SlowJobEvent) {
+            log.Printf("[WARNING] Slow job lane=%s shard=%d wait=%v run=%v threshold=%v",
+                ev.Lane, ev.ShardID, ev.QueueWait, ev.RunDuration, ev.Threshold)
         },
     },
-}
+},
 ```
 
 ### Design Commitments
-- **Zerotiming Overhead**: If `SlowJobThreshold == 0`, no timing calculation takes place.
-- **Lock Isolation**: Slow job hooks execute **strictly outside** shard and scheduler locks, meaning a slow hook cannot block other active workers or shard queues.
-- **Nil Safety**: If `OnSlowJob` is `nil`, the timing is ignored gracefully.
+- **Run stats always on**: Cumulative run duration in `StatsGCPressure()` is independent of hooks and threshold.
+- **Slow detection gated**: `SlowJobThreshold <= 0` disables `OnSlowJob` only.
+- **Lock Isolation**: Hooks execute **outside** shard and scheduler locks.
+- **Nil Safety**: Nil hooks are skipped with a branch only.
+- **Hook panics**: Hook panics are recovered so a bad observer cannot kill worker goroutines.
+- **User panics**: User job panic recovery is not implemented; timing hooks are not guaranteed for panicking jobs.
 
 ---
 
-## 7. High-Cardinality Warning
+## 8. High-Cardinality Warning
 
 > [!WARNING]
 > **Do not use high-cardinality values as Lane names.**
@@ -147,7 +186,7 @@ cfg := keylane.Config{
 
 ---
 
-## 8. Out-of-Scope Telemetry Integrations
+## 9. Out-of-Scope Telemetry Integrations
 
 To keep `go-keylane` lightweight and free from external dependencies:
 - It **does not** bundle built-in Prometheus metric exporters.

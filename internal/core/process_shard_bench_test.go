@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func BenchmarkProcessShardEmpty(b *testing.B) {
@@ -128,6 +129,59 @@ func BenchmarkProcessShardWithoutPool(b *testing.B) {
 		s.shards[0].Ready = true
 		s.processShard(ctx, 0)
 	}
+}
+
+func benchmarkProcessShardHooks(b *testing.B, obs ObservabilityConfig) {
+	reg, _ := NewLaneRegistry(map[string]int{"default": 10})
+	s, _ := NewScheduler(1, 1, 1000, reg)
+	s.Obs = obs
+	ctx := context.Background()
+	job := InternalJob{KeyHash: 1, LaneID: 0, Run: dummyRun}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for k := 0; k < 10; k++ {
+			_ = s.shards[0].Lanes[0].push(job)
+		}
+		s.shards[0].Ready = true
+		s.processShard(ctx, 0)
+	}
+}
+
+func BenchmarkProcessShardNoHooks(b *testing.B) {
+	benchmarkProcessShardHooks(b, ObservabilityConfig{})
+}
+
+func BenchmarkProcessShardNilHooks(b *testing.B) {
+	benchmarkProcessShardHooks(b, ObservabilityConfig{
+		SlowJobThreshold: time.Millisecond,
+		OnJobTiming:      nil,
+		OnSlowJob:        nil,
+	})
+}
+
+func BenchmarkProcessShardLightweightHooks(b *testing.B) {
+	benchmarkProcessShardHooks(b, ObservabilityConfig{
+		SlowJobThreshold: time.Millisecond,
+		OnJobTiming: func(shardID int, laneID LaneID, laneName string, queueWait, runDuration time.Duration, outcome JobOutcome) {
+			_ = shardID
+			_ = laneID
+			_ = laneName
+			_ = queueWait
+			_ = runDuration
+			_ = outcome
+		},
+		OnSlowJob: func(shardID int, laneID LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome JobOutcome) {
+			_ = shardID
+			_ = laneID
+			_ = laneName
+			_ = queueWait
+			_ = runDuration
+			_ = threshold
+			_ = outcome
+		},
+	})
 }
 
 func BenchmarkProcessShardWithPool(b *testing.B) {

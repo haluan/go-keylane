@@ -6,6 +6,7 @@ package keylane_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -70,6 +71,9 @@ func checkStatsGCPressureSane(cfg keylane.Config, snap keylane.StatsGCPressureSn
 		terminal := c.Completed + c.Failed + c.Canceled + c.Panicked
 		if terminal > c.Accepted+1 {
 			return errors.New("lane terminal outcomes exceed Accepted")
+		}
+		if lane.Run.Count > terminal+1 {
+			return errors.New("lane Run.Count exceeds terminal outcomes")
 		}
 	}
 	return nil
@@ -379,6 +383,181 @@ func TestQueueWaitGCPressureGlobalEqualsSumOfLanes(t *testing.T) {
 	if snap.Lanes[0].QueueWait.Count != 1 || snap.Lanes[1].QueueWait.Count != 1 {
 		t.Errorf("per-lane Count: laneA=%d laneB=%d, want 1 each",
 			snap.Lanes[0].QueueWait.Count, snap.Lanes[1].QueueWait.Count)
+	}
+}
+
+func TestRunDurationGCPressureAcceptedJob(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	done := make(chan struct{})
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key",
+		Lane: "default",
+		Run:  func(ctx context.Context) error { close(done); return nil },
+	})
+	<-done
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx, keylane.WithDrain(true))
+
+	if q.StatsGCPressure().Run.Count != 1 {
+		t.Errorf("Run.Count = %d, want 1", q.StatsGCPressure().Run.Count)
+	}
+}
+
+func sumLaneRunGCPressure(lanes []keylane.LaneStatsGCPressure) (count, total uint64) {
+	for _, lane := range lanes {
+		count += lane.Run.Count
+		total += lane.Run.TotalNanos
+	}
+	return count, total
+}
+
+func TestRunDurationGCPressureGlobalEqualsSumOfLanes(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"laneA": 1, "laneB": 1},
+	}
+	q, _ := keylane.New(cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_ = q.Start(ctx)
+
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-a",
+		Lane: "laneA",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key:  "key-b",
+		Lane: "laneB",
+		Run:  func(ctx context.Context) error { return nil },
+	})
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx, keylane.WithDrain(true))
+
+	snap := q.StatsGCPressure()
+	laneCount, laneTotal := sumLaneRunGCPressure(snap.Lanes)
+
+	if snap.Run.Count != laneCount {
+		t.Errorf("global Run.Count = %d, sum of lanes = %d", snap.Run.Count, laneCount)
+	}
+	if snap.Run.TotalNanos != laneTotal {
+		t.Errorf("global Run.TotalNanos = %d, sum of lanes = %d", snap.Run.TotalNanos, laneTotal)
+	}
+}
+
+func TestRunDurationGCPressureAverageHelper(t *testing.T) {
+	run := keylane.RunStatsGCPressure{Count: 2, TotalNanos: 100, MaxNanos: 80}
+	if run.AverageNanos() != 50 {
+		t.Errorf("AverageNanos = %d, want 50", run.AverageNanos())
+	}
+	if run.AverageDuration() != 50*time.Nanosecond {
+		t.Errorf("AverageDuration = %v", run.AverageDuration())
+	}
+	if run.MaxDuration() != 80*time.Nanosecond {
+		t.Errorf("MaxDuration = %v", run.MaxDuration())
+	}
+}
+
+func TestRuntimeDurationConcurrentSubmitRunStatsAndHooks(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       2,
+		WorkerCount:      4,
+		QueueSizePerLane: 32,
+		LaneQuotas:       map[keylane.Lane]int{"a": 2, "b": 2},
+		Observability: keylane.ObservabilityConfig{
+			SlowJobThreshold: time.Millisecond,
+			Hooks: keylane.Hooks{
+				OnJobTiming: func(ev keylane.JobTimingEvent) {
+					_ = ev.RunDuration
+				},
+			},
+		},
+	}
+	q, err := keylane.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = q.Start(ctx)
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 8)
+
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			lane := keylane.Lane("a")
+			if id%2 == 1 {
+				lane = "b"
+			}
+			for j := 0; j < 50; j++ {
+				if ctx.Err() != nil {
+					return
+				}
+				_ = q.Submit(ctx, keylane.Job{
+					Key:  fmt.Sprintf("k-%d-%d", id, j),
+					Lane: lane,
+					Run: func(ctx context.Context) error {
+						if j%3 == 0 {
+							time.Sleep(time.Millisecond)
+						}
+						return nil
+					},
+				})
+			}
+		}(i)
+	}
+
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ctx.Err() == nil {
+				snap := q.StatsGCPressure()
+				if err := checkStatsGCPressureSane(cfg, snap); err != nil {
+					select {
+					case errCh <- err:
+					default:
+					}
+					return
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}()
+	}
+
+	wg.Wait()
+	cancel()
+	_ = q.Stop(context.Background(), keylane.WithDrain(true))
+
+	select {
+	case err := <-errCh:
+		t.Fatal(err)
+	default:
+	}
+	if snap := q.StatsGCPressure(); snap.Run.Count == 0 {
+		t.Error("expected run duration samples after concurrent load")
 	}
 }
 
