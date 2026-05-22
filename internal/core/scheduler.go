@@ -7,26 +7,27 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards        []shard
-	ReadyCh       chan int
-	workerCount   int
-	laneQuotas    []int // indexed by LaneID
-	laneReg       *LaneRegistry
-	mu            sync.RWMutex
-	state         lifecycleState
-	stopDone      chan struct{}
-	workerCancel  context.CancelFunc
-	workerWG      sync.WaitGroup
-	inflight      atomic.Int64
-	shardInflight []atomic.Int64
-	laneInflight  []atomic.Int64
-	Obs           ObservabilityConfig
-	laneCounters  []laneCounters
+	shards          []shard
+	ReadyCh         chan int
+	workerCount     int
+	laneQuotas      []int // indexed by LaneID
+	laneReg         *LaneRegistry
+	mu              sync.RWMutex
+	state           lifecycleState
+	stopDone        chan struct{}
+	workerCancel    context.CancelFunc
+	workerWG        sync.WaitGroup
+	inflight        atomic.Int64
+	shardInflight   []atomic.Int64
+	laneInflight    []atomic.Int64
+	Obs             ObservabilityConfig
+	laneCounters    []laneCounters
+	queueWaitGlobal queueWaitAccum
+	shardQueueWait  []queueWaitAccum
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -44,16 +45,18 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 
 	shardInflight := make([]atomic.Int64, shardCount)
 	laneInflight := make([]atomic.Int64, laneCount)
+	shardQueueWait := make([]queueWaitAccum, shardCount)
 
 	return &Scheduler{
-		shards:        shards,
-		ReadyCh:       make(chan int, shardCount),
-		workerCount:   workerCount,
-		laneQuotas:    quotas,
-		laneReg:       reg,
-		shardInflight: shardInflight,
-		laneInflight:  laneInflight,
-		laneCounters:  make([]laneCounters, laneCount),
+		shards:         shards,
+		ReadyCh:        make(chan int, shardCount),
+		workerCount:    workerCount,
+		laneQuotas:     quotas,
+		laneReg:        reg,
+		shardInflight:  shardInflight,
+		laneInflight:   laneInflight,
+		laneCounters:   make([]laneCounters, laneCount),
+		shardQueueWait: shardQueueWait,
 	}, nil
 }
 
@@ -94,12 +97,8 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 		return 0, false, ErrStopped
 	}
 
-	if s.Obs.TrackQueueWait {
-		job.EnqueuedAt = time.Now().UnixNano()
-	}
-
 	shardID := routeShardID(job.KeyHash, len(s.shards))
-	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
+	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.TrackQueueWait)
 	c.recordLaneAdmissionResult(err)
 	return shardID, becameReady, err
 }
@@ -120,12 +119,8 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 		return 0, false, ErrStopped
 	}
 
-	if s.Obs.TrackQueueWait {
-		job.EnqueuedAt = time.Now().UnixNano()
-	}
-
 	shardID := routeShardID(job.KeyHash, len(s.shards))
-	becameReady, err := enqueueIntoShard(&s.shards[shardID], job)
+	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.TrackQueueWait)
 	c.recordLaneAdmissionResult(err)
 	return shardID, becameReady, err
 }

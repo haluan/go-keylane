@@ -32,9 +32,10 @@ go test -bench='BenchmarkStatsGCPressure|BenchmarkSubmit' -benchmem .
 go test -bench='BenchmarkStatsGCPressure|BenchmarkProcessShard' -benchmem ./internal/core
 ```
 
-Use `benchstat` to compare before and after GC Pressure Snapshot:
+Use `benchstat` to compare before and after KL-1201/KL-1202/KL-1203:
 - **Submit path:** `BenchmarkSubmitSingleLane` and `BenchmarkSubmitHotPathAllocGuardrail` (queue never started; enqueue-only).
 - **processShard path:** `BenchmarkProcessShardSingleLane` and `BenchmarkProcessShardSingleLaneInflightGuardrail` (same workload; documents shardInflight/laneInflight atomic cost).
+- **Queue wait (KL-1203):** `BenchmarkRecordGCPressureQueueWait` (atomic update path); `BenchmarkStatsGCPressure` includes queue-wait fields. Successful enqueue stamps `AcceptedAt` (`time.Time`) on the queued job copy after `push`.
 
 ### Core Scheduler Benchmarks
 To run the internal lane queue and process shard loop benchmarks:

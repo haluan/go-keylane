@@ -1,12 +1,20 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var errInvalidLaneID = errors.New("keylane: invalid lane id")
 
 // enqueueIntoShard adds a job to the correct lane queue inside the shard.
 // It returns becameReady=true if the shard was not Ready and is now Ready.
-func enqueueIntoShard(s *shard, job InternalJob) (becameReady bool, err error) {
+// Admission timestamps are stamped immediately before a successful push so queue
+// wait excludes time spent waiting on the shard lock or admission checks.
+func enqueueIntoShard(s *shard, job InternalJob, trackQueueWait bool) (becameReady bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -14,9 +22,12 @@ func enqueueIntoShard(s *shard, job InternalJob) (becameReady bool, err error) {
 		return false, errInvalidLaneID
 	}
 
-	if err := s.Lanes[job.LaneID].push(job); err != nil {
+	lane := &s.Lanes[job.LaneID]
+	if err := lane.push(job); err != nil {
 		return false, err
 	}
+	acceptedAt := time.Now()
+	lane.stampNewestAccepted(acceptedAt, trackQueueWait)
 
 	if !s.Ready {
 		s.Ready = true

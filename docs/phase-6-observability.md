@@ -41,7 +41,30 @@ Counters are best-effort under concurrency and are not durable audit logs.
 
 ---
 
-## 3. Lane Throughput Counters (Stats v1)
+## 3. Queue Wait Duration (StatsGCPressure, always on)
+
+`StatsGCPressure()` always includes queue-wait timing for **accepted** jobs, from admission until execution starts (before `Run()`). It does **not** include user job run time or caller latency after submit.
+
+Global, per-lane, and per-shard `QueueWait` fields expose:
+
+- **`Count`**: Jobs that started execution and contributed a wait sample.
+- **`TotalNanos`**: Sum of queue-wait durations.
+- **`MaxNanos`**: Maximum observed queue-wait duration.
+
+Use `AverageDuration()` / `MaxDuration()` helpers on `QueueWaitStatsGCPressure` for convenience.
+
+**v1 opt-in:** `Config.Observability.TrackQueueWait` still gates legacy `QueueWaitCount` / `QueueWaitTotalNanos` on `Stats()` only. StatsGCPressure queue-wait is independent and always collected.
+
+| Metric | Meaning |
+|--------|---------|
+| Queued depth | How much work is waiting right now |
+| Per-lane counters | How much work has passed through each lane over time |
+| Queue wait duration | How long accepted work waited before execution |
+| Run duration (KL-1204) | How long user code runs after scheduling starts it |
+
+---
+
+## 4. Lane Throughput Counters (Stats v1)
 
 Each lane tracks standard throughput counters since queue startup:
 - **`SubmittedTotal`**: Total number of successfully enqueued jobs.
@@ -60,7 +83,7 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 4. Queue Wait Latency (Opt-in)
+## 5. Queue Wait Latency (Stats v1 opt-in)
 
 To prevent unneeded epoch polling on hot execution paths, wait-time tracking is fully opt-in and disabled by default. Enable it in the configuration:
 
@@ -82,7 +105,7 @@ fmt.Printf("Average queue wait: %v\n", avgWait)
 
 ---
 
-## 5. Slow Job Hook (Opt-in Callback)
+## 6. Slow Job Hook (Opt-in Callback)
 
 You can register callback hooks to notify when job executions are unusually slow:
 
@@ -108,7 +131,7 @@ cfg := keylane.Config{
 
 ---
 
-## 6. High-Cardinality Warning
+## 7. High-Cardinality Warning
 
 > [!WARNING]
 > **Do not use high-cardinality values as Lane names.**
@@ -124,7 +147,7 @@ cfg := keylane.Config{
 
 ---
 
-## 7. Out-of-Scope Telemetry Integrations
+## 8. Out-of-Scope Telemetry Integrations
 
 To keep `go-keylane` lightweight and free from external dependencies:
 - It **does not** bundle built-in Prometheus metric exporters.
