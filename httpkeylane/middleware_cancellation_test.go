@@ -184,3 +184,44 @@ func TestHTTPRuntimeAwaitTimeoutDoesNotLeak(t *testing.T) {
 
 	eventuallyNoGoroutineGrowth(t, before, 4)
 }
+
+func TestHTTPRuntimeCancelledWithOverloadEnabled(t *testing.T) {
+	hold := make(chan struct{})
+	obs := newTestRequestObserver()
+	q, _ := newTestQueue(t, withWorkerCount(1), withRequestHooks(obs.hooks()))
+	_, _ = q.UpdateOverloadPolicy(keylane.OverloadPolicy{
+		Default: keylane.LaneOverloadPolicy{
+			Class: keylane.LaneNormal, RejectAboveRatio: 0.90, MaxQueueDepth: 100,
+		},
+	})
+	blockWorker(t, q, hold)
+
+	var ran atomic.Bool
+	handler := Middleware(q, Config{
+		KeyFunc:  StaticKey("k"),
+		LaneFunc: StaticLane(keylane.Lane("default")),
+		Overload: OverloadConfig{Enabled: true},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ran.Store(true)
+	}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(ctx)
+
+	done := make(chan struct{})
+	go func() {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		close(done)
+	}()
+
+	obs.waitQueued(t, 1)
+	cancel()
+	close(hold)
+	waitDone(t, done, "middleware did not return with overload enabled")
+
+	if ran.Load() {
+		t.Error("handler ran after cancel while queued with overload enabled")
+	}
+}

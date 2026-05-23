@@ -34,6 +34,9 @@ type ObservabilityConfig struct {
 	EnableRunTiming bool
 	// EnableHooks controls OnJobTiming and OnSlowJob dispatch (Hooks are ignored when false).
 	EnableHooks bool
+	// EnableAdaptiveDecisionTracing emits hold/neutral adaptive decisions via OnAdaptiveQuotaDecision.
+	// When false, only successful changes and apply failures invoke the hook.
+	EnableAdaptiveDecisionTracing bool
 	// EnableDebugSnapshot controls DebugSnapshot (Pressure remains available).
 	EnableDebugSnapshot bool
 	// LowAllocationMode applies LowAllocationObservabilityConfig at queue construction.

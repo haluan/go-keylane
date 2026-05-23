@@ -45,10 +45,16 @@ func ResolveObservabilityConfig(in ObservabilityConfig) ObservabilityConfig {
 		out := DefaultObservabilityConfig()
 		out.TrackQueueWait = in.TrackQueueWait
 		out.SlowJobThreshold = in.SlowJobThreshold
+		out.EnableAdaptiveDecisionTracing = in.EnableAdaptiveDecisionTracing
 		out.Hooks = in.Hooks
 		return out
 	}
 	return in
+}
+
+func hasV04Hooks(h Hooks) bool {
+	return h.OnQuotaChange != nil || h.OnOverloadPolicyDecision != nil ||
+		h.OnAdaptiveQuotaDecision != nil
 }
 
 func isUnsetObservabilityConfig(c ObservabilityConfig) bool {
@@ -56,6 +62,9 @@ func isUnsetObservabilityConfig(c ObservabilityConfig) bool {
 		return false
 	}
 	if anyEnableFlagExplicit(c) {
+		return false
+	}
+	if hasV04Hooks(c.Hooks) || c.EnableAdaptiveDecisionTracing {
 		return false
 	}
 	return !c.TrackQueueWait && c.SlowJobThreshold == 0 &&
@@ -66,7 +75,8 @@ func isUnsetObservabilityConfig(c ObservabilityConfig) bool {
 
 func anyEnableFlagExplicit(c ObservabilityConfig) bool {
 	return c.EnableStats || c.EnableCounters || c.EnableQueueWaitTiming ||
-		c.EnableRunTiming || c.EnableHooks || c.EnableDebugSnapshot
+		c.EnableRunTiming || c.EnableHooks || c.EnableDebugSnapshot ||
+		c.EnableAdaptiveDecisionTracing
 }
 
 func legacyOnlyObservabilityConfig(c ObservabilityConfig) bool {
@@ -80,5 +90,6 @@ func legacyOnlyObservabilityConfig(c ObservabilityConfig) bool {
 	return c.TrackQueueWait || c.SlowJobThreshold > 0 ||
 		c.Hooks.OnJobTiming != nil || c.Hooks.OnSlowJob != nil ||
 		c.Hooks.Request.OnQueued != nil || c.Hooks.Request.OnStarted != nil ||
-		c.Hooks.Request.OnCompleted != nil || c.Hooks.Request.OnRejected != nil
+		c.Hooks.Request.OnCompleted != nil || c.Hooks.Request.OnRejected != nil ||
+		hasV04Hooks(c.Hooks) || c.EnableAdaptiveDecisionTracing
 }

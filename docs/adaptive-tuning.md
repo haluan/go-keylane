@@ -71,7 +71,11 @@ Manual `UpdateLaneQuota` / `UpdateQuotaPolicy` remain available when adaptive qu
 
 ## Policy and quota versions on events
 
-`QuotaVersion` on each decision reflects the quota policy snapshot the controller observed at evaluation time. `PolicyVersion` is reserved for future adaptive-policy updates and is currently always `1` for the controller lifetime.
+`QuotaVersion` on each decision reflects the quota policy snapshot the controller observed at evaluation time. `PolicyVersion` on `AdaptiveQuotaDecisionEvent` and adaptive quota decisions is the controller config generation (currently `1`). On `QuotaChangeEvent`, `PolicyVersion` is `0` when `source=manual` (not applicable) and the adaptive controller generation when `source=adaptive`; use `QuotaVersion` as the authoritative quota-policy generation on quota change events. Overload policy version is on `OverloadPolicyEvent` and `DebugSnapshot().OverloadPolicyVersion`, not on `QuotaChangeEvent`. See [observability.md](observability.md) for the full version field table.
+
+## LaneAdaptiveStats.LastDecision
+
+`LastDecision` in `AdaptiveDebugSnapshot` reflects the **most recent adaptive evaluation reason** for that lane, including hold decisions. The `AdaptiveHoldTotal` counter increments only when `EnableAdaptiveDecisionTracing` is on; use `LastDecision` to see why the controller held without enabling noisy hold hooks.
 
 ## Related docs
 

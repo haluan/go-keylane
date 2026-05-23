@@ -9,6 +9,16 @@ import (
 	"time"
 )
 
+// BenchmarkSubmitAdaptiveDisabled is the KL-1405 spec name for BenchmarkSubmitWithAdaptiveQuotaDisabled.
+func BenchmarkSubmitAdaptiveDisabled(b *testing.B) {
+	BenchmarkSubmitWithAdaptiveQuotaDisabled(b)
+}
+
+// BenchmarkSubmitAdaptiveEnabled is the KL-1405 spec name for BenchmarkSubmitWithAdaptiveQuotaEnabled.
+func BenchmarkSubmitAdaptiveEnabled(b *testing.B) {
+	BenchmarkSubmitWithAdaptiveQuotaEnabled(b)
+}
+
 func BenchmarkSubmitWithAdaptiveQuotaDisabled(b *testing.B) {
 	q, _ := New(Config{
 		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10,
@@ -92,6 +102,17 @@ func BenchmarkAdaptiveQuotaCriticalAndBackground(b *testing.B) {
 			lane = "background"
 		}
 		_ = q.Submit(ctx, Job{Key: "k", Lane: lane, Run: func(context.Context) error { return nil }})
+	}
+}
+
+func BenchmarkAdaptiveDebugSnapshot(b *testing.B) {
+	q, _ := New(criticalBackgroundBenchConfig(true))
+	ctx := context.Background()
+	_ = q.Start(ctx)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = q.AdaptiveDebugSnapshot()
 	}
 }
 

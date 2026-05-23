@@ -24,27 +24,27 @@ const (
 )
 
 // QuotaAdjustmentReason is a stable reason code for adaptive quota decisions.
-type QuotaAdjustmentReason string
+type QuotaAdjustmentReason = core.QuotaAdjustmentReason
 
 const (
-	QuotaReasonNone                    QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonNone)
-	QuotaReasonCriticalQueueWaitHigh   QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonCriticalQueueWaitHigh)
-	QuotaReasonNormalQueueWaitHigh     QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonNormalQueueWaitHigh)
-	QuotaReasonGlobalPressureHigh      QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonGlobalPressureHigh)
-	QuotaReasonBackgroundPressureHigh  QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonBackgroundPressureHigh)
-	QuotaReasonBestEffortPressureHigh  QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonBestEffortPressureHigh)
-	QuotaReasonRunTimeTooHigh          QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonRunTimeTooHigh)
-	QuotaReasonCooldownActive          QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonCooldownActive)
-	QuotaReasonAtMinBound              QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonAtMinBound)
-	QuotaReasonAtMaxBound              QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonAtMaxBound)
-	QuotaReasonInsufficientSamples     QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonInsufficientSamples)
-	QuotaReasonIncreaseDisabled        QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonIncreaseDisabled)
-	QuotaReasonDecreaseDisabled        QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonDecreaseDisabled)
-	QuotaReasonWarmupActive            QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonWarmupActive)
-	QuotaReasonNeutralPressure         QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonNeutralPressure)
-	QuotaReasonBackgroundQueueWaitHigh QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonBackgroundQueueWaitHigh)
-	QuotaReasonQueueFull               QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonQueueFull)
-	QuotaReasonUpdateFailed            QuotaAdjustmentReason = QuotaAdjustmentReason(core.QuotaReasonUpdateFailed)
+	QuotaReasonNone                    = core.QuotaReasonNone
+	QuotaReasonCriticalQueueWaitHigh   = core.QuotaReasonCriticalQueueWaitHigh
+	QuotaReasonNormalQueueWaitHigh     = core.QuotaReasonNormalQueueWaitHigh
+	QuotaReasonGlobalPressureHigh      = core.QuotaReasonGlobalPressureHigh
+	QuotaReasonBackgroundPressureHigh  = core.QuotaReasonBackgroundPressureHigh
+	QuotaReasonBestEffortPressureHigh  = core.QuotaReasonBestEffortPressureHigh
+	QuotaReasonRunTimeTooHigh          = core.QuotaReasonRunTimeTooHigh
+	QuotaReasonCooldownActive          = core.QuotaReasonCooldownActive
+	QuotaReasonAtMinBound              = core.QuotaReasonAtMinBound
+	QuotaReasonAtMaxBound              = core.QuotaReasonAtMaxBound
+	QuotaReasonInsufficientSamples     = core.QuotaReasonInsufficientSamples
+	QuotaReasonIncreaseDisabled        = core.QuotaReasonIncreaseDisabled
+	QuotaReasonDecreaseDisabled        = core.QuotaReasonDecreaseDisabled
+	QuotaReasonWarmupActive            = core.QuotaReasonWarmupActive
+	QuotaReasonNeutralPressure         = core.QuotaReasonNeutralPressure
+	QuotaReasonBackgroundQueueWaitHigh = core.QuotaReasonBackgroundQueueWaitHigh
+	QuotaReasonQueueFull               = core.QuotaReasonQueueFull
+	QuotaReasonUpdateFailed            = core.QuotaReasonUpdateFailed
 )
 
 // AdaptiveQuotaConfig configures the adaptive quota evaluation loop.
@@ -106,15 +106,20 @@ type QuotaAdjustmentDecision struct {
 
 	GlobalPressure float64
 	QueueDepth     uint32
+	InFlight       uint32
+	QueueWaitP50   time.Duration
 	QueueWaitP95   time.Duration
+	QueueWaitP99   time.Duration
+	RunP50         time.Duration
 	RunP95         time.Duration
+	RunP99         time.Duration
 
 	PolicyVersion uint64
 	QuotaVersion  uint64
 }
 
-// AdaptiveQuotaEvent is emitted when adaptive quota changes a lane quota.
-type AdaptiveQuotaEvent struct {
+// AdaptiveQuotaDecisionEvent is the KL-1405 spec name for adaptive quota decision payloads.
+type AdaptiveQuotaDecisionEvent struct {
 	Time time.Time
 
 	Lane  Lane
@@ -128,14 +133,62 @@ type AdaptiveQuotaEvent struct {
 
 	GlobalPressure float64
 	QueueDepth     uint32
-	QueueWaitP95   time.Duration
-	RunP95         time.Duration
+	InFlight       uint32
+
+	QueueWaitP50 time.Duration
+	QueueWaitP95 time.Duration
+	QueueWaitP99 time.Duration
+	RunP50       time.Duration
+	RunP95       time.Duration
+	RunP99       time.Duration
+
+	PolicyVersion uint64
+	QuotaVersion  uint64
+}
+
+// AdaptiveQuotaEvent is an alias for AdaptiveQuotaDecisionEvent (legacy name).
+type AdaptiveQuotaEvent = AdaptiveQuotaDecisionEvent
+
+// LaneAdaptiveStats holds per-lane adaptive quota observability counters.
+type LaneAdaptiveStats struct {
+	Lane Lane
+
+	KeepTotal    uint64
+	RejectTotal  uint64
+	ShedTotal    uint64
+	DegradeTotal uint64
+
+	QueueFullTotal uint64
+
+	QuotaChangeTotal      uint64
+	AdaptiveIncreaseTotal uint64
+	AdaptiveDecreaseTotal uint64
+	AdaptiveHoldTotal     uint64
+
+	LastQuotaChange time.Time
+	LastDecision    QuotaAdjustmentReason
+}
+
+// AdaptiveDebugSnapshot is a diagnostic view of adaptive quota controller state and per-lane stats.
+type AdaptiveDebugSnapshot struct {
+	Enabled bool
+	Running bool
+
+	LastEvaluation time.Time
+	TickCount      uint64
+
+	LastDecisions []QuotaAdjustmentDecision
+
+	Lanes []LaneAdaptiveStats
 
 	PolicyVersion uint64
 	QuotaVersion  uint64
 }
 
 // AdaptiveControllerSnapshot is a read-only view of controller state.
+//
+// Deprecated: use AdaptiveDebugSnapshot for operator diagnostics; this type is
+// retained for KL-1404 compatibility and omits per-lane stats.
 type AdaptiveControllerSnapshot struct {
 	Enabled bool
 	Running bool
@@ -279,7 +332,7 @@ func ValidateAdaptiveQuotaPolicy(policy AdaptiveQuotaPolicy, laneQuotas map[Lane
 	return nil
 }
 
-func adaptiveQuotaConfigToCore(cfg AdaptiveQuotaConfig) core.AdaptiveQuotaConfig {
+func adaptiveQuotaConfigToCore(cfg AdaptiveQuotaConfig, emitHoldDecisions bool) core.AdaptiveQuotaConfig {
 	return core.AdaptiveQuotaConfig{
 		Enabled:               cfg.Enabled,
 		EvaluationInterval:    cfg.EvaluationInterval,
@@ -294,6 +347,7 @@ func adaptiveQuotaConfigToCore(cfg AdaptiveQuotaConfig) core.AdaptiveQuotaConfig
 		MaxAdjustmentsPerTick: cfg.MaxAdjustmentsPerTick,
 		EnableIncrease:        cfg.EnableIncrease,
 		EnableDecrease:        cfg.EnableDecrease,
+		EmitHoldDecisions:     emitHoldDecisions,
 	}
 }
 
@@ -321,8 +375,13 @@ func quotaAdjustmentDecisionFromCore(d core.QuotaAdjustmentDecision) QuotaAdjust
 		NewQuota:       d.NewQuota,
 		GlobalPressure: d.GlobalPressure,
 		QueueDepth:     d.QueueDepth,
+		InFlight:       d.InFlight,
+		QueueWaitP50:   d.QueueWaitP50,
 		QueueWaitP95:   d.QueueWaitP95,
+		QueueWaitP99:   d.QueueWaitP99,
+		RunP50:         d.RunP50,
 		RunP95:         d.RunP95,
+		RunP99:         d.RunP99,
 		PolicyVersion:  d.PolicyVersion,
 		QuotaVersion:   d.QuotaVersion,
 	}

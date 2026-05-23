@@ -6,7 +6,9 @@ package keylane
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
+	"time"
 )
 
 type sumInput struct {
@@ -295,4 +297,44 @@ func TestSubmitRequestWithRequestID(t *testing.T) {
 	if _, err := future.Await(ctx); err != nil {
 		t.Fatalf("Await: %v", err)
 	}
+}
+
+func TestAwaitTimeoutNoGoroutineLeak(t *testing.T) {
+	before := runtime.NumGoroutine()
+	q, err := New(Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 64,
+		LaneQuotas: map[Lane]int{"default": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCtx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
+	_ = q.Start(runCtx)
+
+	block := make(chan struct{})
+	for i := 0; i < 10; i++ {
+		future, submitErr := SubmitRequest(runCtx, q, Request[sumInput, sumOutput]{
+			Meta:  RequestMeta{Key: "k", Lane: "default"},
+			Input: sumInput{A: 1, B: 1},
+			Handle: func(context.Context, sumInput) (sumOutput, error) {
+				<-block
+				return sumOutput{Sum: 2}, nil
+			},
+		})
+		if submitErr != nil {
+			t.Fatalf("SubmitRequest: %v", submitErr)
+		}
+		awaitCtx, awaitCancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+		_, awaitErr := future.Await(awaitCtx)
+		awaitCancel()
+		if !errors.Is(awaitErr, context.DeadlineExceeded) {
+			t.Fatalf("Await = %v, want deadline exceeded", awaitErr)
+		}
+	}
+	close(block)
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer stopCancel()
+	_ = q.Stop(stopCtx)
+	eventuallyNoGoroutineGrowth(t, before, 8)
 }

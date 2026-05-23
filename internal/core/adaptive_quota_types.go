@@ -56,6 +56,9 @@ type AdaptiveQuotaConfig struct {
 
 	EnableIncrease bool
 	EnableDecrease bool
+
+	// EmitHoldDecisions enables hooks/counters for hold outcomes (debug tracing).
+	EmitHoldDecisions bool
 }
 
 type LaneAdaptivePolicy struct {
@@ -146,8 +149,13 @@ type QuotaAdjustmentDecision struct {
 
 	GlobalPressure float64
 	QueueDepth     uint32
+	InFlight       uint32
+	QueueWaitP50   time.Duration
 	QueueWaitP95   time.Duration
+	QueueWaitP99   time.Duration
+	RunP50         time.Duration
 	RunP95         time.Duration
+	RunP99         time.Duration
 
 	PolicyVersion uint64
 	QuotaVersion  uint64

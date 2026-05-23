@@ -26,7 +26,8 @@ Optional adapters     -> Prometheus pull, OpenTelemetry spans
 | Run duration | `RunStatsGCPressure` in snapshot | Time inside `Run` only |
 | Debug | `Queue.DebugSnapshot()` | Hot shard/lane, per-shard/lane depth at call time |
 | Pressure | `Queue.Pressure()` | `IsHealthy`, `IsPressured`, `IsOverloaded`, depth ratios |
-| Hooks | `Hooks.OnJobTiming`, `OnSlowJob` | Custom or adapter integration |
+| Hooks | `Hooks.OnJobTiming`, `OnSlowJob`, `OnQuotaChange`, `OnAdaptiveQuotaDecision`, `OnOverloadPolicyDecision` | Custom or adapter integration |
+| Adaptive debug | `Queue.AdaptiveDebugSnapshot()` | Controller state + per-lane adaptive counters |
 | Adapters | separate modules | [Prometheus](metrics-prometheus.md), [OpenTelemetry](tracing-opentelemetry.md) |
 
 ---
@@ -134,6 +135,46 @@ Do not label metrics or spans with job `Key`, request IDs, or other high-cardina
 **Lanes** must be a small static set (`payment`, `audit`, `webhook`). Do not use tenant IDs or request IDs as lane names — internal structures are allocated per registered lane.
 
 Use **`Job.Key`** for per-tenant routing into shards; keep lanes as workload classes.
+
+---
+
+## v0.4 quota, overload, and adaptive hooks
+
+When `Observability.EnableHooks` is true:
+
+| Hook | When it fires |
+|------|----------------|
+| `OnQuotaChange` | After every successful quota publish (`source=manual` or `source=adaptive`) |
+| `OnAdaptiveQuotaDecision` | After adaptive evaluation produces a decision (successful change, apply failure, or hold when tracing is on) |
+| `OnOverloadPolicyDecision` | On overload reject, shed, or degrade (not on keep) |
+
+Set `EnableAdaptiveDecisionTracing` to also receive **hold** adaptive decisions via `OnAdaptiveQuotaDecision` (can be noisy). Hold decisions always update `LaneAdaptiveStats.LastDecision` in snapshots; only the hold **counter** requires tracing.
+
+**Spec type names (KL-1405):**
+
+| Spec name | Package type | Notes |
+|-----------|--------------|-------|
+| `AdaptiveQuotaDecisionEvent` | Primary struct for adaptive decision hooks | |
+| `AdaptiveQuotaEvent` | Type alias | Same as `AdaptiveQuotaDecisionEvent` |
+
+**Version fields on events:**
+
+| Field | Meaning |
+|-------|---------|
+| `QuotaVersion` | Monotonic generation of the active **quota policy** snapshot (`CurrentQuotaPolicy().Version`) — authoritative for all `QuotaChangeEvent` sources |
+| `PolicyVersion` on `QuotaChangeEvent` | Adaptive controller config generation when `source=adaptive`; `0` for `source=manual` (not applicable) |
+| `PolicyVersion` on `AdaptiveQuotaDecisionEvent` | Adaptive controller config generation (currently `1` until config reload versioning exists) |
+
+```go
+snap := q.AdaptiveDebugSnapshot()
+// Enabled, Running, LastDecisions, per-lane LaneAdaptiveStats, PolicyVersion, QuotaVersion
+```
+
+`AdaptiveQuotaSnapshot` is deprecated; use `AdaptiveDebugSnapshot` for operator diagnostics (includes per-lane stats).
+
+Hooks are invoked outside scheduler and quota locks. Disabled hooks add no event payload allocation on the submit path.
+
+See [adaptive-quota.md](adaptive-quota.md), [overload-policy.md](overload-policy.md), and [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
 
 ---
 

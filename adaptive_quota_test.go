@@ -564,6 +564,26 @@ func TestAdaptiveQuotaConcurrentHookAndStop(t *testing.T) {
 	_ = hookCalls.Load()
 }
 
+func TestQueueRepeatedStartStopAdaptiveDisabledNoLeak(t *testing.T) {
+	before := runtime.NumGoroutine()
+	q, err := New(Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 10,
+		LaneQuotas: map[Lane]int{"default": 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		_ = q.Start(ctx)
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_ = q.Stop(stopCtx)
+		stopCancel()
+		cancel()
+	}
+	eventuallyNoGoroutineGrowth(t, before, 4)
+}
+
 func TestAdaptiveQuotaRepeatedStartStopNoLeak(t *testing.T) {
 	before := runtime.NumGoroutine()
 	q := adaptiveQuotaTestQueue(t)

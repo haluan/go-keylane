@@ -178,8 +178,24 @@ func (c *AdaptiveQuotaController) tick(ctx context.Context) {
 	c.lastEval = now
 	c.mu.Unlock()
 
+	nowUnix := now.UnixNano()
 	for _, d := range decisions {
 		if d.Action == QuotaAdjustmentHold || d.NewQuota == d.OldQuota {
+			if id, ok := c.reg.Lookup(d.Lane); ok {
+				c.sched.RecordAdaptiveQuotaLastReason(id, d.Reason)
+				if c.cfg.EmitHoldDecisions {
+					c.sched.RecordAdaptiveQuotaDecision(id, d.Action, d.Reason, nowUnix)
+				}
+			}
+			if !c.cfg.EmitHoldDecisions {
+				continue
+			}
+			c.mu.Lock()
+			state.appendDecision(d)
+			c.mu.Unlock()
+			if c.onDecision != nil {
+				c.onDecision(d, now)
+			}
 			continue
 		}
 		select {
@@ -196,6 +212,9 @@ func (c *AdaptiveQuotaController) tick(ctx context.Context) {
 			failed.NewQuota = failed.OldQuota
 			failed.PolicyVersion = snap.PolicyVersion
 			failed.QuotaVersion = snap.QuotaVersion
+			if id, ok := c.reg.Lookup(d.Lane); ok {
+				c.sched.RecordAdaptiveQuotaDecision(id, failed.Action, failed.Reason, nowUnix)
+			}
 			c.mu.Lock()
 			state.appendDecision(failed)
 			c.mu.Unlock()
@@ -209,6 +228,7 @@ func (c *AdaptiveQuotaController) tick(ctx context.Context) {
 		c.mu.Lock()
 		if id, ok := c.reg.Lookup(d.Lane); ok {
 			state.recordApplied(id, now)
+			c.sched.RecordAdaptiveQuotaDecision(id, d.Action, d.Reason, nowUnix)
 		}
 		state.appendDecision(d)
 		c.mu.Unlock()

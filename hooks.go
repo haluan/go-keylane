@@ -23,8 +23,15 @@ type Hooks struct {
 	OnSlowJob func(SlowJobEvent)
 	// Request holds optional SubmitRequest lifecycle hooks.
 	Request RequestHooks
-	// OnAdaptiveQuotaDecision fires after the adaptive controller successfully changes a lane quota.
-	OnAdaptiveQuotaDecision func(AdaptiveQuotaEvent)
+	// OnAdaptiveQuotaDecision fires after adaptive quota evaluation produces a decision.
+	// The callback receives AdaptiveQuotaDecisionEvent (KL-1405 spec name); AdaptiveQuotaEvent is the same type.
+	// Successful quota changes and apply failures always invoke this hook when enabled.
+	// Hold decisions invoke it only when ObservabilityConfig.EnableAdaptiveDecisionTracing is true.
+	OnAdaptiveQuotaDecision func(AdaptiveQuotaDecisionEvent)
+	// OnQuotaChange fires after a successful quota policy publish (manual or adaptive).
+	OnQuotaChange func(QuotaChangeEvent)
+	// OnOverloadPolicyDecision fires when overload policy rejects, sheds, or degrades a request.
+	OnOverloadPolicyDecision func(OverloadPolicyEvent)
 }
 
 // JobTimingEvent contains queue wait and run duration for a completed job.
