@@ -316,8 +316,10 @@ func TestMiddlewareCancelledBeforeRun(t *testing.T) {
 
 func TestMiddlewareCancelledWhileRunning(t *testing.T) {
 	q, _ := httpTestQueue(t)
+	handlerStarted := make(chan struct{})
 
 	handler := Middleware(q, defaultTestConfig())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(handlerStarted)
 		<-r.Context().Done()
 	}))
 
@@ -325,7 +327,7 @@ func TestMiddlewareCancelledWhileRunning(t *testing.T) {
 	defer srv.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
+	clientDone := make(chan struct{})
 	go func() {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
 		req.Header.Set("X-Tenant-ID", "k")
@@ -333,12 +335,12 @@ func TestMiddlewareCancelledWhileRunning(t *testing.T) {
 		if err == nil {
 			resp.Body.Close()
 		}
-		close(done)
+		close(clientDone)
 	}()
 
-	time.Sleep(30 * time.Millisecond)
+	<-handlerStarted
 	cancel()
-	<-done
+	waitDone(t, clientDone, "client request did not finish")
 }
 
 func TestMiddlewareCustomErrorHandler(t *testing.T) {
@@ -442,6 +444,79 @@ func TestStatusCodeForError(t *testing.T) {
 		if got := statusCodeForError(tt.err, admission); got != tt.status {
 			t.Errorf("statusCodeForError(%v) = %d, want %d", tt.err, got, tt.status)
 		}
+	}
+}
+
+func TestHTTPMiddlewareClosedQueueReturnsHTTPError(t *testing.T) {
+	q, ctx := httpTestQueue(t)
+	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := q.Stop(stopCtx, keylane.WithDrain(true)); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+
+	var ran atomic.Bool
+	handler := Middleware(q, defaultTestConfig())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ran.Store(true)
+	}))
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req.Header.Set("X-Tenant-ID", "k")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", resp.StatusCode)
+	}
+	if ran.Load() {
+		t.Error("handler ran on stopped queue")
+	}
+	_ = ctx
+}
+
+func TestHTTPMiddlewareSubmitFailureCallsCustomErrorHandler(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 1,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	}
+	q, err := keylane.New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key: "fill", Lane: "default",
+		Run: func(context.Context) error { return nil },
+	})
+
+	var gotErr error
+	handler := Middleware(q, Config{
+		KeyFunc:  StaticKey("k2"),
+		LaneFunc: StaticLane(keylane.Lane("default")),
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			gotErr = err
+			http.Error(w, "full", http.StatusServiceUnavailable)
+		},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not run")
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rec.Code)
+	}
+	if !errors.Is(gotErr, keylane.ErrQueueFull) {
+		t.Errorf("ErrorHandler err = %v, want ErrQueueFull", gotErr)
 	}
 }
 
