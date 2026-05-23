@@ -14,7 +14,9 @@ type Scheduler struct {
 	shards            []shard
 	ReadyCh           chan int
 	workerCount       int
-	laneQuotas        []int // indexed by LaneID
+	quotaPolicy       atomic.Pointer[quotaPolicySnapshot]
+	quotaVersion      atomic.Uint64
+	quotaMu           sync.Mutex
 	laneReg           *LaneRegistry
 	mu                sync.RWMutex
 	state             lifecycleState
@@ -40,21 +42,15 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		shards[i] = newShard(laneCount, queueSizePerLane)
 	}
 
-	quotas := make([]int, laneCount)
-	for i := 0; i < laneCount; i++ {
-		quotas[i] = reg.Quota(LaneID(i))
-	}
-
 	shardInflight := make([]atomic.Int64, shardCount)
 	laneInflight := make([]atomic.Int64, laneCount)
 	shardQueueWait := make([]queueWaitAccum, shardCount)
 	shardRunDuration := make([]runDurationAccum, shardCount)
 
-	return &Scheduler{
+	s := &Scheduler{
 		shards:           shards,
 		ReadyCh:          make(chan int, shardCount),
 		workerCount:      workerCount,
-		laneQuotas:       quotas,
 		laneReg:          reg,
 		shardInflight:    shardInflight,
 		laneInflight:     laneInflight,
@@ -62,7 +58,9 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		laneCounters:     make([]laneCounters, laneCount),
 		shardQueueWait:   shardQueueWait,
 		shardRunDuration: shardRunDuration,
-	}, nil
+	}
+	s.initQuotaPolicy(reg)
+	return s, nil
 }
 
 // Start launches the worker goroutines.
@@ -175,7 +173,7 @@ func (s *Scheduler) Stats() ([]ShardStats, int) {
 			laneID := LaneID(j)
 			depth := shard.Lanes[j].depth()
 			capacity := shard.Lanes[j].capacity()
-			quota := s.laneQuotas[j]
+			quota := s.loadQuotaPolicy().laneQuotas[j]
 			laneName := s.laneReg.Name(laneID)
 
 			counters := &s.laneCounters[j]

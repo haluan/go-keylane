@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -14,6 +17,8 @@ var (
 	ErrInvalidLane         = core.ErrInvalidLane
 	ErrInvalidLaneQuota    = core.ErrInvalidLaneQuota
 	ErrMissingLaneQuotas   = core.ErrMissingLaneQuotas
+	ErrInvalidQuotaPolicy  = core.ErrInvalidQuotaPolicy
+	ErrQuotaTooLarge       = core.ErrQuotaTooLarge
 	ErrNilQueue            = errors.New("keylane: nil queue")
 	ErrInvalidJob          = core.ErrInvalidJob
 	ErrInvalidKey          = core.ErrInvalidKey

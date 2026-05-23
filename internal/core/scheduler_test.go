@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -25,8 +28,8 @@ func TestNewScheduler(t *testing.T) {
 	if s.workerCount != workerCount {
 		t.Errorf("workerCount = %d, want %d", s.workerCount, workerCount)
 	}
-	if len(s.laneQuotas) != reg.Len() {
-		t.Errorf("laneQuotas len = %d, want %d", len(s.laneQuotas), reg.Len())
+	if len(s.loadQuotaPolicy().laneQuotas) != reg.Len() {
+		t.Errorf("laneQuotas len = %d, want %d", len(s.loadQuotaPolicy().laneQuotas), reg.Len())
 	}
 }
 

@@ -41,6 +41,16 @@ Lanes separate **workload classes**, not individual requests.
 - Low quota on a latency-sensitive lane can starve it when a noisy lane shares the shard.
 - Tune together with `WorkerCount` and observed `HotLanes` from `DebugSnapshot()`.
 
+### Runtime quota updates
+
+Lane names are fixed when the queue is created. Per-lane drain quotas can be changed at runtime with `UpdateQuotaPolicy` (see `QuotaPolicy` in the root package).
+
+- Updates publish an immutable policy snapshot; workers load the snapshot once at the start of each shard drain cycle.
+- A drain cycle in progress keeps the policy it loaded; the next cycle uses the newest snapshot.
+- Queued jobs are not dropped; running jobs are not cancelled.
+- Call `CurrentQuotaPolicy()` to inspect the active version and quotas.
+- Updates are rejected while the queue is stopping or stopped (`ErrStopped`). Updates are allowed before `Start` and while running.
+
 ---
 
 ## Worker count vs GOMAXPROCS

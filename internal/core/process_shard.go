@@ -14,9 +14,12 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	shard := &s.shards[shardID]
 	shard.mu.Lock()
 
+	policy := s.loadQuotaPolicy()
+	quotas := policy.laneQuotas
+
 	// 1. Determine total possible batch size to pre-allocate
 	totalQuota := 0
-	for _, q := range s.laneQuotas {
+	for _, q := range quotas {
 		totalQuota += q
 	}
 
@@ -24,13 +27,13 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	var batch []InternalJob
 	if s.Obs.DisablePooling {
 		batch = make([]InternalJob, 0, totalQuota)
-		for laneID, quota := range s.laneQuotas {
+		for laneID, quota := range quotas {
 			batch = shard.Lanes[laneID].popN(quota, batch)
 		}
 	} else {
 		batchObj := acquireJobBatch(totalQuota)
 		defer releaseJobBatch(batchObj)
-		for laneID, quota := range s.laneQuotas {
+		for laneID, quota := range quotas {
 			batchObj.jobs = shard.Lanes[laneID].popN(quota, batchObj.jobs)
 		}
 		batch = batchObj.jobs
