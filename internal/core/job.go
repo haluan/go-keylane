@@ -13,6 +13,8 @@ import (
 type InternalJob struct {
 	// KeyHash is the hash of the job's key, used for shard routing.
 	KeyHash uint64
+	// RawKey is set when hot-key ExposeRawKey tracking is enabled (string header only).
+	RawKey string
 	// LaneID is the internal ID of the processing lane.
 	LaneID LaneID
 	// Run is the function that will be executed.

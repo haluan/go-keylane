@@ -94,6 +94,9 @@ func CheckOverload(q *Queue, cfg OverloadConfig, meta RequestMeta) error {
 	}
 
 	q.sched.RecordOverloadDecision(laneID, result.Action)
+	if q.config.HotKey.Enabled && meta.Key != "" {
+		q.sched.RecordHotKeyReject(keyHash, q.ShardIDForKey(meta.Key))
+	}
 
 	decision := overloadDecisionFromResult(meta.Lane, result)
 	pressure := q.sched.Pressure().TotalDepthRatio

@@ -42,6 +42,9 @@ type ShardSnapshot struct {
 	InFlight   uint64
 	DepthRatio float64
 	LaneDepths []LaneDepthSnapshot
+
+	HotKeyCandidate  *HotKeyCandidate
+	HotKeyCandidates []HotKeyCandidate
 }
 
 // LaneSnapshot reports aggregated queue state for one lane across all shards.
@@ -131,7 +134,7 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 				Depth:  ld.depth,
 			}
 		}
-		shards[i] = ShardSnapshot{
+		ss := ShardSnapshot{
 			ShardID:    sh.shardID,
 			Depth:      sh.depth,
 			Capacity:   sh.capacity,
@@ -139,6 +142,24 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 			DepthRatio: safeRatio(sh.depth, sh.capacity),
 			LaneDepths: laneDepths,
 		}
+		if i < len(s.hotKeyTrackers) {
+			hk := s.hotKeyTrackers[i]
+			if hk != nil && hk.enabled() {
+				var waitNanos uint64
+				if i < len(s.shardQueueWait) {
+					waitNanos = s.shardQueueWait[i].totalNanos.Load()
+				}
+				top, candidates := hk.detectHotKeyCandidates(i, sh.depth, waitNanos)
+				if top != nil {
+					c := *top
+					ss.HotKeyCandidate = &c
+				}
+				if len(candidates) > 0 {
+					ss.HotKeyCandidates = append([]HotKeyCandidate(nil), candidates...)
+				}
+			}
+		}
+		shards[i] = ss
 	}
 
 	lanes := make([]LaneSnapshot, len(view.lanes))

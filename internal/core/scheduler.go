@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Scheduler manages the processing of jobs across shards and lanes.
@@ -39,6 +40,8 @@ type Scheduler struct {
 	shardQueueWait    []queueWaitAccum
 	runDurationGlobal runDurationAccum
 	shardRunDuration  []runDurationAccum
+	hotKeyCfg         HotKeyConfig
+	hotKeyTrackers    []*hotKeyTracker
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -71,6 +74,26 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 	s.initAdmissionPolicy(reg, shardCount, queueSizePerLane)
 	s.initOverloadPolicy(reg, shardCount, queueSizePerLane)
 	return s, nil
+}
+
+// ConfigureHotKey applies hot key tracking configuration and preallocates per-shard trackers.
+func (s *Scheduler) ConfigureHotKey(cfg HotKeyConfig) {
+	s.hotKeyCfg = cfg
+	if !cfg.Enabled || cfg.MaxTrackedKeysPerShard <= 0 {
+		s.hotKeyTrackers = nil
+		return
+	}
+	s.hotKeyTrackers = make([]*hotKeyTracker, len(s.shards))
+	for i := range s.shards {
+		s.hotKeyTrackers[i] = newHotKeyTracker(cfg)
+	}
+}
+
+func (s *Scheduler) hotKeyTrackerForShard(shardID int) *hotKeyTracker {
+	if s.hotKeyTrackers == nil || shardID < 0 || shardID >= len(s.hotKeyTrackers) {
+		return nil
+	}
+	return s.hotKeyTrackers[shardID]
 }
 
 // Start launches the worker goroutines.
@@ -115,7 +138,14 @@ func (s *Scheduler) Enqueue(job InternalJob) (int, bool, error) {
 	}
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk != nil {
+		hk.observeSubmit(job.KeyHash, job.LaneID, job.RawKey, time.Now())
+	}
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.EnableQueueWaitTiming, s.Obs.TrackQueueWait)
+	if err == nil && hk != nil {
+		hk.observeEnqueue(job.KeyHash, job.LaneID, job.RawKey, time.Now())
+	}
 	if s.Obs.EnableCounters {
 		c.recordLaneAdmissionResult(err)
 	}
@@ -145,11 +175,25 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 	}
 
 	shardID := routeShardID(job.KeyHash, len(s.shards))
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk != nil {
+		hk.observeSubmit(job.KeyHash, job.LaneID, job.RawKey, time.Now())
+	}
 	becameReady, err := enqueueIntoShard(&s.shards[shardID], job, s.Obs.EnableQueueWaitTiming, s.Obs.TrackQueueWait)
+	if err == nil && hk != nil {
+		hk.observeEnqueue(job.KeyHash, job.LaneID, job.RawKey, time.Now())
+	}
 	if s.Obs.EnableCounters {
 		c.recordLaneAdmissionResult(err)
 	}
 	return shardID, becameReady, err
+}
+
+// RecordHotKeyReject records a rejection for an existing hot key tracker slot.
+func (s *Scheduler) RecordHotKeyReject(keyHash uint64, shardID int) {
+	if hk := s.hotKeyTrackerForShard(shardID); hk != nil {
+		hk.observeReject(keyHash, time.Now())
+	}
 }
 
 // RecordPressureAdmissionRejected increments the lane rejected counter for a

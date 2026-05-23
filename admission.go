@@ -6,6 +6,8 @@ package keylane
 import (
 	"errors"
 	"fmt"
+
+	"github.com/haluan/go-keylane/internal/core"
 )
 
 // AdmissionConfig configures pressure-based admission control.
@@ -107,6 +109,9 @@ func CheckAdmission(q *Queue, cfg AdmissionConfig, meta RequestMeta) error {
 	}
 
 	q.sched.RecordPressureAdmissionRejected(laneID)
+	if q.config.HotKey.Enabled && meta.Key != "" {
+		q.sched.RecordHotKeyReject(core.HashKey(meta.Key), q.ShardIDForKey(meta.Key))
+	}
 
 	return AdmissionRejectedError{
 		Lane:      meta.Lane,

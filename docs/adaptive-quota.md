@@ -2,7 +2,7 @@
 
 ## Overview
 
-Keylane v0.4 adds optional **adaptive quota**: a bounded controller that periodically evaluates runtime pressure and per-lane signals, then adjusts **lane drain quotas** through the same safe publish path as manual updates.
+Keylane v0.4 adds optional **adaptive quota**: a bounded controller that periodically evaluates runtime pressure and per-lane signals, then adjusts **lane drain quotas** through the same safe publish path as manual updates (KL-1401 + KL-1404).
 
 Adaptive quota is **disabled by default** (`DefaultAdaptiveQuotaConfig().Enabled == false`). It:
 
@@ -58,11 +58,30 @@ Quota updates use **immutable snapshot publish**:
 - Queued jobs are not dropped
 - Running jobs are not interrupted
 - The next worker drain cycle observes the new policy
-- Each successful publish increments `Version` and may emit `OnQuotaChange` when hooks are enabled
 
-> **Do not use quota updates as a per-request control path.** Quota changes are runtime policy changes, not request metadata.
+```go
+ver, err := q.UpdateQuotaPolicy(keylane.QuotaPolicy{
+    DefaultQuota: 1,
+    LaneQuotas: map[keylane.Lane]uint32{
+        "payment": 3,
+    },
+})
+```
 
-Worked example: [Manual quota update example](#manual-quota-update-example).
+Single-lane update:
+
+```go
+ver, err := q.UpdateLaneQuota("payment", 3)
+```
+
+Compare-and-swap when coordinating with other writers:
+
+```go
+current := q.CurrentQuotaPolicy()
+ver, err := q.UpdateLaneQuotaIfVersion("payment", 4, current.Version)
+```
+
+Each successful publish increments `Version` and may emit `OnQuotaChange` when hooks are enabled.
 
 ---
 
@@ -87,56 +106,6 @@ Lanes without an explicit `LaneAdaptivePolicy` inherit class from the **admissio
 | background / best-effort | disabled | allowed |
 
 See [lane-priority.md](lane-priority.md).
-
----
-
-## Adaptive quota controller overview
-
-The adaptive controller is a **periodic evaluator** (not part of the submit hot path). On each tick it:
-
-1. Reads signals: global pressure, per-lane queue depth, queue-wait and run-duration percentiles (when timing is enabled), queue-full count, overload reject/shed counters
-2. Applies hysteresis (`PressureLow` / `PressureHigh`), warmup, cooldown, and per-lane min/max bounds
-3. Publishes at most `MaxAdjustmentsPerTick` quota changes via the same safe path as manual updates (CAS on `QuotaVersion`)
-
-It does **not**:
-
-- Resize `WorkerCount` or `ShardCount`
-- Replace admission or overload policy (those run before enqueue)
-- Drop queued work or cancel running jobs
-
-Decision model and tuning: [Hysteresis](#hysteresis), [adaptive-tuning.md](adaptive-tuning.md). Observability: [adaptive-observability.md](adaptive-observability.md).
-
----
-
-## Manual quota update example
-
-Typical operator flow:
-
-```go
-before := q.CurrentQuotaPolicy()
-log.Printf("payment quota=%d version=%d",
-    before.LaneQuotas["payment"], before.Version)
-
-ver, err := q.UpdateLaneQuota("payment", 3)
-if err != nil {
-    // invalid lane, invalid quota, version mismatch, or stopped queue
-    return err
-}
-
-after := q.CurrentQuotaPolicy()
-log.Printf("updated to quota=%d version=%d", after.LaneQuotas["payment"], after.Version)
-```
-
-With hooks enabled, `OnQuotaChange` fires with `source=manual` and `PolicyVersion=0`.
-
-Coordinate with the adaptive controller using compare-and-swap:
-
-```go
-current := q.CurrentQuotaPolicy()
-ver, err := q.UpdateLaneQuotaIfVersion("payment", 4, current.Version)
-```
-
-If adaptive apply races and bumps `QuotaVersion`, your update fails safely instead of overwriting an unseen change.
 
 ---
 

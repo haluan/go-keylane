@@ -55,6 +55,9 @@ type ShardSnapshot struct {
 	DepthRatio float64
 
 	LaneDepths []LaneDepthSnapshot
+
+	HotKeyCandidate  *HotKeyCandidate
+	HotKeyCandidates []HotKeyCandidate
 }
 
 // LaneSnapshot reports aggregated queue state for one lane across all shards.

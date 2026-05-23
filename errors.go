@@ -23,6 +23,7 @@ var (
 	ErrInvalidAdmissionPolicy     = core.ErrInvalidAdmissionPolicy
 	ErrInvalidOverloadPolicy      = core.ErrInvalidOverloadPolicy
 	ErrInvalidAdaptiveQuotaConfig = core.ErrInvalidAdaptiveQuotaConfig
+	ErrInvalidHotKeyConfig        = core.ErrInvalidHotKeyConfig
 	ErrInvalidLaneClass           = core.ErrInvalidLaneClass
 	ErrNilQueue                   = errors.New("keylane: nil queue")
 	ErrInvalidJob                 = core.ErrInvalidJob

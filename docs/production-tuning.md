@@ -55,7 +55,7 @@ Lane names are fixed when the queue is created. Per-lane drain quotas can be cha
 - Call `CurrentQuotaPolicy()` to inspect the active version and quotas.
 - Updates are rejected while the queue is stopping or stopped (`ErrStopped`). Updates are allowed before `Start` and while running.
 
-Optional adaptive quota can adjust lane quotas periodically from pressure and queue-wait signals; see [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md). Observe changes via [adaptive-observability.md](adaptive-observability.md). Disabled by default.
+Optional adaptive quota (KL-1404) can adjust lane quotas periodically from pressure and queue-wait signals; see [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md). Observe changes via [adaptive-observability.md](adaptive-observability.md). Disabled by default.
 
 ---
 

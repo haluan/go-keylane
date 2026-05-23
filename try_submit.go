@@ -26,6 +26,9 @@ func (q *Queue) TrySubmit(job Job) bool {
 		return false
 	}
 	iJob.UseWorkerTiming = job.UseWorkerTiming
+	if q.hotKeyExposeRawKey {
+		iJob.RawKey = job.Key
+	}
 
 	shardID, becameReady, err := q.sched.TryEnqueue(iJob)
 	if err != nil {

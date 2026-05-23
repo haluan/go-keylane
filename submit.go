@@ -38,6 +38,9 @@ func (q *Queue) Submit(ctx context.Context, job Job) error {
 		return err
 	}
 	iJob.UseWorkerTiming = job.UseWorkerTiming
+	if q.hotKeyExposeRawKey {
+		iJob.RawKey = job.Key
+	}
 
 	shardID, becameReady, err := q.sched.Enqueue(iJob)
 	if err != nil {
