@@ -2,7 +2,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: pre-v0.1 experimental. Public APIs may change.
+> Status: v0.2 — production visibility and GC pressure shaping. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -152,10 +152,13 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 ## What go-keylane is
 
-`go-keylane` is an in-process execution control library for Go services designed to regulate concurrent request traffic. It provides:
-- **Noisy key/tenant isolation** preventing hot users from hogging resources.
-- **Fair resource distribution** among different job priority classes sharing a worker pool.
-- **Bounded memory allocation patterns** through map-free ring buffers and pooled collections.
+`go-keylane` is a Go lane-sharded concurrency control library for shaping request execution in-process. It helps services bound in-flight work, reduce goroutine explosion, smooth allocation bursts, and expose production visibility into queue wait, run duration, hot shards, hot lanes, and pressure.
+
+It provides:
+
+- **Noisy key/tenant isolation** — deterministic shard routing by `Key`
+- **Fair resource distribution** — lane quotas across workload classes on a shared worker pool
+- **Bounded queues and workers** — map-free ring buffers and optional pooling on worker paths
 
 ---
 
@@ -168,7 +171,7 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 > [!IMPORTANT]
 > **go-keylane does not avoid Go GC pauses.**
-> go-keylane helps reduce GC pressure caused by uncontrolled concurrency, goroutine explosion, unbounded queues, and allocation bursts.
+> go-keylane helps shape GC pressure caused by uncontrolled concurrency, goroutine explosion, unbounded queues, and allocation bursts. See [docs/gc-pressure-shaping.md](docs/gc-pressure-shaping.md).
 
 ---
 
@@ -187,14 +190,23 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 ## Documentation
 
-For deep-dive architecture, guides, and benchmarking notes:
+### v0.2 guides
+
+- [GC pressure shaping](docs/gc-pressure-shaping.md)
+- [Observability](docs/observability.md)
+- [Debugging](docs/debugging.md)
+- [Production tuning](docs/production-tuning.md)
+- [Benchmarks](docs/benchmarks.md)
+- [Prometheus adapter](docs/metrics-prometheus.md)
+- [OpenTelemetry adapter](docs/tracing-opentelemetry.md)
+- [Release notes](RELEASE_NOTES.md)
+
+### Architecture and operations
 
 - [Quickstart Guide](docs/quickstart.md)
 - [Architecture & Design Details](docs/design.md)
 - [Operational & Production Guidance](docs/production-guidance.md)
-- [Debugging Guide](docs/debugging.md)
 - [Glossary of Terms](docs/glossary.md)
-- [Performance & Benchmarking](docs/benchmarks.md)
 
 ---
 

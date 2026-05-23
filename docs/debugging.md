@@ -1,29 +1,45 @@
 # Go-Keylane Troubleshooting & Debugging Guide
 
-This document provides a comprehensive troubleshooting guide for resolving performance bottlenecks, queue saturation, and lifecycles issues.
+This document provides a comprehensive troubleshooting guide for resolving performance bottlenecks, queue saturation, and lifecycle issues. See [observability.md](observability.md) for API overview.
 
 ---
 
-## 1. Quick Checklist
+## 1. Symptom → signal map
+
+| Symptom | Signal to inspect | Likely meaning |
+|---------|-------------------|----------------|
+| High latency | `QueueWait` + `Run` in `StatsGCPressure()` | Separate queueing delay from execution time |
+| High queue wait | Per-lane depth, shard depth, `DebugSnapshot().HotLanes` / `HotShards` | Backlog, insufficient workers, or lane quota imbalance |
+| High run duration | `Run` in `StatsGCPressure()`, `OnSlowJob` hook | Slow `Run` body or downstream dependency |
+| Queue full | `Counters.QueueFull`, `Pressure()` | Capacity limit or admission policy; shed load earlier |
+| One lane dominates | `DebugSnapshot().HotLanes` | Lane quota or workload class imbalance |
+| One shard dominates | `DebugSnapshot().HotShards` | Shard key skew (hot tenant/customer on one key) |
+| `Await()` timeout | Queue wait + run duration + `Pressure()` | Caller deadline shorter than queue/run behavior; job may still run |
+
+If p99 is high, inspect queue-wait and run-duration percentiles (or averages from cumulative stats) **separately**. High queue wait with normal run duration means scheduler backlog. Normal queue wait with high run duration means slow user code or I/O inside `Run`.
+
+---
+
+## 2. Quick Checklist
 
 Follow these 10 steps to isolate scheduler performance problems:
 
 1. **Verify if the queue scheduler is started:** Check if `q.Start(ctx)` was executed and returned nil.
 2. **Review configuration settings:** Check `ShardCount`, `WorkerCount`, and `QueueSizePerLane` for capacity mismatches.
-3. **Inspect the queue backpressure dropped counter:** Read `Stats().QueueFullTotal` to see if jobs are being rejected.
+3. **Inspect queue-full rejections:** `StatsGCPressure().Lanes[].Counters.QueueFull` (cumulative) or v1 `Stats()` lane `QueueFullTotal`.
 3b. **Inspect scheduler pressure and lane history:** Use `Pressure()` for a quick overload signal (`IsPressured`, `IsOverloaded`). Use `DebugSnapshot()` for hot shard/lane rankings (`HotShards`, `HotLanes`). Use `StatsGCPressure()` for cumulative counters and queue-wait/run timing. High average or max queue wait usually means lane pressure, hot shards, or too few workers.
 4. **Identify hot shards and lanes:** `DebugSnapshot().HotShards` and `HotLanes` list the top backlog by depth. Use job **keys** (not lane names) for per-tenant routing; lanes should stay a small static set.
 5. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard.
 6. **Run the Go race detector:** Execute `go test -race ./...` to verify there are no active data races.
 7. **Analyze active workers stack traces:** Collect a pprof goroutine dump (`go tool pprof`) to verify if worker goroutines are blocked.
-8. **Examine queue wait times:** Evaluate the average queue delay via `QueueWaitTotalNanos / QueueWaitCount`.
+8. **Examine queue wait times:** `StatsGCPressure().QueueWait` or per-lane `lane.QueueWait.AverageDuration()` (requires `EnableQueueWaitTiming`).
 9. **Check context cancellation propagation:** Ensure jobs check `ctx.Done()` periodically during processing.
 10. **Check for Await deadlocks:** Ensure you are not calling `Await()` from inside a worker on the same queue.
 11. **Assess worker processing limits:** Increase `WorkerCount` if database calls or network requests are highly latent.
 
 ---
 
-## 2. Request is Waiting Too Long
+## 3. Request is Waiting Too Long
 
 If jobs are experiencing high latency before execution:
 - **Root Cause:** All worker threads are fully utilized, or a popped shard contains a massive backlog of high-priority lane jobs that starve lower lanes.
@@ -34,7 +50,7 @@ If jobs are experiencing high latency before execution:
 
 ---
 
-## 3. Lane is Full
+## 4. Lane is Full
 
 When submissions fail with `ErrQueueFull` or `TrySubmit` returns `false`:
 - **Root Cause:** Job enqueue rates are higher than worker processing capacity, causing the bounded `laneQueue` buffer to saturate.
@@ -45,7 +61,7 @@ When submissions fail with `ErrQueueFull` or `TrySubmit` returns `false`:
 
 ---
 
-## 4. Key is Noisy
+## 5. Key is Noisy
 
 A single tenant or user is sending a disproportionate volume of jobs:
 - **Root Cause:** A hot key is bombarding the scheduler. The scheduler successfully isolates the key to its assigned shard, but the lane queues inside that shard are saturated.
@@ -56,7 +72,7 @@ A single tenant or user is sending a disproportionate volume of jobs:
 
 ---
 
-## 5. Workers are Saturated
+## 6. Workers are Saturated
 
 Workers are constantly active and CPU utilization is pinned at 100%:
 - **Root Cause:** The worker thread pool is too small for the incoming CPU-bound computational load.
@@ -66,7 +82,7 @@ Workers are constantly active and CPU utilization is pinned at 100%:
 
 ---
 
-## 6. Queue Wait vs. Run Time
+## 7. Queue Wait vs. Run Time
 
 Use `StatsGCPressure()` to separate scheduler delay from user execution time:
 
@@ -90,7 +106,7 @@ Optional hooks: `OnJobTiming` reports per-job queue wait and run duration; `OnSl
 
 ---
 
-## 7. SubmitValue/Await Timeout
+## 8. SubmitValue/Await Timeout
 
 Your caller thread receives `context.DeadlineExceeded` when executing an `Await(ctx)` call:
 
@@ -105,7 +121,7 @@ Your caller thread receives `context.DeadlineExceeded` when executing an `Await(
 
 ---
 
-## 8. Shutdown is Blocking
+## 9. Shutdown is Blocking
 
 Calling `q.Stop(ctx, keylane.WithDrain(true))` blocks indefinitely or times out:
 - **Root Cause:** Active workers are executing long-running or infinitely blocked jobs, or the enqueued backlog is too massive to drain within the shutdown context deadline.
@@ -115,7 +131,7 @@ Calling `q.Stop(ctx, keylane.WithDrain(true))` blocks indefinitely or times out:
 
 ---
 
-## 9. Race-Condition Debugging
+## 10. Race-Condition Debugging
 
 If you encounter inconsistent behavior, memory corruption, or unexpected panics:
 - **When to check:** Always run tests and local builds with Go's built-in race detector enabled.

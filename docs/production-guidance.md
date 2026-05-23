@@ -2,7 +2,7 @@
 
 This guide contains operational recommendations, capacity planning rules, and design choices for deploying `go-keylane` to production systems.
 
-For observability overhead (visibility vs low-allocation mode), see [production-tuning.md](production-tuning.md).
+For shard keys, lanes, workers, queue capacity, pressure admission, and observability modes, see [production-tuning.md](production-tuning.md).
 
 ---
 
