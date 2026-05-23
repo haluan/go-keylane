@@ -20,6 +20,9 @@ type Scheduler struct {
 	admissionPolicy   atomic.Pointer[admissionPolicySnapshot]
 	admissionVersion  atomic.Uint64
 	admissionMu       sync.Mutex
+	overloadPolicy    atomic.Pointer[overloadPolicySnapshot]
+	overloadVersion   atomic.Uint64
+	overloadMu        sync.Mutex
 	laneReg           *LaneRegistry
 	queueSizePerLane  int
 	mu                sync.RWMutex
@@ -66,6 +69,7 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 	}
 	s.initQuotaPolicy(reg)
 	s.initAdmissionPolicy(reg, shardCount, queueSizePerLane)
+	s.initOverloadPolicy(reg, shardCount, queueSizePerLane)
 	return s, nil
 }
 

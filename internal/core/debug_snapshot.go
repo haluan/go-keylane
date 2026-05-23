@@ -72,6 +72,8 @@ type DebugSnapshot struct {
 
 	// AdmissionPolicyVersion is the version of the active admission policy snapshot.
 	AdmissionPolicyVersion uint64
+	// OverloadPolicyVersion is the version of the active overload policy snapshot.
+	OverloadPolicyVersion uint64
 
 	ShardCount  int
 	LaneCount   int
@@ -94,14 +96,18 @@ type DebugSnapshot struct {
 // It is safe to read concurrently with submit and worker activity but does not
 // guarantee a globally atomic view across shards.
 func (s *Scheduler) emptyDebugSnapshot() DebugSnapshot {
-	var admissionVersion uint64
+	var admissionVersion, overloadVersion uint64
 	if snap := s.loadAdmissionPolicy(); snap != nil {
 		admissionVersion = snap.version
+	}
+	if snap := s.loadOverloadPolicy(); snap != nil {
+		overloadVersion = snap.version
 	}
 	return DebugSnapshot{
 		Version:                DebugSnapshotVersion,
 		GeneratedAt:            time.Now(),
 		AdmissionPolicyVersion: admissionVersion,
+		OverloadPolicyVersion:  overloadVersion,
 		ShardCount:             len(s.shards),
 		LaneCount:              s.laneReg.Len(),
 		WorkerCount:            s.workerCount,
@@ -155,15 +161,19 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		}
 	}
 
-	var admissionVersion uint64
+	var admissionVersion, overloadVersion uint64
 	if snap := s.loadAdmissionPolicy(); snap != nil {
 		admissionVersion = snap.version
+	}
+	if snap := s.loadOverloadPolicy(); snap != nil {
+		overloadVersion = snap.version
 	}
 
 	return DebugSnapshot{
 		Version:                DebugSnapshotVersion,
 		GeneratedAt:            time.Now(),
 		AdmissionPolicyVersion: admissionVersion,
+		OverloadPolicyVersion:  overloadVersion,
 		ShardCount:             view.shardCount,
 		LaneCount:              view.laneCount,
 		WorkerCount:            view.workerCount,

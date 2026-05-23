@@ -83,6 +83,12 @@ Use `benchstat` to compare before and after v0.2:
 go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 ```
 
+### Overload Hot-Path Guardrails
+
+```bash
+go test -bench='BenchmarkEvaluateOverload|BenchmarkCheckOverload' -benchmem ./internal/core .
+```
+
 ### Admission Hot-Path Guardrails
 
 Two benchmarks verify that the successful-admit path (pressure below all thresholds, depth zero) allocates nothing:

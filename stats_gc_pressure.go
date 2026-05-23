@@ -57,6 +57,18 @@ type LaneCountersGCPressure struct {
 	// enqueue. Each admission rejection also increments Rejected. Answers: how often is
 	// this lane shedding load due to runtime pressure (distinct from QueueFull)?
 	AdmissionRejected uint64
+	// OverloadRejected counts rejections by overload policy (OverloadActionReject) before
+	// enqueue. Each overload rejection also increments Rejected and AdmissionRejected.
+	// Answers: how often does overload policy hard-reject this lane?
+	OverloadRejected uint64
+	// OverloadShed counts intentional pre-enqueue load shedding (OverloadActionShed).
+	// Each shed also increments Rejected and AdmissionRejected. Answers: how often is
+	// this lane shedding best-effort or background work under pressure?
+	OverloadShed uint64
+	// OverloadDegrade counts overload degrade decisions (OverloadActionDegrade) before
+	// enqueue. Each degrade also increments Rejected and AdmissionRejected. Answers: how
+	// often should callers use a cheaper fallback for this lane?
+	OverloadDegrade uint64
 	// Completed counts accepted jobs that finished with a nil error. Answers: how much
 	// work completed normally for this lane?
 	Completed uint64

@@ -19,6 +19,9 @@ const (
 	RequestOutcomeTimedOut          RequestOutcome = "timed_out"
 	RequestOutcomeRejected          RequestOutcome = "rejected"
 	RequestOutcomeAdmissionRejected RequestOutcome = "admission_rejected"
+	RequestOutcomeOverloadRejected  RequestOutcome = "overload_rejected"
+	RequestOutcomeOverloadShed      RequestOutcome = "overload_shed"
+	RequestOutcomeOverloadDegraded  RequestOutcome = "overload_degraded"
 )
 
 // RequestObservation is a snapshot of request execution for observability hooks.
@@ -45,6 +48,15 @@ func classifyRequestOutcome(err error) RequestOutcome {
 	}
 	if errors.Is(err, ErrAdmissionRejected) {
 		return RequestOutcomeAdmissionRejected
+	}
+	if errors.Is(err, ErrOverloadRejected) {
+		return RequestOutcomeOverloadRejected
+	}
+	if errors.Is(err, ErrOverloadShed) {
+		return RequestOutcomeOverloadShed
+	}
+	if errors.Is(err, ErrOverloadDegraded) {
+		return RequestOutcomeOverloadDegraded
 	}
 	if errors.Is(err, ErrQueueFull) || errors.Is(err, ErrStopped) ||
 		errors.Is(err, ErrNotStarted) || errors.Is(err, ErrQueueNotStarted) {

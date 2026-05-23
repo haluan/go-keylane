@@ -441,7 +441,7 @@ func TestStatusCodeForError(t *testing.T) {
 	}
 	admission := AdmissionConfig{RejectStatusCode: http.StatusServiceUnavailable}
 	for _, tt := range tests {
-		if got := statusCodeForError(tt.err, admission); got != tt.status {
+		if got := statusCodeForError(tt.err, admission, OverloadConfig{}); got != tt.status {
 			t.Errorf("statusCodeForError(%v) = %d, want %d", tt.err, got, tt.status)
 		}
 	}

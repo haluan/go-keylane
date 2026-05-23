@@ -36,6 +36,7 @@ type RequestMeta struct {
 type Request[I any, O any] struct {
 	Meta      RequestMeta
 	Admission AdmissionConfig
+	Overload  OverloadConfig
 	Input     I
 	Handle    func(context.Context, I) (O, error)
 }
