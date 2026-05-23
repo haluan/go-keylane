@@ -141,14 +141,15 @@ func (q *Queue) StatsGCPressure() StatsGCPressureSnapshot {
 			QueueWait: copyQueueWaitStatsGCPressure(lane.QueueWait),
 			Run:       copyRunStatsGCPressure(lane.Run),
 			Counters: LaneCountersGCPressure{
-				Submitted: lane.Counters.Submitted,
-				Accepted:  lane.Counters.Accepted,
-				Rejected:  lane.Counters.Rejected,
-				Completed: lane.Counters.Completed,
-				Failed:    lane.Counters.Failed,
-				QueueFull: lane.Counters.QueueFull,
-				Canceled:  lane.Counters.Canceled,
-				Panicked:  lane.Counters.Panicked,
+				Submitted:         lane.Counters.Submitted,
+				Accepted:          lane.Counters.Accepted,
+				Rejected:          lane.Counters.Rejected,
+				AdmissionRejected: lane.Counters.AdmissionRejected,
+				Completed:         lane.Counters.Completed,
+				Failed:            lane.Counters.Failed,
+				QueueFull:         lane.Counters.QueueFull,
+				Canceled:          lane.Counters.Canceled,
+				Panicked:          lane.Counters.Panicked,
 			},
 		}
 	}

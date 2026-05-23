@@ -403,6 +403,28 @@ func TestMiddlewareMissingKeyFunc(t *testing.T) {
 	}
 }
 
+func TestMiddlewareInvalidAdmissionStatusCode(t *testing.T) {
+	q, _ := httpTestQueue(t)
+	cfg := defaultTestConfig()
+	cfg.Admission = AdmissionConfig{
+		Enabled:          true,
+		RejectAboveRatio: 0.90,
+		RejectStatusCode: 600,
+	}
+	handler := Middleware(q, cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not run with invalid admission config")
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Tenant-ID", "test-tenant")
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 for invalid RejectStatusCode", rec.Code)
+	}
+}
+
 func TestStatusCodeForError(t *testing.T) {
 	tests := []struct {
 		err    error
@@ -413,9 +435,11 @@ func TestStatusCodeForError(t *testing.T) {
 		{context.Canceled, 499},
 		{context.DeadlineExceeded, http.StatusGatewayTimeout},
 		{ErrMissingKeyFunc, http.StatusInternalServerError},
+		{keylane.ErrAdmissionRejected, http.StatusServiceUnavailable},
 	}
+	admission := AdmissionConfig{RejectStatusCode: http.StatusServiceUnavailable}
 	for _, tt := range tests {
-		if got := statusCodeForError(tt.err); got != tt.status {
+		if got := statusCodeForError(tt.err, admission); got != tt.status {
 			t.Errorf("statusCodeForError(%v) = %d, want %d", tt.err, got, tt.status)
 		}
 	}

@@ -11,11 +11,12 @@ import (
 // laneCounters holds atomic metrics counters for a specific lane.
 type laneCounters struct {
 	// StatsGCPressure cumulative counters.
-	submitted atomic.Uint64
-	accepted  atomic.Uint64
-	rejected  atomic.Uint64
-	canceled  atomic.Uint64
-	panicked  atomic.Uint64
+	submitted                 atomic.Uint64
+	accepted                  atomic.Uint64
+	rejected                  atomic.Uint64
+	pressureAdmissionRejected atomic.Uint64
+	canceled                  atomic.Uint64
+	panicked                  atomic.Uint64
 
 	// StatsGCPressure queue wait (always on).
 	gcQueueWaitCount      atomic.Uint64
@@ -62,18 +63,20 @@ func (c *laneCounters) snapshotGCPressure() LaneCountersGCPressure {
 	canceled := c.canceled.Load()
 	panicked := c.panicked.Load()
 	queueFull := uint64(c.queueFullTotal.Load())
+	admissionRejected := c.pressureAdmissionRejected.Load()
 	accepted := c.accepted.Load()
 	rejected := c.rejected.Load()
 	submitted := c.submitted.Load()
 	return LaneCountersGCPressure{
-		Submitted: submitted,
-		Accepted:  accepted,
-		Rejected:  rejected,
-		Completed: completed,
-		Failed:    failed,
-		QueueFull: queueFull,
-		Canceled:  canceled,
-		Panicked:  panicked,
+		Submitted:         submitted,
+		Accepted:          accepted,
+		Rejected:          rejected,
+		AdmissionRejected: admissionRejected,
+		Completed:         completed,
+		Failed:            failed,
+		QueueFull:         queueFull,
+		Canceled:          canceled,
+		Panicked:          panicked,
 	}
 }
 
@@ -98,4 +101,11 @@ func (c *laneCounters) recordLaneAdmissionResult(err error) {
 // recordLaneAdmissionRejected increments Rejected without a shard enqueue attempt result.
 func (c *laneCounters) recordLaneAdmissionRejected() {
 	c.rejected.Add(1)
+}
+
+// recordPressureAdmissionRejected increments Rejected and AdmissionRejected for
+// pressure-based admission control rejections before enqueue.
+func (c *laneCounters) recordPressureAdmissionRejected() {
+	c.rejected.Add(1)
+	c.pressureAdmissionRejected.Add(1)
 }

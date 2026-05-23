@@ -36,6 +36,11 @@ var (
 		"Cumulative queue-full rejections per lane since queue start.",
 		labelLane, nil,
 	)
+	descAdmissionRejected = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "admission_rejected_total"),
+		"Cumulative pressure-based admission rejections per lane since queue start.",
+		labelLane, nil,
+	)
 	descLaneDepth = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "lane_depth"),
 		"Queued jobs per lane across all shards.",
@@ -74,6 +79,7 @@ func allDescriptors() []*prom.Desc {
 		descJobsCompleted,
 		descJobsFailed,
 		descQueueFull,
+		descAdmissionRejected,
 		descLaneDepth,
 		descShardDepth,
 		descInflight,

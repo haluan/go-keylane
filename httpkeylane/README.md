@@ -45,6 +45,20 @@ LaneFunc: httpkeylane.RouteLaneMapper(
 ),
 ```
 
+## Admission control
+
+Opt-in pressure-based rejection before enqueue (disabled by default):
+
+```go
+Admission: httpkeylane.AdmissionConfig{
+    Enabled:          true,
+    RejectAboveRatio: 0.90,
+    RejectStatusCode: http.StatusServiceUnavailable, // default 503
+},
+```
+
+Uses `queue.Pressure().TotalDepthRatio` from the core runtime. Key and lane are validated before the admission check.
+
 ## Default HTTP status mapping
 
 | Condition | Status |
@@ -52,6 +66,7 @@ LaneFunc: httpkeylane.RouteLaneMapper(
 | Missing/invalid middleware config | 500 |
 | Empty or invalid key | 400 |
 | Invalid lane | 400 |
+| Admission rejected (overload) | 503 (or configured) |
 | Queue full / stopped / not started | 503 |
 | Context deadline exceeded | 504 |
 | Context canceled (before handler runs) | 499 |
