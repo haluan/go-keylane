@@ -1,0 +1,10 @@
+.git/
+.venv/
+graphify-out/
+tmp/
+dist/
+bin/
+coverage.out
+*.test
+*.prof
+vendor/

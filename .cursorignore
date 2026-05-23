@@ -1,0 +1,131 @@
+# --- Git / VCS ---
+.git/
+.gitmodules
+
+# --- Editor / IDE noise ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Cursor / AI local state ---
+.cursor/
+.cursor-cache/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.age
+*.sops.*
+secrets/
+.secret/
+credentials/
+credentials.json
+service-account*.json
+
+# --- Go build artifacts ---
+bin/
+build/
+dist/
+out/
+tmp/
+temp/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+
+# --- Go test / coverage output ---
+coverage.out
+coverage.html
+*.cover
+*.cov
+test-results/
+reports/test/
+reports/coverage/
+
+# --- Go cache / workspace noise ---
+.gocache/
+.gomodcache/
+go.work.sum
+
+# --- Vendored dependencies ---
+vendor/
+
+# --- Benchmark / profiling output ---
+bench.out
+bench.txt
+benchstat.out
+cpu.prof
+mem.prof
+mutex.prof
+block.prof
+trace.out
+*.trace
+
+# --- Logs ---
+*.log
+logs/
+reports/logs/
+
+# --- Graphify output ---
+graphify-out/
+.graphify/
+GRAPH_REPORT.md
+graph.json
+cost.json
+*.graph.json
+
+# --- Generated docs / generated diagrams ---
+docs/generated/
+site/
+public/
+*.svg.tmp
+*.drawio.bkp
+
+# --- Generated code / mocks if regenerated often ---
+# Keep this commented if mocks are important for Cursor context.
+# mocks/
+# *_mock.go
+# mock_*.go
+
+# --- Package manager noise, if examples use JS tooling ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+
+# --- Python local tooling, if Graphify installed locally ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Docker / local runtime data ---
+.docker/
+docker-data/
+data/
+runtime-data/
+*.db
+*.sqlite
+*.sqlite3
+
+# --- OS files ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
