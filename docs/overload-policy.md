@@ -87,6 +87,12 @@ for _, lane := range snap.Lanes {
 
 Each non-keep overload decision also increments `Rejected` and `AdmissionRejected` on that lane. Overload rejections do not increase `TotalQueued`.
 
+## Adaptive quota integration
+
+When adaptive quota is enabled, per-lane `OverloadRejected` and `OverloadShed` counts are included in each evaluation tick's lane signals. For **background** and **best-effort** lanes, elevated overload counters can trigger a quota **decrease** even when global pressure is below `PressureHigh`, so localized shed storms shrink drain capacity without lowering critical-lane quotas globally.
+
+See [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md).
+
 Structured reason codes and policy version are available on `OverloadError.Decision` and `DebugSnapshot.OverloadPolicyVersion`.
 
 ## Benchmarks

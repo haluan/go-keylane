@@ -1,7 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -51,6 +55,22 @@ func waitForSignal(t *testing.T, ch <-chan struct{}) {
 		// success
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for signal")
+	}
+}
+
+func eventuallyNoGoroutineGrowth(t *testing.T, before int, tolerance int) {
+	t.Helper()
+	deadline := time.After(3 * time.Second)
+	for {
+		now := runtime.NumGoroutine()
+		if now <= before+tolerance {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("goroutines = %d, before = %d, tolerance = %d", now, before, tolerance)
+		case <-time.After(20 * time.Millisecond):
+		}
 	}
 }
 

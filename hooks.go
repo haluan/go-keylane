@@ -23,6 +23,8 @@ type Hooks struct {
 	OnSlowJob func(SlowJobEvent)
 	// Request holds optional SubmitRequest lifecycle hooks.
 	Request RequestHooks
+	// OnAdaptiveQuotaDecision fires after the adaptive controller successfully changes a lane quota.
+	OnAdaptiveQuotaDecision func(AdaptiveQuotaEvent)
 }
 
 // JobTimingEvent contains queue wait and run duration for a completed job.

@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
@@ -176,6 +177,56 @@ func TestProcessShardFIFOPreservedAcrossQuotaUpdate(t *testing.T) {
 		if v != i {
 			t.Errorf("results[%d] = %d, want %d", i, v, i)
 		}
+	}
+}
+
+func TestUpdateQuotaPolicyIfVersionConcurrentCAS(t *testing.T) {
+	reg, _ := NewLaneRegistry(map[string]int{"default": 1})
+	s, _ := NewScheduler(1, 1, 10, reg)
+	ver := s.loadQuotaPolicy().version
+
+	var wg sync.WaitGroup
+	type result struct {
+		ver uint64
+		err error
+	}
+	results := make([]result, 2)
+	policies := []QuotaPolicyInput{
+		{DefaultQuota: 2},
+		{DefaultQuota: 3},
+	}
+	for i := range policies {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			v, err := s.UpdateQuotaPolicyIfVersion(policies[i], ver)
+			results[i] = result{ver: v, err: err}
+		}(i)
+	}
+	wg.Wait()
+
+	var successes, conflicts int
+	var winner uint32
+	for _, r := range results {
+		if errors.Is(r.err, ErrQuotaPolicyVersionConflict) {
+			conflicts++
+			continue
+		}
+		if r.err != nil {
+			t.Fatalf("unexpected err: %v", r.err)
+		}
+		successes++
+		winner = s.loadQuotaPolicy().defaultQuota
+	}
+	if successes != 1 || conflicts != 1 {
+		t.Fatalf("successes=%d conflicts=%d, want 1 each", successes, conflicts)
+	}
+	if winner != 2 && winner != 3 {
+		t.Fatalf("final default quota = %d, want 2 or 3", winner)
+	}
+	finalVer := s.loadQuotaPolicy().version
+	if finalVer != ver+1 {
+		t.Fatalf("final version = %d, want %d", finalVer, ver+1)
 	}
 }
 

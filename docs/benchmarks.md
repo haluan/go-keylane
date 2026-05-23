@@ -124,6 +124,27 @@ go test -bench='BenchmarkKeylaneWorker.*Observability' -benchmem ./internal/core
 
 See [production-tuning.md](production-tuning.md) for mode selection.
 
+### Adaptive quota benchmarks
+
+Compare fixed vs adaptive submit paths and diagnostic snapshot cost:
+
+```bash
+go test -bench='BenchmarkFixedQuota|BenchmarkAdaptiveQuota|BenchmarkSubmitWithAdaptiveQuota' -benchmem .
+go test -bench='BenchmarkAdaptiveQuotaDecisionTick|BenchmarkAdaptiveQuotaWithOverloadSignals' -benchmem ./internal/core
+```
+
+| Benchmark | Purpose |
+|-----------|---------|
+| `BenchmarkSubmitWithAdaptiveQuotaDisabled` | Submit with controller off |
+| `BenchmarkSubmitWithAdaptiveQuotaEnabled` | Submit with controller on (long eval interval) |
+| `BenchmarkFixedQuotaCriticalAndBackground` | Alternating critical/background submit, adaptive off |
+| `BenchmarkAdaptiveQuotaCriticalAndBackground` | Same workload, adaptive on |
+| `BenchmarkAdaptiveQuotaSnapshot` | `AdaptiveQuotaSnapshot()` read cost |
+| `BenchmarkAdaptiveQuotaDecisionTick` | Pure evaluator tick (no scheduler) |
+| `BenchmarkAdaptiveQuotaWithOverloadSignals` | Signal snapshot build + one eval tick |
+
+See [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md).
+
 ---
 
 ## 2. Before/After Optimization Workflow
