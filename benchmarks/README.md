@@ -1,4 +1,4 @@
-# KL-1206 Production benchmark suite
+# v0.2 Production benchmark suite
 
 Repeatable `go test -bench` coverage for Keylane v0.2 with stable `BenchmarkKeylane*`, `BenchmarkFairness*`, and `BenchmarkGCPressure*` names.
 
@@ -30,7 +30,7 @@ make bench-production
 # Or directly:
 go test -bench='Keylane|Fairness|GCPressure' -benchmem ./benchmarks
 
-# Full repo (includes KL-1201–1205 guardrails)
+# Full repo (includes v0.2 guardrails)
 go test -bench=. -benchmem ./...
 
 # Repeat for benchstat
@@ -62,8 +62,8 @@ Compare Keylane vs global FIFO with `benchstat` on the same machine; numbers are
 | Location | Names | Role |
 |----------|-------|------|
 | `./benchmarks` | `BenchmarkKeylane*`, `BenchmarkFairness*`, `BenchmarkGCPressure*` | Production-oriented API + scenario suite |
-| `./benchmarks` | `BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand` | KL-1207 visibility vs low-allocation |
-| `.` (root) | `BenchmarkSubmit*`, `BenchmarkSubmitHotPathAllocGuardrail`, `BenchmarkStatsGCPressure`, `BenchmarkDebugSnapshot`, `BenchmarkGCPressureLowAllocationMode` | KL-1201–1205 guardrails; root low-alloc bench is **sync.Pool** only |
+| `./benchmarks` | `BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand` | v0.2 visibility vs low-allocation |
+| `.` (root) | `BenchmarkSubmit*`, `BenchmarkSubmitHotPathAllocGuardrail`, `BenchmarkStatsGCPressure`, `BenchmarkDebugSnapshot`, `BenchmarkGCPressureLowAllocationMode` | v0.2 guardrails; root low-alloc bench is **sync.Pool** only |
 | `./internal/core` | `BenchmarkProcessShard*`, `BenchmarkKeylaneProcessShard*`, `BenchmarkKeylaneWorker*Observability` | Scheduler hot path |
 
 ## Groups
@@ -73,7 +73,7 @@ Compare Keylane vs global FIFO with `benchstat` on the same machine; numbers are
 3. **Shard** — `./internal/core -bench='ProcessShard|KeylaneProcessShard'`.
 4. **Fairness** — `fairness_benchmark_test.go` + in-package global FIFO baseline (`global_fifo_baseline_test.go`).
 5. **GC pressure** — `gc_pressure_benchmark_test.go`.
-6. **Observability modes (KL-1207)** — `observability_benchmark_test.go` (`BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand`). Worker compare: `./internal/core -bench=BenchmarkKeylaneWorker.*Observability`. Root `BenchmarkGCPressureLowAllocationMode` compares **sync.Pool** (`DisablePooling`), not observability config.
+6. **Observability modes (v02.)** — `observability_benchmark_test.go` (`BenchmarkKeylaneSubmit*Observability`, `BenchmarkKeylaneDebugSnapshotOnDemand`). Worker compare: `./internal/core -bench=BenchmarkKeylaneWorker.*Observability`. Root `BenchmarkGCPressureLowAllocationMode` compares **sync.Pool** (`DisablePooling`), not observability config.
 
 ## Observability matrix
 

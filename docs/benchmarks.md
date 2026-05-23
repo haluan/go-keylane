@@ -20,7 +20,7 @@ See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](
 
 ## 1. Running Benchmarks
 
-### Production benchmark suite (KL-1206)
+### Production benchmark suite (v02.)
 Scenario and API benchmarks with stable names live under [`benchmarks/README.md`](../benchmarks/README.md).
 
 ```bash
@@ -72,12 +72,12 @@ go test -bench='BenchmarkStatsGCPressure|BenchmarkSubmit' -benchmem .
 go test -bench='BenchmarkStatsGCPressure|BenchmarkProcessShard' -benchmem ./internal/core
 ```
 
-Use `benchstat` to compare before and after KL-1201/KL-1202/KL-1203/KL-1204:
+Use `benchstat` to compare before and after v0.2:
 - **Submit path:** `BenchmarkSubmitSingleLane` and `BenchmarkSubmitHotPathAllocGuardrail` (queue never started; enqueue-only).
 - **processShard path:** `BenchmarkProcessShardSingleLane` and `BenchmarkProcessShardSingleLaneInflightGuardrail` (same workload; documents shardInflight/laneInflight atomic cost).
-- **Queue wait (KL-1203):** `BenchmarkRecordGCPressureQueueWait` (atomic update path); `BenchmarkStatsGCPressure` includes queue-wait fields. Successful enqueue stamps `AcceptedAt` (`time.Time`) on the queued job copy after `push`.
-- **Run duration (KL-1204):** `BenchmarkRecordGCPressureRunDuration`; `StatsGCPressure` version `"4"` adds `Run` fields. Compare `BenchmarkProcessShardNoHooks`, `BenchmarkProcessShardNilHooks`, and `BenchmarkProcessShardLightweightHooks` for hook overhead.
-- **Debug snapshot (KL-1205):** `BenchmarkDebugSnapshot` and `BenchmarkPressure` measure caller-triggered diagnostic snapshot cost (not worker hot path).
+- **Queue wait:** `BenchmarkRecordGCPressureQueueWait` (atomic update path); `BenchmarkStatsGCPressure` includes queue-wait fields. Successful enqueue stamps `AcceptedAt` (`time.Time`) on the queued job copy after `push`.
+- **Run duration:** `BenchmarkRecordGCPressureRunDuration`; `StatsGCPressure` version `"4"` adds `Run` fields. Compare `BenchmarkProcessShardNoHooks`, `BenchmarkProcessShardNilHooks`, and `BenchmarkProcessShardLightweightHooks` for hook overhead.
+- **Debug snapshot:** `BenchmarkDebugSnapshot` and `BenchmarkPressure` measure caller-triggered diagnostic snapshot cost (not worker hot path).
 
 ```bash
 go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
@@ -89,9 +89,9 @@ To run the internal lane queue and process shard loop benchmarks:
 go test -bench='BenchmarkProcessShard|BenchmarkLaneQueue|BenchmarkKeylaneProcessShard' -benchmem ./internal/core
 ```
 
-KL-1206 adds `BenchmarkKeylaneProcessShardWithLaneQuota` and `BenchmarkKeylaneProcessShardRequeue` for unequal quotas and ReadyCh requeue paths.
+v0.2 adds `BenchmarkKeylaneProcessShardWithLaneQuota` and `BenchmarkKeylaneProcessShardRequeue` for unequal quotas and ReadyCh requeue paths.
 
-### Low-allocation observability (KL-1207)
+### Low-allocation observability
 
 Compare default vs low-allocation submit/worker overhead:
 

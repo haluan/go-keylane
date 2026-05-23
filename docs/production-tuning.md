@@ -79,7 +79,7 @@ if p.IsPressured || p.IsOverloaded {
 
 ---
 
-## Observability modes (KL-1207)
+## Observability modes
 
 ### Visibility mode (default)
 
@@ -144,7 +144,7 @@ Compare with `benchstat` (`-count=5` recommended). Root `BenchmarkGCPressureLowA
 
 ---
 
-## Optional adapters (KL-1208)
+## Optional adapters
 
 Prometheus and OpenTelemetry live in **separate modules** — the core package never imports them.
 
