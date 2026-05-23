@@ -192,6 +192,53 @@ func TestMiddlewareMissingKeyBeforeAdmission(t *testing.T) {
 	}
 }
 
+func TestHTTPAdmissionRejectionCounter(t *testing.T) {
+	q := admissionHTTPQueue(t)
+
+	beforeQueued := q.StatsGCPressure().TotalQueued
+	var admissionBefore uint64
+	for _, ln := range q.StatsGCPressure().Lanes {
+		if ln.Name == "default" {
+			admissionBefore = ln.Counters.AdmissionRejected
+		}
+	}
+
+	handler := Middleware(q, Config{
+		KeyFunc:  StaticKey("k"),
+		LaneFunc: StaticLane(keylane.Lane("default")),
+		Admission: AdmissionConfig{
+			Enabled:          true,
+			RejectAboveRatio: 0.90,
+		},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not run")
+	}))
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	resp.Body.Close()
+
+	afterQueued := q.StatsGCPressure().TotalQueued
+	if afterQueued != beforeQueued {
+		t.Errorf("TotalQueued = %d, want %d (no enqueue on admission reject)", afterQueued, beforeQueued)
+	}
+
+	var admissionAfter uint64
+	for _, ln := range q.StatsGCPressure().Lanes {
+		if ln.Name == "default" {
+			admissionAfter = ln.Counters.AdmissionRejected
+		}
+	}
+	if admissionAfter != admissionBefore+1 {
+		t.Errorf("AdmissionRejected = %d, want %d", admissionAfter, admissionBefore+1)
+	}
+}
+
 func TestHTTPValidateAdmissionConfigZeroRatioDefaults(t *testing.T) {
 	err := ValidateAdmissionConfig(AdmissionConfig{Enabled: true, RejectAboveRatio: 0})
 	if err != nil {
