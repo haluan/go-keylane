@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import (
@@ -59,11 +62,12 @@ func TestProcessShardQuotaByLaneID(t *testing.T) {
 
 	s, _ := NewScheduler(1, 1, 100, reg)
 
-	if s.laneQuotas[0] != 10 {
-		t.Errorf("expected quota for lane 0 to be 10, got %d", s.laneQuotas[0])
+	quotas := s.loadQuotaPolicy().laneQuotas
+	if quotas[0] != 10 {
+		t.Errorf("expected quota for lane 0 to be 10, got %d", quotas[0])
 	}
-	if s.laneQuotas[1] != 5 {
-		t.Errorf("expected quota for lane 1 to be 5, got %d", s.laneQuotas[1])
+	if quotas[1] != 5 {
+		t.Errorf("expected quota for lane 1 to be 5, got %d", quotas[1])
 	}
 }
 

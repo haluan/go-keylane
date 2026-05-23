@@ -19,7 +19,7 @@ A concurrency isolation boundary. The scheduler partitions enqueued jobs into a 
 An active goroutine managed by the scheduler. Workers continuously pop ready shards, acquire quota-limited batches of work, and process those jobs in parallel, bypassing global scheduler lock contention.
 
 ### Quota
-An execution limit configured per Lane. It determines the maximum number of jobs from a specific lane queue that a single worker pass will execute before yielding the shard to other ready shards.
+An execution limit configured per Lane. It determines the maximum number of jobs from a specific lane queue that a single worker pass will execute before yielding the shard to other ready shards. At runtime, quotas can be updated safely via `UpdateQuotaPolicy` without interrupting in-flight work (see production tuning guide).
 
 ### InternalJob
 The scheduler's internal wrapper around a user-submitted `Job`. It records management timestamps (such as submission time) to calculate precise queue wait latency.

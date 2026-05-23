@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package core
 
 import "errors"
@@ -10,6 +13,8 @@ var (
 	ErrInvalidLane         = errors.New("keylane: invalid lane")
 	ErrInvalidLaneQuota    = errors.New("keylane: invalid lane quota")
 	ErrMissingLaneQuotas   = errors.New("keylane: missing lane quotas")
+	ErrInvalidQuotaPolicy  = errors.New("keylane: invalid quota policy")
+	ErrQuotaTooLarge       = errors.New("keylane: quota too large")
 	ErrInvalidJob          = errors.New("keylane: invalid job")
 	ErrInvalidKey          = errors.New("keylane: invalid key")
 	ErrNilJobRun           = errors.New("keylane: nil job run function")
