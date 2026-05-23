@@ -1,6 +1,23 @@
 # Adaptive Quota and Overload Benchmarks
 
-This note explains how to run and interpret v0.4 benchmarks for adaptive quota, overload policy, and related observability paths.
+## Overview
+
+This note explains how to run and interpret v0.4 benchmarks for adaptive quota, overload policy, and related observability paths. Results are **workload-dependent**; use them to detect regressions in your environment, not as universal latency guarantees.
+
+---
+
+## Benchmark scenarios
+
+| Area | Benchmarks (examples) |
+|------|------------------------|
+| Submit hot path | `BenchmarkSubmitWithAdaptiveQuotaDisabled` vs `Enabled`; aliases `BenchmarkSubmitAdaptiveDisabled` / `Enabled` |
+| Fixed vs adaptive workload | `BenchmarkFixedQuotaCriticalAndBackground` vs `BenchmarkAdaptiveQuotaCriticalAndBackground` |
+| Best-effort shedding | `BenchmarkOverloadBestEffortShedding` |
+| Overload decision hot path | `BenchmarkOverloadPolicyDecision`, `BenchmarkCheckOverload` |
+| Adaptive controller tick | `BenchmarkAdaptiveQuotaDecisionTick` (+ `*4Lanes`, `*16Lanes`, `*64Lanes`) |
+| Quota / debug snapshot | `BenchmarkQuotaSnapshot`, `BenchmarkAdaptiveDebugSnapshot` |
+
+---
 
 ## Commands
 
@@ -29,33 +46,92 @@ go test -race ./...
 make ci-race
 ```
 
-## What to compare
+---
 
-| Benchmark | What it measures |
-|-----------|------------------|
-| `BenchmarkSubmitWithAdaptiveQuotaDisabled` vs `Enabled` | Submit hot-path overhead when controller is on (long eval interval) |
-| `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` | KL-1405 spec aliases for the same submit benchmarks |
-| `BenchmarkFixedQuotaCriticalAndBackground` vs `BenchmarkAdaptiveQuotaCriticalAndBackground` | Same workload; adaptive may change quotas over time |
-| `BenchmarkOverloadPolicyDecision` / `BenchmarkCheckOverload` | Cost of overload evaluation on admit (keep path) |
-| `BenchmarkOverloadBestEffortShedding` | Mixed critical + best-effort overload checks |
-| `BenchmarkAdaptiveQuotaDecisionTick` | Evaluator cost per tick (2 lanes); see `*4Lanes`, `*16Lanes`, `*64Lanes` variants |
-| `BenchmarkQuotaSnapshot` / `BenchmarkAdaptiveDebugSnapshot` | Diagnostic read cost (bounded copy-out) |
+## Fixed quota vs adaptive quota
 
-## Metrics that matter
+Compare `BenchmarkFixedQuotaCriticalAndBackground` with `BenchmarkAdaptiveQuotaCriticalAndBackground` under the same load generator. Adaptive may change quotas over the run; fixed quotas stay constant. Adaptive is **not guaranteed** to improve throughput or latency in every scenario.
 
-- **ns/op** and **allocs/op** on submit benchmarks — adaptive and overload should not add large allocation churn when hooks are disabled.
-- **Throughput** (ops/sec) under mixed critical/background load — workload-dependent.
-- **Shed/reject counts** and **quota change counts** — use hooks, `AdaptiveDebugSnapshot`, or `StatsGCPressure` during longer runs, not single benchmark iterations.
+---
 
-## Interpretation
+## Best-effort shedding
 
-- Results are **workload-dependent**. Adaptive quota is conservative; it is not guaranteed to improve every scenario.
-- Compare before/after code changes with the same Go version and `benchstat` (see [benchmarks.md](../benchmarks.md)).
-- Snapshot benchmarks intentionally allocate bounded copies; that is acceptable for on-demand diagnostics.
+`BenchmarkOverloadBestEffortShedding` exercises mixed critical and best-effort overload checks. Use with overload counters or hooks to verify shed paths stay cheap when hooks are disabled.
+
+---
+
+## Overload decision hot path
+
+Target **0 allocs/op** on the successful `keep` path when hooks are disabled. Any allocation regression on admit may matter because overload runs before enqueue.
+
+---
+
+## Adaptive controller tick
+
+`BenchmarkAdaptiveQuotaDecisionTick` measures evaluator cost per tick (no scheduler goroutines in the core package benchmark). Scale variants show cost vs lane count. Controller tick overhead should stay bounded as you add lanes.
+
+---
+
+## Submit hot path
+
+Compare:
+
+```bash
+go test -bench='BenchmarkSubmitAdaptive(Disabled|Enabled)' -benchmem .
+```
+
+Aliases: `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` (KL-1405 names for `BenchmarkSubmitWithAdaptiveQuotaDisabled` / `Enabled`). See [adaptive_quota_bench_test.go](../../adaptive_quota_bench_test.go).
+
+**Expected shape (hooks disabled, long `EvaluationInterval` in tests):**
+
+| Metric | Expectation |
+|--------|-------------|
+| `allocs/op` | **0** on submit for both disabled and enabled — enabled should stay near disabled baseline |
+| `ns/op` | Small delta acceptable; large regressions warrant investigation |
+
+**Regression detection:** Watch `allocs/op` first, then `ns/op`. Compare runs with [benchstat](../benchmarks.md) on the same Go version and machine. Do not hard-code absolute ns/op values — they are environment-specific.
+
+Adaptive enabled with hooks on adds separate overhead; measure observability with explicit hook benchmarks, not the default submit comparison.
+
+---
+
+## Reading allocations/op
+
+- **allocs/op** on submit and overload `keep` paths should stay at or near zero with hooks disabled
+- Snapshot benchmarks **intentionally allocate** bounded copies — acceptable for on-demand diagnostics, not per-request paths
+
+---
+
+## Reading p95/p99 queue wait
+
+Public `StatsGCPressure()` exposes cumulative queue-wait and run timing (averages and max fields depending on config). Per-request **p95/p99** appear on `AdaptiveQuotaDecisionEvent` during evaluation when timing is enabled — use hooks or longer runs, not a single `-bench` iteration, to study tail latency.
+
+---
+
+## Comparing benchmark runs
+
+- Use the same Go version and machine
+- Compare before/after with `benchstat` — see [benchmarks.md](../benchmarks.md)
+- Keep hooks disabled unless measuring observability overhead explicitly
+- Record `QuotaChangeTotal` / overload counters from `AdaptiveDebugSnapshot` or `StatsGCPressure` during longer runs
+
+---
+
+## Limitations
+
+- Benchmark results are **workload-dependent**
+- Adaptive quota is **not guaranteed** to win every benchmark or improve p99
+- **Allocation regressions** in the submit path are important even when ns/op looks fine
+- Controller tick overhead should remain bounded; snapshot reads are for diagnostics, not hot paths
+- Overload decision cost must stay low enough for pre-enqueue use on every request
+- Keylane does not eliminate Go GC pauses; benchmarks do not measure GC elimination
+
+---
 
 ## Related docs
 
-- [adaptive-quota.md](../adaptive-quota.md) — configuration and hooks
-- [adaptive-tuning.md](../adaptive-tuning.md) — tuning guidance
+- [adaptive-quota.md](../adaptive-quota.md) — configuration
+- [adaptive-tuning.md](../adaptive-tuning.md) — tuning and rollout
 - [overload-policy.md](../overload-policy.md) — overload semantics
-- [observability.md](../observability.md) — hooks and snapshots
+- [adaptive-observability.md](../adaptive-observability.md) — hooks and snapshots
+- [observability.md](../observability.md) — general observability

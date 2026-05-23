@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.3 — request runtime and HTTP integration. Public APIs may still evolve before a stable v1.0.
+> Status: v0.4 — adaptive quota and overload policy on top of v0.3 request runtime. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -152,6 +152,16 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 ---
 
+## v0.4 Adaptive Quota & Overload Policy
+
+Keylane can optionally react to runtime pressure with bounded quota updates, lane priority classes, per-lane admission policy, overload decisions, and backoff hints.
+
+**Start here:** [Adaptive Quota](docs/adaptive-quota.md) · [Lane Priority](docs/lane-priority.md) · [Adaptive Tuning](docs/adaptive-tuning.md)
+
+Full v0.4 documentation index is under [Documentation](#documentation) below.
+
+---
+
 ## Request Runtime (v0.3)
 
 Keylane can run request-scoped work through a lane-sharded fairness runtime.
@@ -242,6 +252,16 @@ cd tracing/otel && go test ./...
 ---
 
 ## Documentation
+
+### v0.4 adaptive quota and overload
+
+- [Adaptive Quota](docs/adaptive-quota.md)
+- [Lane Priority](docs/lane-priority.md)
+- [Overload Policy](docs/overload-policy.md)
+- [Adaptive Tuning](docs/adaptive-tuning.md)
+- [Adaptive Observability](docs/adaptive-observability.md)
+- [Adaptive Benchmarks](docs/benchmarks/adaptive-quota.md)
+- [v0.4.0 Release Notes](docs/releases/v0.4.0.md)
 
 ### v0.3 request runtime
 

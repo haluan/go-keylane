@@ -15,6 +15,10 @@ This document provides a comprehensive troubleshooting guide for resolving perfo
 | One lane dominates | `DebugSnapshot().HotLanes` | Lane quota or workload class imbalance |
 | One shard dominates | `DebugSnapshot().HotShards` | Shard key skew (hot tenant/customer on one key) |
 | `Await()` timeout | Queue wait + run duration + `Pressure()` | Caller deadline shorter than queue/run behavior; job may still run |
+| Quota changes too often | `AdaptiveDebugSnapshot()`, `OnQuotaChange` | Short cooldown, narrow hysteresis band, or aggressive pressure thresholds |
+| Quota never changes | `AdaptiveDebugSnapshot().Running`, `LastDecision` | Warmup, insufficient samples, disabled increase/decrease, at min/max bound |
+| Overload / shed storms | `OverloadRejected`, `OverloadShed`, `OnOverloadPolicyDecision` | Lane class too aggressive; best-effort shedding expected under load |
+| Missing v0.4 hook events | `Observability.EnableHooks` | Low-allocation mode disables hooks; keep decisions do not emit overload events |
 
 If p99 is high, inspect queue-wait and run-duration percentiles (or averages from cumulative stats) **separately**. High queue wait with normal run duration means scheduler backlog. Normal queue wait with high run duration means slow user code or I/O inside `Run`.
 
@@ -131,7 +135,23 @@ Calling `q.Stop(ctx, keylane.WithDrain(true))` blocks indefinitely or times out:
 
 ---
 
-## 10. Race-Condition Debugging
+## 10. v0.4 adaptive and overload
+
+For quota policy, overload, and adaptive controller issues:
+
+| Symptom | Doc |
+|---------|-----|
+| Critical lane high queue wait | [lane-priority.md](lane-priority.md), [adaptive-quota.md](adaptive-quota.md) |
+| Best-effort rejected too often | [lane-priority.md](lane-priority.md), [overload-policy.md](overload-policy.md) |
+| Quota oscillation or no changes | [adaptive-tuning.md](adaptive-tuning.md), [adaptive-observability.md](adaptive-observability.md) |
+| Missing overload events or Retry-After | [overload-policy.md](overload-policy.md), [adaptive-observability.md](adaptive-observability.md) |
+| Controller not running after Start | [adaptive-quota.md](adaptive-quota.md) — `AdaptiveDebugSnapshot().Running` |
+| Controller does not stop after `Stop` | [adaptive-observability.md](adaptive-observability.md) — drain timeout, blocking hooks, `Running` stuck |
+| Benchmark regression with adaptive on | [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md) |
+
+---
+
+## 11. Race-Condition Debugging
 
 If you encounter inconsistent behavior, memory corruption, or unexpected panics:
 - **When to check:** Always run tests and local builds with Go's built-in race detector enabled.

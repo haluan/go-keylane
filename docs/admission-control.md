@@ -13,7 +13,7 @@ Admission control gates **new** submissions before enqueue. When enabled on a re
 
 Admission runs before enqueue. Rejected requests do not enter the scheduler queue. Rejected handlers do not run. Policy updates do not drop queued work or interrupt running jobs.
 
-For overload actions (`keep`, `reject`, `shed`, `degrade`) and `Retry-After` hints, see [overload-policy.md](overload-policy.md).
+For overload actions (`keep`, `reject`, `shed`, `degrade`) and `Retry-After` hints, see [overload-policy.md](overload-policy.md). For class semantics and examples, see [lane-priority.md](lane-priority.md).
 
 `LaneClass` is an admission priority, not a strict scheduler priority. It does not reorder FIFO work inside a lane.
 

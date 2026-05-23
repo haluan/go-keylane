@@ -145,36 +145,14 @@ When `Observability.EnableHooks` is true:
 | Hook | When it fires |
 |------|----------------|
 | `OnQuotaChange` | After every successful quota publish (`source=manual` or `source=adaptive`) |
-| `OnAdaptiveQuotaDecision` | After adaptive evaluation produces a decision (successful change, apply failure, or hold when tracing is on) |
-| `OnOverloadPolicyDecision` | On overload reject, shed, or degrade (not on keep) |
+| `OnAdaptiveQuotaDecision` | Adaptive evaluation outcome (change, apply failure, optional hold tracing) |
+| `OnOverloadPolicyDecision` | Overload reject, shed, or degrade (not on keep) |
 
-Set `EnableAdaptiveDecisionTracing` to also receive **hold** adaptive decisions via `OnAdaptiveQuotaDecision` (can be noisy). Hold decisions always update `LaneAdaptiveStats.LastDecision` in snapshots; only the hold **counter** requires tracing.
+Use `Queue.AdaptiveDebugSnapshot()` for controller state and per-lane adaptive stats. `AdaptiveQuotaSnapshot()` is deprecated.
 
-**Spec type names (KL-1405):**
+Full event fields, reason codes, example flows, and troubleshooting: **[adaptive-observability.md](adaptive-observability.md)**.
 
-| Spec name | Package type | Notes |
-|-----------|--------------|-------|
-| `AdaptiveQuotaDecisionEvent` | Primary struct for adaptive decision hooks | |
-| `AdaptiveQuotaEvent` | Type alias | Same as `AdaptiveQuotaDecisionEvent` |
-
-**Version fields on events:**
-
-| Field | Meaning |
-|-------|---------|
-| `QuotaVersion` | Monotonic generation of the active **quota policy** snapshot (`CurrentQuotaPolicy().Version`) — authoritative for all `QuotaChangeEvent` sources |
-| `PolicyVersion` on `QuotaChangeEvent` | Adaptive controller config generation when `source=adaptive`; `0` for `source=manual` (not applicable) |
-| `PolicyVersion` on `AdaptiveQuotaDecisionEvent` | Adaptive controller config generation (currently `1` until config reload versioning exists) |
-
-```go
-snap := q.AdaptiveDebugSnapshot()
-// Enabled, Running, LastDecisions, per-lane LaneAdaptiveStats, PolicyVersion, QuotaVersion
-```
-
-`AdaptiveQuotaSnapshot` is deprecated; use `AdaptiveDebugSnapshot` for operator diagnostics (includes per-lane stats).
-
-Hooks are invoked outside scheduler and quota locks. Disabled hooks add no event payload allocation on the submit path.
-
-See [adaptive-quota.md](adaptive-quota.md), [overload-policy.md](overload-policy.md), and [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
+Also see [adaptive-quota.md](adaptive-quota.md), [overload-policy.md](overload-policy.md), and [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
 
 ---
 

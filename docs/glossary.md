@@ -19,7 +19,22 @@ A concurrency isolation boundary. The scheduler partitions enqueued jobs into a 
 An active goroutine managed by the scheduler. Workers continuously pop ready shards, acquire quota-limited batches of work, and process those jobs in parallel, bypassing global scheduler lock contention.
 
 ### Quota
-An execution limit configured per Lane. It determines the maximum number of jobs from a specific lane queue that a single worker pass will execute before yielding the shard to other ready shards. At runtime, quotas can be updated safely via `UpdateQuotaPolicy` without interrupting in-flight work (see production tuning guide).
+An execution limit configured per Lane. It determines the maximum number of jobs from a specific lane queue that a single worker pass will execute before yielding the shard to other ready shards. At runtime, quotas can be updated safely via `UpdateQuotaPolicy` without interrupting in-flight work. See [adaptive-quota.md](adaptive-quota.md) and [production-tuning.md](production-tuning.md).
+
+### QuotaVersion
+Monotonic generation counter on the active `QuotaPolicySnapshot` (`CurrentQuotaPolicy().Version`). Used for compare-and-swap quota updates and correlating `QuotaChangeEvent` / adaptive decisions.
+
+### LaneClass
+Priority classification (`critical`, `normal`, `background`, `best_effort`) shared by admission, overload, and adaptive quota. See [lane-priority.md](lane-priority.md).
+
+### Admission policy
+Per-lane rules evaluated before enqueue: class, `RejectAboveRatio`, and `MaxQueueDepth`. See [admission-control.md](admission-control.md).
+
+### Overload action
+Pre-enqueue decision: `keep`, `reject`, `shed`, or `degrade`. May include advisory `RetryAfter` and `BackoffHint`. See [overload-policy.md](overload-policy.md).
+
+### Adaptive quota
+Optional periodic controller that adjusts lane drain quotas within configured min/max bounds using pressure and queue-wait signals. Disabled by default. See [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md).
 
 ### InternalJob
 The scheduler's internal wrapper around a user-submitted `Job`. It records management timestamps (such as submission time) to calculate precise queue wait latency.
