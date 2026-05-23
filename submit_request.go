@@ -24,13 +24,23 @@ func SubmitRequest[I any, O any](
 		return future, err
 	}
 
+	if err := ctx.Err(); err != nil {
+		future.complete(zero, err)
+		return future, err
+	}
+
+	reqCtx := ctx
 	input := req.Input
 	handle := req.Handle
 	wrapped := Job{
 		Key:  req.Meta.Key,
 		Lane: req.Meta.Lane,
-		Run: func(ctx context.Context) error {
-			out, err := handle(ctx, input)
+		Run: func(context.Context) error {
+			if err := reqCtx.Err(); err != nil {
+				future.complete(zero, err)
+				return err
+			}
+			out, err := handle(reqCtx, input)
 			if err != nil {
 				future.complete(zero, err)
 			} else {
