@@ -1,5 +1,7 @@
 # Phase 7: GC Pressure Shaping
 
+> See [gc-pressure-shaping.md](gc-pressure-shaping.md) for the v0.2 operator guide.
+
 Go-Keylane is meticulously engineered to minimize GC pressure on high-frequency execution pipelines.
 
 ## Critical Invariant Statement

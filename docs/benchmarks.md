@@ -2,6 +2,15 @@
 
 This document describes the commands and methodology for running and analyzing benchmarks to track memory allocation and performance.
 
+> [!IMPORTANT]
+> **GC pressure shaping, not GC pause elimination**
+>
+> - `keylane` does **not** avoid Go GC pauses.
+> - `keylane` helps shape GC pressure caused by uncontrolled concurrency, goroutine explosion, allocation bursts, and request pile-up.
+> - The benchmark suite measures whether keylane reduces concurrency-driven allocation bursts and queue unfairness. **It does not prove that Go GC pauses are eliminated.**
+
+See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](../benchmarks/README.md).
+
 > [!WARNING]
 > **Environment-Specific Warning**:
 > Benchmark metrics (`ns/op`, `B/op`, `allocs/op`) are highly environment-sensitive and depend on your machine's CPU architecture, active system workloads, operating system, and Go compiler version. 
@@ -21,6 +30,26 @@ go test -bench='Keylane|Fairness|GCPressure' -benchmem ./benchmarks
 ```
 
 Regex: `Keylane|Fairness|GCPressure`. Fairness benches emit `wait_p50_ns`, `latency_p95_ns`, `completed_jobs/op`, etc. Use `benchstat` with `-count=5` for trends — no hard thresholds in CI.
+
+### What to inspect
+
+| Metric | Meaning |
+|--------|---------|
+| `ns/op` | Per-operation wall time |
+| `B/op`, `allocs/op` | Heap allocation per benchmark iteration |
+| `wait_p50_ns`, `wait_p95_ns` (fairness) | Queue wait distribution under load |
+| `latency_p50_ns`, `latency_p95_ns` (fairness) | End-to-end latency under mixed workloads |
+| `completed_jobs/op` | Throughput under fairness scenarios |
+
+Scenarios include many keys vs one hot key, noisy lane vs latency-sensitive lane, global FIFO comparison, and GC pressure burst benches (`BenchmarkGCPressure*`).
+
+### Optional GC trace
+
+```bash
+GODEBUG=gctrace=1 go test -bench=GCPressure -benchmem ./benchmarks
+```
+
+Output is environment-specific; use for local investigation only, not as a product guarantee.
 
 ### Full Benchmark Suite
 To run all benchmarks (including public and internal core packages) showing memory allocation statistics:

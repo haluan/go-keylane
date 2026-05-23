@@ -1,5 +1,7 @@
 # Phase 6: Observability
 
+> See [observability.md](observability.md) for the v0.2 observability guide.
+
 Go-Keylane provides lightweight, dependency-free observability built directly into the scheduler. This design allows users to monitor depth, throughput counters, wait latency, and slow jobs without pulling in heavy external telemetry SDKs like Prometheus or OpenTelemetry.
 
 ---

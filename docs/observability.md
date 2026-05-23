@@ -1,0 +1,142 @@
+# Observability (v0.2)
+
+The core `keylane` package provides dependency-free observability: depth, counters, queue-wait and run-duration timing, debug snapshots, pressure signals, and optional hooks. Prometheus and OpenTelemetry are **optional adapters** in separate modules.
+
+> **Trade-off:** More instrumentation improves diagnosis. [Low-allocation mode](production-tuning.md) reduces hot-path overhead when you do not need per-job timing or hooks.
+
+---
+
+## How the pieces fit together
+
+```text
+StatsGCPressure()     -> cumulative operational snapshot (counters, depths, timing)
+Stats()               -> legacy v1 snapshot (depth + legacy throughput fields)
+DebugSnapshot()       -> point-in-time depths, hot shard/lane rankings
+Pressure()            -> cheap depth ratio for admission / early reject
+Hooks                 -> per-job timing and slow-job callbacks
+Optional adapters     -> Prometheus pull, OpenTelemetry spans
+```
+
+| Layer | Public API | Purpose |
+|-------|------------|---------|
+| Stats snapshot | `Queue.StatsGCPressure()` | Cumulative counters, depths, queue-wait and run timing since start |
+| Legacy stats | `Queue.Stats()` | v1 deep-copy snapshot; use for depth layout and legacy lane totals |
+| Counters | `LaneCountersGCPressure` in snapshot | `Submitted`, `Accepted`, `Rejected`, `Completed`, `Failed`, `QueueFull`, … |
+| Queue wait | `QueueWaitStatsGCPressure` in snapshot | Time from admission until `Run` starts |
+| Run duration | `RunStatsGCPressure` in snapshot | Time inside `Run` only |
+| Debug | `Queue.DebugSnapshot()` | Hot shard/lane, per-shard/lane depth at call time |
+| Pressure | `Queue.Pressure()` | `IsHealthy`, `IsPressured`, `IsOverloaded`, depth ratios |
+| Hooks | `Hooks.OnJobTiming`, `OnSlowJob` | Custom or adapter integration |
+| Adapters | separate modules | [Prometheus](metrics-prometheus.md), [OpenTelemetry](tracing-opentelemetry.md) |
+
+---
+
+## StatsGCPressure (primary pull API)
+
+```go
+snap := q.StatsGCPressure()
+fmt.Printf("queued=%d in_flight=%d\n", snap.TotalQueued, snap.TotalInFlight)
+for _, lane := range snap.Lanes {
+    c := lane.Counters
+    fmt.Printf("lane=%s submitted=%d completed=%d queue_full=%d\n",
+        lane.Name, c.Submitted, c.Completed, c.QueueFull)
+    fmt.Printf("  queue_wait_avg=%v run_avg=%v\n",
+        lane.QueueWait.AverageDuration(), lane.Run.AverageDuration())
+}
+```
+
+- **Counters** are cumulative and best-effort under concurrency (not an audit log).
+- **Queue wait** and **run duration** require `EnableQueueWaitTiming` / `EnableRunTiming` (on in default visibility mode; off in low-allocation mode).
+- Call on a **timer** or admin path — not on every `Submit`.
+
+---
+
+## Queue wait vs run duration
+
+Always inspect these separately when p99 latency is high:
+
+| Pattern | Likely cause |
+|---------|----------------|
+| High queue wait, low run duration | Scheduler backlog, hot lane/shard, low workers or quotas |
+| Low queue wait, high run duration | Slow `Run`, DB/HTTP, or blocking in user code |
+| Both high | Overload plus slow work once admitted |
+
+See [debugging.md](debugging.md) for a full symptom table.
+
+---
+
+## DebugSnapshot and Pressure
+
+**`Pressure()`** — cheap check for admission control (queue depth vs capacity only; not CPU or GC):
+
+```go
+p := q.Pressure()
+if p.IsOverloaded {
+    return errSchedulerBusy // reject or degrade before Submit
+}
+```
+
+**`DebugSnapshot()`** — deeper view including `HotShards` and `HotLanes` ranked by depth:
+
+```go
+snap := q.DebugSnapshot()
+for _, hs := range snap.HotShards {
+    fmt.Printf("hot shard %d depth=%d ratio=%.2f\n", hs.ShardID, hs.Depth, hs.DepthRatio)
+}
+```
+
+`DebugSnapshot` is a near-time diagnostic view under concurrent workers, not a global stop-the-world snapshot.
+
+---
+
+## Hooks
+
+Enabled when `Observability.EnableHooks` is true (off in low-allocation mode).
+
+- **`OnJobTiming`** — after each job: shard, lane, queue wait, run duration, outcome.
+- **`OnSlowJob`** — when run duration ≥ `SlowJobThreshold`.
+
+Hooks run outside scheduler locks. Nil hooks are safe. Hook panics are recovered.
+
+For OpenTelemetry, use the [tracing adapter](tracing-opentelemetry.md) instead of hand-rolling exporters on the hot path unless you need custom behavior.
+
+---
+
+## Visibility vs low-allocation mode
+
+| Mode | Config | Timing in StatsGCPressure | Hooks |
+|------|--------|---------------------------|-------|
+| Visibility (default) | `DefaultObservabilityConfig()` or omit | On | On |
+| Low-allocation | `LowAllocationObservabilityConfig()` | Off | Off |
+
+`Pressure()`, counters, and on-demand `DebugSnapshot()` remain useful in low-allocation production paths. Details: [production-tuning.md](production-tuning.md).
+
+---
+
+## Optional adapters
+
+The core module does **not** import Prometheus or OpenTelemetry.
+
+| Adapter | Module | Integration |
+|---------|--------|-------------|
+| Prometheus | `github.com/haluan/go-keylane/metrics/prometheus` | `NewCollector(q, opts)` — scrape `StatsGCPressure()` + `Pressure()` |
+| OpenTelemetry | `github.com/haluan/go-keylane/tracing/otel` | `NewHooks(opts)` on `Observability.Hooks` |
+
+Do not label metrics or spans with job `Key`, request IDs, or other high-cardinality values. Use static lane names and `shard_id` only.
+
+---
+
+## High-cardinality warning
+
+**Lanes** must be a small static set (`payment`, `audit`, `webhook`). Do not use tenant IDs or request IDs as lane names — internal structures are allocated per registered lane.
+
+Use **`Job.Key`** for per-tenant routing into shards; keep lanes as workload classes.
+
+---
+
+## Related documentation
+
+- [debugging.md](debugging.md) — production troubleshooting
+- [production-tuning.md](production-tuning.md) — capacity and observability modes
+- [gc-pressure-shaping.md](gc-pressure-shaping.md) — what keylane does and does not control
+- [phase-6-observability.md](phase-6-observability.md) — detailed phase implementation notes
