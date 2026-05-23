@@ -70,6 +70,9 @@ type DebugSnapshot struct {
 
 	GeneratedAt time.Time
 
+	// AdmissionPolicyVersion is the version of the active admission policy snapshot.
+	AdmissionPolicyVersion uint64
+
 	ShardCount  int
 	LaneCount   int
 	WorkerCount int
@@ -91,12 +94,17 @@ type DebugSnapshot struct {
 // It is safe to read concurrently with submit and worker activity but does not
 // guarantee a globally atomic view across shards.
 func (s *Scheduler) emptyDebugSnapshot() DebugSnapshot {
+	var admissionVersion uint64
+	if snap := s.loadAdmissionPolicy(); snap != nil {
+		admissionVersion = snap.version
+	}
 	return DebugSnapshot{
-		Version:     DebugSnapshotVersion,
-		GeneratedAt: time.Now(),
-		ShardCount:  len(s.shards),
-		LaneCount:   s.laneReg.Len(),
-		WorkerCount: s.workerCount,
+		Version:                DebugSnapshotVersion,
+		GeneratedAt:            time.Now(),
+		AdmissionPolicyVersion: admissionVersion,
+		ShardCount:             len(s.shards),
+		LaneCount:              s.laneReg.Len(),
+		WorkerCount:            s.workerCount,
 	}
 }
 
@@ -147,19 +155,25 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		}
 	}
 
+	var admissionVersion uint64
+	if snap := s.loadAdmissionPolicy(); snap != nil {
+		admissionVersion = snap.version
+	}
+
 	return DebugSnapshot{
-		Version:       DebugSnapshotVersion,
-		GeneratedAt:   time.Now(),
-		ShardCount:    view.shardCount,
-		LaneCount:     view.laneCount,
-		WorkerCount:   view.workerCount,
-		TotalDepth:    totalDepth,
-		TotalCapacity: totalCapacity,
-		TotalInFlight: totalInFlight,
-		Pressure:      classifyPressure(totalDepth, totalCapacity, totalInFlight),
-		HotShards:     rankHotShards(view.shards, topHotShards),
-		HotLanes:      rankHotLanes(view.lanes, topHotLanes),
-		Shards:        shards,
-		Lanes:         lanes,
+		Version:                DebugSnapshotVersion,
+		GeneratedAt:            time.Now(),
+		AdmissionPolicyVersion: admissionVersion,
+		ShardCount:             view.shardCount,
+		LaneCount:              view.laneCount,
+		WorkerCount:            view.workerCount,
+		TotalDepth:             totalDepth,
+		TotalCapacity:          totalCapacity,
+		TotalInFlight:          totalInFlight,
+		Pressure:               classifyPressure(totalDepth, totalCapacity, totalInFlight),
+		HotShards:              rankHotShards(view.shards, topHotShards),
+		HotLanes:               rankHotLanes(view.lanes, topHotLanes),
+		Shards:                 shards,
+		Lanes:                  lanes,
 	}
 }

@@ -6,9 +6,18 @@ Pressure-based admission control lets the middleware reject incoming requests be
 
 ## Overview
 
-Admission control gates requests based on Keylane's internal pressure signal. When the queue depth across all shards and lanes exceeds a configured threshold, new requests are rejected immediately — before they are enqueued — with an HTTP error response.
+Admission control gates **new** submissions before enqueue. When enabled on a request or HTTP middleware path, Keylane evaluates per-lane policy using:
 
-Admission runs before enqueue. Rejected requests do not enter the scheduler queue. Rejected handlers do not run.
+1. **Per-lane queue depth** — reject when the lane's total queued jobs reach `MaxQueueDepth`
+2. **Global pressure** — reject when `TotalDepthRatio` meets or exceeds the lane's `RejectAboveRatio`
+
+Admission runs before enqueue. Rejected requests do not enter the scheduler queue. Rejected handlers do not run. Policy updates do not drop queued work or interrupt running jobs.
+
+`LaneClass` is an admission priority, not a strict scheduler priority. It does not reorder FIFO work inside a lane.
+
+- **Critical does not mean unlimited** — critical lanes reject later under pressure but still hit `MaxQueueDepth` and pressure thresholds.
+- **Best-effort does not mean never runs** — best-effort work is shed earlier when overloaded; admitted jobs run normally.
+- **Per-lane queue depth** — `MaxQueueDepth` caps queued jobs per lane across all shards, protecting scheduler capacity during overload even when global pressure is still low.
 
 ---
 
@@ -24,21 +33,67 @@ A ratio of 0.0 means all queues are empty. A ratio of 1.0 means all queues are f
 
 ---
 
-## Configuration
+## Lane classes
+
+```go
+const (
+    LaneCritical   // protect longer under pressure
+    LaneNormal     // default
+    LaneBackground // reject earlier than normal
+    LaneBestEffort // earliest rejection under pressure
+)
+```
+
+## Per-lane admission policy
+
+```go
+type AdmissionPolicy struct {
+    DefaultClass            LaneClass
+    DefaultRejectAboveRatio float64
+    DefaultMaxQueueDepth    uint32
+    Lanes                   []LanePolicy // optional per-lane overrides
+}
+
+type LanePolicy struct {
+    Lane             Lane
+    Class            LaneClass
+    RejectAboveRatio float64
+    MaxQueueDepth    uint32
+}
+```
+
+Update at runtime (immutable snapshot, same pattern as quota policy):
+
+```go
+version, err := queue.UpdateAdmissionPolicy(keylane.AdmissionPolicy{
+    DefaultClass:            keylane.LaneNormal,
+    DefaultRejectAboveRatio: 0.90,
+    DefaultMaxQueueDepth:    uint32(shardCount * queueSizePerLane),
+    Lanes: []keylane.LanePolicy{
+        {Lane: "payment", Class: keylane.LaneCritical, RejectAboveRatio: 0.98, MaxQueueDepth: 2048},
+        {Lane: "report", Class: keylane.LaneBestEffort, RejectAboveRatio: 0.60, MaxQueueDepth: 256},
+    },
+})
+snap := queue.CurrentAdmissionPolicy()
+```
+
+Lanes are fixed at queue construction; policy can only adjust rules for registered lanes.
+
+## Request gate (`AdmissionConfig`)
 
 ```go
 type AdmissionConfig struct {
     Enabled          bool    // admission control is disabled when false (default)
-    RejectAboveRatio float64 // reject when TotalDepthRatio >= this value (default 0.90)
-    RejectStatusCode int     // HTTP status code for rejected requests (default 503)
+    RejectAboveRatio float64 // validated when enabled; thresholds come from AdmissionPolicy
+    RejectStatusCode int     // HTTP status for pressure rejections (default 503)
 }
 ```
 
-**Defaults when enabled:**
-- `RejectAboveRatio`: 0.90 (reject when 90% or more of queue capacity is used)
-- `RejectStatusCode`: 503 Service Unavailable
+When `Enabled` is true, per-lane thresholds come from the queue's admission policy snapshot. `RejectAboveRatio` on `AdmissionConfig` is kept for API compatibility and validation.
 
-A zero `RejectAboveRatio` is treated as 0.90 after normalization.
+**HTTP defaults:**
+- Pressure rejection (`pressure_above_lane_threshold`): **503** (or `RejectStatusCode`)
+- Lane depth rejection (`lane_queue_depth_exceeded`): **429** Too Many Requests
 
 ---
 
@@ -66,7 +121,7 @@ The admission check runs after key and lane validation, but before `SubmitReques
 request arrives
   -> extract key (missing key → 400)
   -> extract lane (invalid lane → 400)
-  -> admission check (pressure ≥ threshold → reject with configured status)
+  -> admission check (depth or pressure → reject with 429 or 503)
   -> SubmitRequest (queue full → 503)
   -> handler runs
 ```
@@ -79,7 +134,8 @@ A rejected request increments the `AdmissionRejected` counter on the lane and fi
 
 | Scenario | Default status | Override |
 |----------|---------------|---------|
-| Admission rejected | 503 Service Unavailable | `RejectStatusCode: 429` |
+| Pressure above lane threshold | 503 Service Unavailable | `RejectStatusCode` |
+| Lane queue depth exceeded | 429 Too Many Requests | — |
 
 **When to use 503:**
 The runtime is overloaded. Callers should back off and retry with exponential backoff.
@@ -135,6 +191,7 @@ for _, lane := range snap.Lanes {
 ## Limitations
 
 - Admission control is **process-local**. It does not provide distributed rate limiting or cluster-wide admission control.
-- Pressure is measured across all shards and lanes combined. It does not differentiate between lanes.
+- Pressure uses a single global `TotalDepthRatio`; per-lane policy sets different cutoffs on that signal.
 - A short burst of requests can pass admission before pressure updates if the signal lags queue depth changes.
 - Keylane does not provide per-tenant or per-key admission control. Implement that at the application layer.
+- Fire-and-forget `Submit(Job)` does not run admission unless you add application-level gating.

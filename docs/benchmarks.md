@@ -83,6 +83,20 @@ Use `benchstat` to compare before and after v0.2:
 go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 ```
 
+### Admission Hot-Path Guardrails
+
+Two benchmarks verify that the successful-admit path (pressure below all thresholds, depth zero) allocates nothing:
+
+- **`BenchmarkEvaluateAdmission`** (`./internal/core`) — tests `evaluateAdmission` in isolation; pure per-lane threshold comparison.
+- **`BenchmarkEvaluateAdmissionForLane`** (`./internal/core`) — adds one atomic snapshot load (public `Scheduler` method).
+- **`BenchmarkCheckAdmission`** (root `.`) — full public path including `Pressure()` and `LaneQueueDepth()`.
+
+Expected result on the admit branch: **0 allocs/op** for all three benchmarks.
+
+```bash
+go test -bench='BenchmarkEvaluateAdmission|BenchmarkCheckAdmission' -benchmem ./internal/core .
+```
+
 ### Core Scheduler Benchmarks
 To run the internal lane queue and process shard loop benchmarks:
 ```bash
