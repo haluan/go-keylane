@@ -28,7 +28,7 @@ for _, shard := range stats.Shards {
 
 ---
 
-## 2. Debug Snapshot and Pressure (KL-1205)
+## 2. Debug Snapshot and Pressure
 
 For **point-in-time** queue state (not cumulative metrics), use `Queue.DebugSnapshot()` and `Queue.Pressure()`.
 
@@ -206,7 +206,7 @@ Observability: keylane.ObservabilityConfig{
 
 ---
 
-## 9. Low-Allocation Observability Mode (KL-1207)
+## 9. Low-Allocation Observability Mode
 
 See [production-tuning.md](production-tuning.md) for when to enable `LowAllocationMode` or `LowAllocationObservabilityConfig()`, and how to benchmark visibility vs low-allocation overhead.
 
@@ -228,7 +228,7 @@ See [production-tuning.md](production-tuning.md) for when to enable `LowAllocati
 
 ---
 
-## 11. Optional Prometheus and OpenTelemetry adapters (KL-1208)
+## 11. Optional Prometheus and OpenTelemetry adapters
 
 The **core** package has no Prometheus or OpenTelemetry imports. Optional adapters:
 
