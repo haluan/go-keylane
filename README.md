@@ -2,7 +2,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.2 — production visibility and GC pressure shaping. Public APIs may still evolve before a stable v1.0.
+> Status: v0.3 — request runtime and HTTP integration. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -150,6 +150,22 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 ---
 
+## Request Runtime (v0.3)
+
+Keylane can run request-scoped work through a lane-sharded fairness runtime.
+
+Use `SubmitRequest[I, O]` for transport-agnostic typed request execution, or use `httpkeylane.Middleware` to integrate with `net/http`. Both paths support cancellation, timeout semantics, pressure-based admission control, and per-request observability.
+
+See:
+
+- [Request Runtime](docs/request-runtime.md) — `SubmitRequest[I,O]`, `RequestMeta`, `Future.Await`, key routing, lane fairness
+- [HTTP Middleware](docs/http-middleware.md) — `httpkeylane.Middleware`, key and lane helpers, route rules, status codes
+- [Cancellation and Timeout](docs/cancellation-timeout.md) — cooperative cancellation, await semantics, non-guarantees
+- [Admission Control](docs/admission-control.md) — pressure-based request gating, 503/429, process-local scope
+- [Request Observability](docs/request-observability.md) — `RequestObservation`, outcomes, operation naming, cardinality guidance
+
+---
+
 ## What go-keylane is
 
 `go-keylane` is a Go lane-sharded concurrency control library for shaping request execution in-process. It helps services bound in-flight work, reduce goroutine explosion, smooth allocation bursts, and expose production visibility into queue wait, run duration, hot shards, hot lanes, and pressure.
@@ -189,6 +205,16 @@ It provides:
 ---
 
 ## Documentation
+
+### v0.3 request runtime
+
+- [Request Runtime](docs/request-runtime.md)
+- [HTTP Middleware](docs/http-middleware.md)
+- [Cancellation and Timeout](docs/cancellation-timeout.md)
+- [Admission Control](docs/admission-control.md)
+- [Request Observability](docs/request-observability.md)
+- [v0.3 Testing Guide](docs/v0.3-request-runtime-testing.md)
+- [v0.3.0 Release Notes](docs/releases/v0.3.0.md)
 
 ### v0.2 guides
 
