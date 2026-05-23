@@ -79,13 +79,17 @@ func (s *Scheduler) loadQuotaPolicy() *quotaPolicySnapshot {
 	return s.quotaPolicy.Load()
 }
 
-func (s *Scheduler) publishQuotaPolicy(snap *quotaPolicySnapshot) uint64 {
-	s.quotaMu.Lock()
-	defer s.quotaMu.Unlock()
+func (s *Scheduler) publishQuotaPolicyLocked(snap *quotaPolicySnapshot) uint64 {
 	v := s.quotaVersion.Add(1)
 	snap.version = v
 	s.quotaPolicy.Store(snap)
 	return v
+}
+
+func (s *Scheduler) publishQuotaPolicy(snap *quotaPolicySnapshot) uint64 {
+	s.quotaMu.Lock()
+	defer s.quotaMu.Unlock()
+	return s.publishQuotaPolicyLocked(snap)
 }
 
 // UpdateQuotaPolicy validates and atomically publishes a new quota policy snapshot.
@@ -105,6 +109,28 @@ func (s *Scheduler) UpdateQuotaPolicy(policy QuotaPolicyInput) (uint64, error) {
 	}
 
 	return s.publishQuotaPolicy(snap), nil
+}
+
+// UpdateQuotaPolicyIfVersion publishes a new quota policy only when the active version matches expectedVersion.
+func (s *Scheduler) UpdateQuotaPolicyIfVersion(policy QuotaPolicyInput, expectedVersion uint64) (uint64, error) {
+	snap, err := buildQuotaPolicySnapshot(s.laneReg, policy)
+	if err != nil {
+		return 0, err
+	}
+
+	s.mu.RLock()
+	state := s.state
+	s.mu.RUnlock()
+	if state == stateStopping || state == stateStopped {
+		return 0, ErrStopped
+	}
+
+	s.quotaMu.Lock()
+	defer s.quotaMu.Unlock()
+	if s.quotaPolicy.Load().version != expectedVersion {
+		return 0, ErrQuotaPolicyVersionConflict
+	}
+	return s.publishQuotaPolicyLocked(snap), nil
 }
 
 // CurrentQuotaPolicyView returns a copy of the active policy for inspection.

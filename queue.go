@@ -14,11 +14,12 @@ import (
 // Queue is the main entry point for the keylane library.
 // It manages job routing, queueing, and execution.
 type Queue struct {
-	config  Config
-	sched   *core.Scheduler
-	reg     *core.LaneRegistry
-	start   sync.Once
-	started bool
+	config   Config
+	sched    *core.Scheduler
+	reg      *core.LaneRegistry
+	adaptive *core.AdaptiveQuotaController
+	start    sync.Once
+	started  bool
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -47,11 +48,13 @@ func New(config Config) (*Queue, error) {
 	config.Observability = obs
 	wireSchedulerObservability(sched, obs)
 
-	return &Queue{
+	q := &Queue{
 		config: config,
 		sched:  sched,
 		reg:    reg,
-	}, nil
+	}
+	q.initAdaptiveController()
+	return q, nil
 }
 
 // Start launches the worker goroutines.
@@ -62,6 +65,9 @@ func (q *Queue) Start(ctx context.Context) error {
 			return ErrQueueAlreadyStarted
 		}
 		return err
+	}
+	if q.adaptive != nil {
+		_ = q.adaptive.Start(ctx)
 	}
 	return nil
 }

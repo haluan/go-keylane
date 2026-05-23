@@ -18,6 +18,9 @@ type Config struct {
 
 	// OverloadEnabled applies overload policy evaluation on Job.Submit before enqueue.
 	OverloadEnabled bool
+
+	// AdaptiveQuota configures the optional adaptive quota controller (disabled by default).
+	AdaptiveQuota AdaptiveQuotaPolicy
 }
 
 type ObservabilityConfig struct {
@@ -64,5 +67,5 @@ func (c Config) Validate() error {
 			return fmt.Errorf("%w: quota for lane %q must be at least 1", ErrInvalidLaneQuota, lane)
 		}
 	}
-	return nil
+	return ValidateAdaptiveQuotaPolicy(c.AdaptiveQuota, c.LaneQuotas)
 }

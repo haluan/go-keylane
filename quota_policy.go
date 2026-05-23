@@ -47,6 +47,37 @@ func (q *Queue) UpdateQuotaPolicy(policy QuotaPolicy) (uint64, error) {
 	return q.sched.UpdateQuotaPolicy(input)
 }
 
+// UpdateLaneQuota updates a single lane quota through the safe quota policy path.
+func (q *Queue) UpdateLaneQuota(lane Lane, quota uint32) (uint64, error) {
+	current := q.CurrentQuotaPolicy()
+	return q.UpdateLaneQuotaIfVersion(lane, quota, current.Version)
+}
+
+// UpdateLaneQuotaIfVersion updates one lane quota only when the active policy version matches expectedVersion.
+func (q *Queue) UpdateLaneQuotaIfVersion(lane Lane, quota uint32, expectedVersion uint64) (uint64, error) {
+	if err := lane.Validate(); err != nil {
+		return 0, err
+	}
+	current := q.CurrentQuotaPolicy()
+	laneQuotas := make(map[Lane]uint32, len(current.LaneQuotas)+1)
+	for l, qv := range current.LaneQuotas {
+		laneQuotas[l] = qv
+	}
+	laneQuotas[lane] = quota
+	input := core.QuotaPolicyInput{
+		DefaultQuota: current.DefaultQuota,
+		LaneQuotas:   make(map[string]uint32, len(laneQuotas)),
+	}
+	for l, qv := range laneQuotas {
+		input.LaneQuotas[string(l)] = qv
+	}
+	ver, err := q.sched.UpdateQuotaPolicyIfVersion(input, expectedVersion)
+	if err != nil {
+		return 0, err
+	}
+	return ver, nil
+}
+
 // CurrentQuotaPolicy returns a copy of the active quota policy snapshot.
 func (q *Queue) CurrentQuotaPolicy() QuotaPolicySnapshot {
 	version, defaultQuota, laneQuotas := q.sched.CurrentQuotaPolicyView()
