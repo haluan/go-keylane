@@ -185,6 +185,10 @@ func statusCodeForError(err error, admission AdmissionConfig) int {
 		errors.Is(err, keylane.ErrInvalidLane):
 		return http.StatusBadRequest
 	case errors.Is(err, keylane.ErrAdmissionRejected):
+		var rej keylane.AdmissionRejectedError
+		if errors.As(err, &rej) && rej.Reason == keylane.AdmissionReasonLaneQueueDepthExceeded {
+			return http.StatusTooManyRequests
+		}
 		return rejectStatusCode(admission)
 	case errors.Is(err, keylane.ErrQueueFull),
 		errors.Is(err, keylane.ErrStopped),

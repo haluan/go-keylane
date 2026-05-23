@@ -104,6 +104,60 @@ func TestMiddlewareAdmissionRejects(t *testing.T) {
 	}
 }
 
+func TestMiddlewareAdmissionLaneDepthReturns429(t *testing.T) {
+	q, err := keylane.New(keylane.Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[keylane.Lane]int{"default": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = q.UpdateAdmissionPolicy(keylane.AdmissionPolicy{
+		DefaultClass:            keylane.LaneNormal,
+		DefaultRejectAboveRatio: 0.99,
+		DefaultMaxQueueDepth:    2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		_ = q.Submit(context.Background(), keylane.Job{
+			Key: "k", Lane: "default",
+			Run: func(context.Context) error { return nil },
+		})
+	}
+
+	var ran atomic.Bool
+	handler := Middleware(q, Config{
+		KeyFunc:  StaticKey("k"),
+		LaneFunc: StaticLane(keylane.Lane("default")),
+		Admission: AdmissionConfig{
+			Enabled: true,
+		},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ran.Store(true)
+	}))
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429 for lane depth rejection", resp.StatusCode)
+	}
+	if ran.Load() {
+		t.Error("handler ran when lane depth admission rejected")
+	}
+}
+
 func TestMiddlewareAdmissionStatus429(t *testing.T) {
 	q := admissionHTTPQueue(t)
 

@@ -22,6 +22,9 @@ type DebugSnapshot struct {
 
 	GeneratedAt time.Time
 
+	// AdmissionPolicyVersion is the version of the active admission policy snapshot.
+	AdmissionPolicyVersion uint64
+
 	ShardCount  int
 	LaneCount   int
 	WorkerCount int

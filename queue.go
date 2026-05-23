@@ -313,18 +313,19 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 		}
 	}
 	return DebugSnapshot{
-		Version:       in.Version,
-		GeneratedAt:   in.GeneratedAt,
-		ShardCount:    in.ShardCount,
-		LaneCount:     in.LaneCount,
-		WorkerCount:   in.WorkerCount,
-		TotalDepth:    in.TotalDepth,
-		TotalCapacity: in.TotalCapacity,
-		TotalInFlight: in.TotalInFlight,
-		Pressure:      copyPressure(in.Pressure),
-		HotShards:     hotShards,
-		HotLanes:      hotLanes,
-		Shards:        shards,
-		Lanes:         lanes,
+		Version:                in.Version,
+		GeneratedAt:            in.GeneratedAt,
+		AdmissionPolicyVersion: in.AdmissionPolicyVersion,
+		ShardCount:             in.ShardCount,
+		LaneCount:              in.LaneCount,
+		WorkerCount:            in.WorkerCount,
+		TotalDepth:             in.TotalDepth,
+		TotalCapacity:          in.TotalCapacity,
+		TotalInFlight:          in.TotalInFlight,
+		Pressure:               copyPressure(in.Pressure),
+		HotShards:              hotShards,
+		HotLanes:               hotLanes,
+		Shards:                 shards,
+		Lanes:                  lanes,
 	}
 }

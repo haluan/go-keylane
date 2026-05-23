@@ -180,38 +180,14 @@ func TestHotLaneTieBreak(t *testing.T) {
 	}
 	q, _ := keylane.New(cfg)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	_ = q.Start(ctx)
-
-	blockA := make(chan struct{})
+	// Queue is NOT started; both jobs stay queued, Depth=1 each, InFlight=0 each.
 	_ = q.Submit(context.Background(), keylane.Job{
-		Key:  "a-block",
-		Lane: "laneA",
-		Run: func(ctx context.Context) error {
-			<-blockA
-			return nil
-		},
-	})
-	blockB := make(chan struct{})
-	_ = q.Submit(context.Background(), keylane.Job{
-		Key:  "b-block",
-		Lane: "laneB",
-		Run: func(ctx context.Context) error {
-			<-blockB
-			return nil
-		},
-	})
-	time.Sleep(15 * time.Millisecond)
-
-	// Depth 1 on each lane behind blockers; laneA has lane ID 0.
-	_ = q.Submit(context.Background(), keylane.Job{
-		Key:  "a-q",
+		Key:  "a",
 		Lane: "laneA",
 		Run:  func(ctx context.Context) error { return nil },
 	})
 	_ = q.Submit(context.Background(), keylane.Job{
-		Key:  "b-q",
+		Key:  "b",
 		Lane: "laneB",
 		Run:  func(ctx context.Context) error { return nil },
 	})

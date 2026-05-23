@@ -17,7 +17,11 @@ type Scheduler struct {
 	quotaPolicy       atomic.Pointer[quotaPolicySnapshot]
 	quotaVersion      atomic.Uint64
 	quotaMu           sync.Mutex
+	admissionPolicy   atomic.Pointer[admissionPolicySnapshot]
+	admissionVersion  atomic.Uint64
+	admissionMu       sync.Mutex
 	laneReg           *LaneRegistry
+	queueSizePerLane  int
 	mu                sync.RWMutex
 	state             lifecycleState
 	stopDone          chan struct{}
@@ -52,6 +56,7 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		ReadyCh:          make(chan int, shardCount),
 		workerCount:      workerCount,
 		laneReg:          reg,
+		queueSizePerLane: queueSizePerLane,
 		shardInflight:    shardInflight,
 		laneInflight:     laneInflight,
 		Obs:              defaultObservabilityConfig(),
@@ -60,6 +65,7 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		shardRunDuration: shardRunDuration,
 	}
 	s.initQuotaPolicy(reg)
+	s.initAdmissionPolicy(reg, shardCount, queueSizePerLane)
 	return s, nil
 }
 

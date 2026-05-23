@@ -41,6 +41,10 @@ Lanes separate **workload classes**, not individual requests.
 - Low quota on a latency-sensitive lane can starve it when a noisy lane shares the shard.
 - Tune together with `WorkerCount` and observed `HotLanes` from `DebugSnapshot()`.
 
+### Runtime admission policy
+
+Per-lane admission rules (class, pressure threshold, max queue depth) can be updated at runtime with `UpdateAdmissionPolicy`. See [admission-control.md](admission-control.md). Admission only affects new submissions when `AdmissionConfig.Enabled` is true on the request or HTTP middleware path.
+
 ### Runtime quota updates
 
 Lane names are fixed when the queue is created. Per-lane drain quotas can be changed at runtime with `UpdateQuotaPolicy` (see `QuotaPolicy` in the root package).
