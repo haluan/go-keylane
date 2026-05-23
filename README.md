@@ -156,9 +156,14 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 Keylane can optionally react to runtime pressure with bounded quota updates, lane priority classes, per-lane admission policy, overload decisions, and backoff hints.
 
-**Start here:** [Adaptive Quota](docs/adaptive-quota.md) · [Lane Priority](docs/lane-priority.md) · [Adaptive Tuning](docs/adaptive-tuning.md)
+Start here:
 
-Full v0.4 documentation index is under [Documentation](#documentation) below.
+- [Adaptive Quota](docs/adaptive-quota.md)
+- [Lane Priority](docs/lane-priority.md)
+- [Overload Policy](docs/overload-policy.md)
+- [Adaptive Tuning](docs/adaptive-tuning.md)
+- [Adaptive Observability](docs/adaptive-observability.md)
+- [Adaptive Benchmarks](docs/benchmarks/adaptive-quota.md)
 
 ---
 

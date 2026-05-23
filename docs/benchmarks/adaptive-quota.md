@@ -74,24 +74,7 @@ Target **0 allocs/op** on the successful `keep` path when hooks are disabled. An
 
 ## Submit hot path
 
-Compare:
-
-```bash
-go test -bench='BenchmarkSubmitAdaptive(Disabled|Enabled)' -benchmem .
-```
-
-Aliases: `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` (KL-1405 names for `BenchmarkSubmitWithAdaptiveQuotaDisabled` / `Enabled`). See [adaptive_quota_bench_test.go](../../adaptive_quota_bench_test.go).
-
-**Expected shape (hooks disabled, long `EvaluationInterval` in tests):**
-
-| Metric | Expectation |
-|--------|-------------|
-| `allocs/op` | **0** on submit for both disabled and enabled — enabled should stay near disabled baseline |
-| `ns/op` | Small delta acceptable; large regressions warrant investigation |
-
-**Regression detection:** Watch `allocs/op` first, then `ns/op`. Compare runs with [benchstat](../benchmarks.md) on the same Go version and machine. Do not hard-code absolute ns/op values — they are environment-specific.
-
-Adaptive enabled with hooks on adds separate overhead; measure observability with explicit hook benchmarks, not the default submit comparison.
+Compare submit benchmarks with adaptive enabled vs disabled (long `EvaluationInterval` in tests minimizes tick interference). **Allocation regressions** on submit matter more than small ns/op shifts when hooks are off.
 
 ---
 

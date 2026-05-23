@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func admissionTestQueue(t *testing.T) *Queue {
@@ -272,6 +273,76 @@ func TestSubmitRequestAdmissionEnabledZeroRatioUsesDefault(t *testing.T) {
 		Enabled:          true,
 		RejectAboveRatio: 0,
 	})
+}
+
+func TestCheckAdmissionRecordsHotKeyRejectForTrackedKey(t *testing.T) {
+	cfg := Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 10,
+		LaneQuotas:       map[Lane]int{"default": 1},
+		HotKey: HotKeyConfig{
+			Enabled:                true,
+			MaxTrackedKeysPerShard: 16,
+			DetectionWindow:        time.Minute,
+			HotKeyDepthRatio:       0.3,
+		},
+	}
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Lane depth rejection (not global pressure) so the test stays deterministic
+	// without starting workers — running workers would drain the queue before CheckAdmission.
+	_, err = q.UpdateAdmissionPolicy(AdmissionPolicy{
+		DefaultClass:            LaneNormal,
+		DefaultRejectAboveRatio: 0.99,
+		DefaultMaxQueueDepth:    2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const key = "tracked-tenant"
+	block := make(chan struct{})
+	defer close(block)
+	run := func(ctx context.Context) error {
+		select {
+		case <-block:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	for i := 0; i < 2; i++ {
+		if err := q.Submit(context.Background(), Job{Key: key, Lane: "default", Run: run}); err != nil {
+			t.Fatalf("Submit %d: %v", i, err)
+		}
+	}
+
+	err = CheckAdmission(q, AdmissionConfig{Enabled: true},
+		RequestMeta{Key: key, Lane: "default"})
+	if !errors.Is(err, ErrAdmissionRejected) {
+		t.Fatalf("CheckAdmission = %v, want ErrAdmissionRejected", err)
+	}
+	var rej AdmissionRejectedError
+	if !errors.As(err, &rej) {
+		t.Fatal("want AdmissionRejectedError")
+	}
+	if rej.Reason != AdmissionReasonLaneQueueDepthExceeded {
+		t.Fatalf("reason = %q, want %s", rej.Reason, AdmissionReasonLaneQueueDepthExceeded)
+	}
+
+	snap := q.DebugSnapshot()
+	var rejected uint64
+	for _, sh := range snap.Shards {
+		if sh.HotKeyCandidate != nil && sh.HotKeyCandidate.RejectedApprox > 0 {
+			rejected = sh.HotKeyCandidate.RejectedApprox
+		}
+	}
+	if rejected == 0 {
+		t.Fatal("expected RejectedApprox > 0 on hot key candidate after admission reject")
+	}
 }
 
 func TestAdmissionRejectedErrorUnwrap(t *testing.T) {

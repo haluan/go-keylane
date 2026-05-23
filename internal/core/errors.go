@@ -19,6 +19,7 @@ var (
 	ErrInvalidAdmissionPolicy     = errors.New("keylane: invalid admission policy")
 	ErrInvalidOverloadPolicy      = errors.New("keylane: invalid overload policy")
 	ErrInvalidAdaptiveQuotaConfig = errors.New("keylane: invalid adaptive quota config")
+	ErrInvalidHotKeyConfig        = errors.New("keylane: invalid hot key config")
 	ErrInvalidLaneClass           = errors.New("keylane: invalid lane class")
 	ErrInvalidJob                 = errors.New("keylane: invalid job")
 	ErrInvalidKey                 = errors.New("keylane: invalid key")

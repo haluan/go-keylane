@@ -20,10 +20,15 @@ type Queue struct {
 	adaptive *core.AdaptiveQuotaController
 	start    sync.Once
 	started  bool
+
+	hotKeyExposeRawKey bool
 }
 
 // New creates a new Queue instance with the specified configuration.
 func New(config Config) (*Queue, error) {
+	hotKey := config.HotKey
+	NormalizeHotKeyConfig(&hotKey)
+	config.HotKey = hotKey
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -48,10 +53,13 @@ func New(config Config) (*Queue, error) {
 	config.Observability = obs
 	wireSchedulerObservability(sched, obs)
 
+	sched.ConfigureHotKey(toCoreHotKeyConfig(config.HotKey))
+
 	q := &Queue{
-		config: config,
-		sched:  sched,
-		reg:    reg,
+		config:             config,
+		sched:              sched,
+		reg:                reg,
+		hotKeyExposeRawKey: config.HotKey.Enabled && config.HotKey.ExposeRawKey,
 	}
 	q.initAdaptiveController()
 	return q, nil
@@ -293,7 +301,7 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 				Depth:  ld.Depth,
 			}
 		}
-		shards[i] = ShardSnapshot{
+		ss := ShardSnapshot{
 			ShardID:    sh.ShardID,
 			Depth:      sh.Depth,
 			Capacity:   sh.Capacity,
@@ -301,6 +309,17 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 			DepthRatio: sh.DepthRatio,
 			LaneDepths: laneDepths,
 		}
+		if sh.HotKeyCandidate != nil {
+			c := copyHotKeyCandidate(*sh.HotKeyCandidate)
+			ss.HotKeyCandidate = &c
+		}
+		if len(sh.HotKeyCandidates) > 0 {
+			ss.HotKeyCandidates = make([]HotKeyCandidate, len(sh.HotKeyCandidates))
+			for j, hc := range sh.HotKeyCandidates {
+				ss.HotKeyCandidates[j] = copyHotKeyCandidate(hc)
+			}
+		}
+		shards[i] = ss
 	}
 	lanes := make([]LaneSnapshot, len(in.Lanes))
 	for i, ln := range in.Lanes {

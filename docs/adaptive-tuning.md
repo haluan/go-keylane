@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers practical tuning for the adaptive quota controller. For API reference, snapshots, and lifecycle, see [adaptive-quota.md](adaptive-quota.md).
+This guide covers practical tuning for the KL-1404 adaptive quota controller. For API reference, snapshots, and lifecycle, see [adaptive-quota.md](adaptive-quota.md).
 
 > **Adaptive quota is not magic auto-tuning.** It is a bounded policy controller that can help shape pressure when configured correctly. Keylane helps shape concurrency and pressure; actual latency impact depends on workload, configuration, and downstream bottlenecks.
 
@@ -16,20 +16,13 @@ Run with fixed `LaneQuotas` first. Establish baseline queue wait, run duration, 
 
 ## Enable adaptive quota conservatively
 
-After completing [Safe rollout](#safe-rollout) in staging, enable adaptive quota with conservative bounds. See [Tuning examples](#tuning-examples) for workload-specific configs.
-
----
-
-## Safe rollout
-
-1. Run with static quotas first (production or representative load tests).
+1. Run with static quotas in production or load tests.
 2. Enable observability hooks and `AdaptiveDebugSnapshot` in staging.
 3. Enable adaptive quota in staging with conservative min/max bounds.
 4. Use small `IncreaseStep` / `DecreaseStep` (default `1`).
 5. Use `CooldownDuration` to avoid oscillation (default `5s`).
-6. Compare fixed quota vs adaptive quota benchmarks — see [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
-7. Monitor `OnQuotaChange` rate and `LastDecision` reason codes.
-8. Roll out gradually to production with alerts on quota change rate and queue wait.
+6. Compare fixed vs adaptive benchmarks — see [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
+7. Roll out gradually to production with alerts on quota change rate.
 
 ---
 
@@ -188,53 +181,7 @@ Normalize unset zero fields with `NormalizeAdaptiveQuotaConfig` after validation
 
 ## Tuning examples
 
-### Critical-heavy workload
-
-Payment or fraud lanes dominate traffic. Protect drain quota from automatic shrink; allow modest growth when pressure is low.
-
-```go
-AdaptiveQuota: keylane.AdaptiveQuotaPolicy{
-    Config: keylane.AdaptiveQuotaConfig{
-        Enabled:            true,
-        EvaluationInterval: 2 * time.Second,
-        WarmupDuration:     30 * time.Second,
-        CooldownDuration:   15 * time.Second,
-        PressureLow:        0.55,
-        PressureHigh:       0.88,
-        IncreaseStep:       1,
-        DecreaseStep:       1,
-    },
-    Lanes: []keylane.LaneAdaptivePolicy{
-        {
-            Lane: "payment", Class: keylane.LaneCritical,
-            MinQuota: 3, MaxQuota: 12,
-            AllowIncrease: true, AllowDecrease: false,
-        },
-    },
-},
-```
-
-Pair with critical `LanePolicy` / `LaneOverloadPolicy` entries from [lane-priority.md](lane-priority.md).
-
-### Background / best-effort under sustained pressure
-
-Batch or report lanes should shrink when overload shed counters rise; they should not grow during relief.
-
-```go
-Lanes: []keylane.LaneAdaptivePolicy{
-    {
-        Lane: "report", Class: keylane.LaneBestEffort,
-        MinQuota: 1, MaxQuota: 2,
-        AllowIncrease: false, AllowDecrease: true,
-    },
-},
-```
-
-Enable overload policy on the same lane so `OverloadShed` feeds localized decrease even below `PressureHigh`. See [overload-policy.md](overload-policy.md).
-
-### Mixed workload
-
-Combine critical protection with best-effort shedding — typical production layout.
+### Conservative production starter
 
 ```go
 AdaptiveQuota: keylane.AdaptiveQuotaPolicy{
@@ -249,12 +196,9 @@ AdaptiveQuota: keylane.AdaptiveQuotaPolicy{
         DecreaseStep:       1,
     },
     Lanes: []keylane.LaneAdaptivePolicy{
-        {Lane: "payment", Class: keylane.LaneCritical,
-            MinQuota: 2, MaxQuota: 8, AllowIncrease: true, AllowDecrease: false},
-        {Lane: "api", Class: keylane.LaneNormal,
-            MinQuota: 2, MaxQuota: 6},
-        {Lane: "report", Class: keylane.LaneBestEffort,
-            MinQuota: 1, MaxQuota: 2, AllowIncrease: false, AllowDecrease: true},
+        {Lane: "api", Class: keylane.LaneNormal, MinQuota: 2, MaxQuota: 6},
+        {Lane: "batch", Class: keylane.LaneBestEffort, MinQuota: 1, MaxQuota: 2,
+            AllowIncrease: false, AllowDecrease: true},
     },
 },
 ```

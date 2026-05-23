@@ -33,7 +33,7 @@ Follow these 10 steps to isolate scheduler performance problems:
 3. **Inspect queue-full rejections:** `StatsGCPressure().Lanes[].Counters.QueueFull` (cumulative) or v1 `Stats()` lane `QueueFullTotal`.
 3b. **Inspect scheduler pressure and lane history:** Use `Pressure()` for a quick overload signal (`IsPressured`, `IsOverloaded`). Use `DebugSnapshot()` for hot shard/lane rankings (`HotShards`, `HotLanes`). Use `StatsGCPressure()` for cumulative counters and queue-wait/run timing. High average or max queue wait usually means lane pressure, hot shards, or too few workers.
 4. **Identify hot shards and lanes:** `DebugSnapshot().HotShards` and `HotLanes` list the top backlog by depth. Use job **keys** (not lane names) for per-tenant routing; lanes should stay a small static set.
-5. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard.
+5. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard. With hot key tracking enabled, inspect `DebugSnapshot().Shards[].HotKeyCandidate` — see [hot-key-mitigation.md](hot-key-mitigation.md).
 6. **Run the Go race detector:** Execute `go test -race ./...` to verify there are no active data races.
 7. **Analyze active workers stack traces:** Collect a pprof goroutine dump (`go tool pprof`) to verify if worker goroutines are blocked.
 8. **Examine queue wait times:** `StatsGCPressure().QueueWait` or per-lane `lane.QueueWait.AverageDuration()` (requires `EnableQueueWaitTiming`).
@@ -146,7 +146,6 @@ For quota policy, overload, and adaptive controller issues:
 | Quota oscillation or no changes | [adaptive-tuning.md](adaptive-tuning.md), [adaptive-observability.md](adaptive-observability.md) |
 | Missing overload events or Retry-After | [overload-policy.md](overload-policy.md), [adaptive-observability.md](adaptive-observability.md) |
 | Controller not running after Start | [adaptive-quota.md](adaptive-quota.md) — `AdaptiveDebugSnapshot().Running` |
-| Controller does not stop after `Stop` | [adaptive-observability.md](adaptive-observability.md) — drain timeout, blocking hooks, `Running` stuck |
 | Benchmark regression with adaptive on | [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md) |
 
 ---

@@ -84,13 +84,7 @@ The hook fires when:
 | `PolicyVersion` | Adaptive config generation (currently `1` until runtime policy reload exists) |
 | `QuotaVersion` | Quota snapshot version used for CAS apply |
 
-See [Reading event reason codes](#reading-event-reason-codes) for the full reason table.
-
----
-
-## Reading event reason codes
-
-`AdaptiveQuotaDecisionEvent.Reason` and `LaneAdaptiveStats.LastDecision` use stable `QuotaAdjustmentReason` codes:
+Common `QuotaAdjustmentReason` values:
 
 | Reason | Typical meaning |
 |--------|-----------------|
@@ -102,11 +96,6 @@ See [Reading event reason codes](#reading-event-reason-codes) for the full reaso
 | `at_min_bound` / `at_max_bound` | Clamped by `MinQuota` / `MaxQuota` |
 | `increase_disabled` / `decrease_disabled` | Lane or class disallows direction |
 | `quota_update_failed` | CAS apply failed (quota unchanged) |
-| `queue_full` | Queue-full guard blocked increase |
-
-**Hold decisions:** `LastDecision` always reflects the latest reason in `AdaptiveDebugSnapshot`. The `AdaptiveHoldTotal` counter increments only when `EnableAdaptiveDecisionTracing` is on; use `LastDecision` to debug holds without noisy hooks.
-
-Overload events use separate `OverloadReason` codes on `OverloadPolicyEvent` — see [overload-policy.md](overload-policy.md).
 
 ---
 
@@ -216,25 +205,14 @@ Correlate with `CurrentQuotaPolicy()`, `CurrentOverloadPolicy()`, and `Pressure(
 
 ## Debugging controller shutdown
 
-### Adaptive controller does not start
-
 | Symptom | Check |
 |---------|--------|
-| Never runs | `AdaptiveQuotaConfig.Enabled`, `q.Start(ctx)` returned nil |
-| `Running` false while queue active | Start failed or queue already stopped |
+| Controller never starts | `AdaptiveQuotaConfig.Enabled`, `q.Start(ctx)` called, no start error |
+| `Running` false while queue active | Controller stops with queue shutdown; verify `Stop` completed |
+| Quota frozen after stop | Expected — no further adaptive ticks after stop |
+| Events stop mid-flight | Hooks disabled or queue stopped; in-flight work may still complete |
 
-### Adaptive controller does not stop
-
-| Symptom | Check |
-|---------|--------|
-| `Stop` returns timeout | Drain backlog with `WithDrain(true)` or shorten in-flight work; jobs must respect `ctx.Done()` |
-| `Running` true briefly after `Stop` | Controller goroutine may finish one tick; recheck `AdaptiveDebugSnapshot()` after `Stop` returns |
-| Process hangs on shutdown | Slow or blocking hook callbacks — hooks must be non-blocking; no network I/O in `OnQuotaChange` / `OnAdaptiveQuotaDecision` |
-| Goroutine leak suspected | After full `Stop`, confirm `AdaptiveDebugSnapshot().Running == false` and `Enabled` matches config |
-
-### After stop
-
-Quota frozen after stop is expected — no further adaptive ticks. Events stop when hooks are disabled or the queue is stopped; in-flight work may still complete. Use `AdaptiveDebugSnapshot()` for final `TickCount` and `LastDecisions`.
+Adaptive evaluation does not run on the submit hot path. After `Stop`, use `AdaptiveDebugSnapshot()` for final `TickCount` and `LastDecisions`.
 
 ---
 
@@ -250,7 +228,6 @@ When behavior looks wrong, answer:
 - Was the adaptive controller disabled or not running?
 - Were hooks configured (`EnableHooks` and non-nil callbacks)?
 - Is `EnableAdaptiveDecisionTracing` required to see hold events in hooks?
-- Does the controller fail to stop after `Stop` (blocked hooks, drain timeout, `Running` stuck true)?
 
 See also [debugging.md](debugging.md) (v0.4 section) and [adaptive-tuning.md](adaptive-tuning.md).
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-v0.4.0 adds an overload policy engine that evaluates runtime pressure, lane class, and queue state **before enqueue**. It returns a structured decision (`keep`, `reject`, `shed`, `degrade`) and optional backoff hints.
+KL-1403 adds an overload policy engine that evaluates runtime pressure, lane class, and queue state **before enqueue**. It returns a structured decision (`keep`, `reject`, `shed`, `degrade`) and optional backoff hints.
 
 Overload policy only applies to **new** submissions. It does not drop queued work or cancel running jobs.
 
@@ -23,28 +23,16 @@ When both overload and admission are enabled, **overload runs first**. Prefer ov
 
 Core Keylane does not sleep, retry, or build business fallback responses. `RetryAfter` and `BackoffHint` are **advisory** — they help cooperative clients retry more safely but do not guarantee client compliance.
 
-### keep
+### When to use each action
 
-Accept the request and continue the normal enqueue path. No overload error; no `OnOverloadPolicyDecision` event. Use when pressure, class, and lane depth are within policy.
+| Action | Typical use |
+|--------|-------------|
+| **shed** | Best-effort or background lanes under pressure |
+| **reject** | Accepting more work would worsen queue depth or global pressure |
+| **degrade** | Application has a defined cheaper code path (cache hit, stale read, simplified response) |
+| **keep** | Normal operation |
 
-### reject
-
-Reject before enqueue because accepting more work would make the system worse. Returns `ErrOverloadRejected`. Default HTTP status: **503** (configurable to 429). Increments `OverloadRejected` when hooks/stats are enabled. Appropriate when global or lane pressure is high and the lane is not a shed candidate.
-
-### shed
-
-Intentional pre-enqueue load shedding for lower-value work. Returns `ErrOverloadShed`. Default HTTP status: **429**. Increments `OverloadShed`. Usually more appropriate for **best-effort** or **background** lanes than for critical traffic.
-
-### degrade
-
-Do not enqueue; the caller or middleware runs a cheaper fallback. Returns `ErrOverloadDegraded`. Increments `OverloadDegrade`. Requires an application-defined `DegradeHandler` (HTTP) or handler branch — Keylane does not choose the fallback response automatically.
-
-| Action | Error | Default HTTP | Counter |
-|--------|-------|--------------|---------|
-| keep | — | continue handler | — |
-| reject | `ErrOverloadRejected` | 503 | `OverloadRejected` |
-| shed | `ErrOverloadShed` | 429 | `OverloadShed` |
-| degrade | `ErrOverloadDegraded` | handler or 503 | `OverloadDegrade` |
+**Degrade requires application support** — Keylane signals degrade; your handler or `DegradeHandler` must implement the fallback. Degrade does not happen automatically.
 
 ---
 

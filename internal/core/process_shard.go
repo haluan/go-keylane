@@ -54,6 +54,13 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 	}
 	shard.mu.Unlock()
 
+	if hk := s.hotKeyTrackerForShard(shardID); hk != nil && len(batch) > 0 {
+		now := time.Now()
+		for _, job := range batch {
+			hk.observeDequeue(job.KeyHash, now)
+		}
+	}
+
 	// 4. Run jobs outside of shard lock
 	for i, job := range batch {
 		if err := ctx.Err(); err != nil {
@@ -94,7 +101,11 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			if needQueueWait || needRunDuration {
 				if s.Obs.EnableQueueWaitTiming && !job.AcceptedAt.IsZero() {
 					queueWait = startedAt.Sub(job.AcceptedAt)
-					s.recordGCPressureQueueWait(shardID, job.LaneID, uint64(queueWait.Nanoseconds()))
+					waitNanos := uint64(queueWait.Nanoseconds())
+					s.recordGCPressureQueueWait(shardID, job.LaneID, waitNanos)
+					if hk := s.hotKeyTrackerForShard(shardID); hk != nil {
+						hk.observeQueueWait(job.KeyHash, waitNanos, startedAt)
+					}
 				}
 				if s.Obs.TrackQueueWait && !job.EnqueuedAt.IsZero() {
 					waitNanos := startedAt.Sub(job.EnqueuedAt).Nanoseconds()
