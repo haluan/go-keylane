@@ -24,6 +24,11 @@
 // are rejected before enqueue when Queue.Pressure().TotalDepthRatio meets or exceeds
 // RejectAboveRatio (default 0.90). Default HTTP rejection status is 503.
 //
+// Observability: set OperationFunc for a stable operation label on RequestMeta.Operation.
+// Optional Config.Observe receives HTTPRequestMetadata (method, path, status) plus a
+// keylane.RequestObservation snapshot. For queue wait and run duration, configure
+// keylane.Config.Observability.Hooks.Request on the queue.
+//
 // Example:
 //
 //	mw := httpkeylane.Middleware(queue, httpkeylane.Config{

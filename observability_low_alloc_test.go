@@ -252,6 +252,8 @@ func TestLowAllocationSubmitValueAwait(t *testing.T) {
 	}
 }
 
+// TestLowAllocationSubmitRequestNilRequestHooksAllocs lives in request_observability_test.go.
+
 func TestLowAllocationFailedJobStillCountsWhenCountersOn(t *testing.T) {
 	q, ctx, _ := startQueue(t, lowAllocTestConfig())
 	_ = q.Submit(ctx, Job{

@@ -77,12 +77,18 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 
 			needQueueWait, needRunDuration := s.jobNeedsWorkerTimestamps(job)
 			var (
-				startedAt   time.Time
 				queueWait   time.Duration
 				runDuration time.Duration
 			)
+			startedAt := time.Now()
+			runCtx := ctx
+			if needQueueWait || needRunDuration || job.UseWorkerTiming {
+				runCtx = ContextWithWorkerTiming(ctx, WorkerTiming{
+					AcceptedAt: job.AcceptedAt,
+					StartedAt:  startedAt,
+				})
+			}
 			if needQueueWait || needRunDuration {
-				startedAt = time.Now()
 				if s.Obs.EnableQueueWaitTiming && !job.AcceptedAt.IsZero() {
 					queueWait = startedAt.Sub(job.AcceptedAt)
 					s.recordGCPressureQueueWait(shardID, job.LaneID, uint64(queueWait.Nanoseconds()))
@@ -94,7 +100,7 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				}
 			}
 
-			err := job.Run(ctx)
+			err := job.Run(runCtx)
 			if needRunDuration {
 				runDuration = time.Since(startedAt)
 				if s.Obs.EnableRunTiming {

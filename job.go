@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -13,6 +16,8 @@ type Job struct {
 	Lane Lane
 	// Run is the function that will be executed.
 	Run func(context.Context) error
+	// UseWorkerTiming requests scheduler AcceptedAt/StartedAt in Run context (SubmitRequest).
+	UseWorkerTiming bool
 }
 
 // Validate ensures the job is valid.

@@ -3,7 +3,12 @@
 
 package keylane
 
-import "context"
+import (
+	"context"
+	"time"
+
+	"github.com/haluan/go-keylane/internal/core"
+)
 
 // SubmitRequest submits a typed request into the queue and returns a Future for the output.
 func SubmitRequest[I any, O any](
@@ -24,41 +29,75 @@ func SubmitRequest[I any, O any](
 		return future, err
 	}
 
+	meta := req.Meta
+	shardID := q.ShardIDForKey(meta.Key)
+
+	reject := func(err error) {
+		obs := q.newRequestObservation(meta, shardID, 0, 0, err)
+		q.emitRequestRejected(obs)
+	}
+
 	if err := ctx.Err(); err != nil {
 		future.complete(zero, err)
+		reject(err)
 		return future, err
 	}
 
-	if err := CheckAdmission(q, req.Admission, req.Meta); err != nil {
+	if err := CheckAdmission(q, req.Admission, meta); err != nil {
 		future.complete(zero, err)
+		reject(err)
 		return future, err
 	}
 
 	reqCtx := ctx
 	input := req.Input
 	handle := req.Handle
+
 	wrapped := Job{
-		Key:  req.Meta.Key,
-		Lane: req.Meta.Lane,
-		Run: func(context.Context) error {
+		Key:             meta.Key,
+		Lane:            meta.Lane,
+		UseWorkerTiming: q.requestHooksNeedWorkerTiming(),
+		Run: func(runCtx context.Context) error {
+			wt, ok := core.WorkerTimingFromContext(runCtx)
+			queueWait := time.Duration(0)
+			var startedAt time.Time
+			if ok {
+				queueWait = wt.QueueWaitDuration()
+				startedAt = wt.StartedAt
+			}
+			q.emitRequestStarted(q.newRequestObservation(meta, shardID, queueWait, 0, nil))
+
 			if err := reqCtx.Err(); err != nil {
 				future.complete(zero, err)
+				runDur := time.Duration(0)
+				if !startedAt.IsZero() {
+					runDur = time.Since(startedAt)
+				}
+				q.emitRequestCompleted(q.newRequestObservation(meta, shardID, queueWait, runDur, err))
 				return err
 			}
+
 			out, err := handle(reqCtx, input)
+			runDur := time.Duration(0)
+			if !startedAt.IsZero() {
+				runDur = time.Since(startedAt)
+			}
 			if err != nil {
 				future.complete(zero, err)
 			} else {
 				future.complete(out, nil)
 			}
+			q.emitRequestCompleted(q.newRequestObservation(meta, shardID, queueWait, runDur, err))
 			return nil
 		},
 	}
 
 	if err := q.Submit(ctx, wrapped); err != nil {
 		future.complete(zero, err)
+		reject(err)
 		return future, err
 	}
+	q.emitRequestQueued(meta)
 
 	return future, nil
 }
