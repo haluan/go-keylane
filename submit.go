@@ -18,6 +18,15 @@ func (q *Queue) Submit(ctx context.Context, job Job) error {
 		return err
 	}
 
+	if q.config.OverloadEnabled {
+		if err := CheckOverload(q, OverloadConfig{Enabled: true}, RequestMeta{
+			Key:  job.Key,
+			Lane: job.Lane,
+		}); err != nil {
+			return err
+		}
+	}
+
 	laneID, ok := q.reg.Lookup(string(job.Lane))
 	if !ok {
 		return ErrInvalidLane

@@ -24,6 +24,8 @@ type DebugSnapshot struct {
 
 	// AdmissionPolicyVersion is the version of the active admission policy snapshot.
 	AdmissionPolicyVersion uint64
+	// OverloadPolicyVersion is the version of the active overload policy snapshot.
+	OverloadPolicyVersion uint64
 
 	ShardCount  int
 	LaneCount   int

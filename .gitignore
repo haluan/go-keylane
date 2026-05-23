@@ -44,3 +44,7 @@ graphify-out/
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+# AGENTS files
+.graphifyignore
+.cursorignore

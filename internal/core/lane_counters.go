@@ -15,6 +15,9 @@ type laneCounters struct {
 	accepted                  atomic.Uint64
 	rejected                  atomic.Uint64
 	pressureAdmissionRejected atomic.Uint64
+	overloadReject            atomic.Uint64
+	overloadShed              atomic.Uint64
+	overloadDegrade           atomic.Uint64
 	canceled                  atomic.Uint64
 	panicked                  atomic.Uint64
 
@@ -64,6 +67,9 @@ func (c *laneCounters) snapshotGCPressure() LaneCountersGCPressure {
 	panicked := c.panicked.Load()
 	queueFull := uint64(c.queueFullTotal.Load())
 	admissionRejected := c.pressureAdmissionRejected.Load()
+	overloadRejected := c.overloadReject.Load()
+	overloadShed := c.overloadShed.Load()
+	overloadDegrade := c.overloadDegrade.Load()
 	accepted := c.accepted.Load()
 	rejected := c.rejected.Load()
 	submitted := c.submitted.Load()
@@ -72,6 +78,9 @@ func (c *laneCounters) snapshotGCPressure() LaneCountersGCPressure {
 		Accepted:          accepted,
 		Rejected:          rejected,
 		AdmissionRejected: admissionRejected,
+		OverloadRejected:  overloadRejected,
+		OverloadShed:      overloadShed,
+		OverloadDegrade:   overloadDegrade,
 		Completed:         completed,
 		Failed:            failed,
 		QueueFull:         queueFull,

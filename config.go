@@ -15,6 +15,9 @@ type Config struct {
 	LaneQuotas       map[Lane]int
 
 	Observability ObservabilityConfig
+
+	// OverloadEnabled applies overload policy evaluation on Job.Submit before enqueue.
+	OverloadEnabled bool
 }
 
 type ObservabilityConfig struct {

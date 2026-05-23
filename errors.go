@@ -20,6 +20,7 @@ var (
 	ErrInvalidQuotaPolicy     = core.ErrInvalidQuotaPolicy
 	ErrQuotaTooLarge          = core.ErrQuotaTooLarge
 	ErrInvalidAdmissionPolicy = core.ErrInvalidAdmissionPolicy
+	ErrInvalidOverloadPolicy  = core.ErrInvalidOverloadPolicy
 	ErrInvalidLaneClass       = core.ErrInvalidLaneClass
 	ErrNilQueue               = errors.New("keylane: nil queue")
 	ErrInvalidJob             = core.ErrInvalidJob

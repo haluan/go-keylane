@@ -43,6 +43,12 @@ func SubmitRequest[I any, O any](
 		return future, err
 	}
 
+	if err := CheckOverload(q, req.Overload, meta); err != nil {
+		future.complete(zero, err)
+		reject(err)
+		return future, err
+	}
+
 	if err := CheckAdmission(q, req.Admission, meta); err != nil {
 		future.complete(zero, err)
 		reject(err)

@@ -16,6 +16,7 @@ var (
 	ErrInvalidQuotaPolicy     = errors.New("keylane: invalid quota policy")
 	ErrQuotaTooLarge          = errors.New("keylane: quota too large")
 	ErrInvalidAdmissionPolicy = errors.New("keylane: invalid admission policy")
+	ErrInvalidOverloadPolicy  = errors.New("keylane: invalid overload policy")
 	ErrInvalidLaneClass       = errors.New("keylane: invalid lane class")
 	ErrInvalidJob             = errors.New("keylane: invalid job")
 	ErrInvalidKey             = errors.New("keylane: invalid key")

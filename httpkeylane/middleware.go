@@ -31,6 +31,8 @@ type Config struct {
 	ErrorHandler ErrorHandler
 	// Admission is optional pressure-based admission control (disabled by default).
 	Admission AdmissionConfig
+	// Overload is optional overload policy evaluation before enqueue (disabled by default).
+	Overload OverloadConfig
 	// OperationFunc is optional. Sets RequestMeta.Operation when non-nil.
 	OperationFunc OperationFunc
 	// Observe is optional. Called with HTTP metadata and a request observation snapshot.
@@ -45,7 +47,7 @@ func DefaultErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 // DefaultErrorHandlerWithAdmission is the default error handler with admission status mapping.
 func DefaultErrorHandlerWithAdmission(admission AdmissionConfig) ErrorHandler {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
-		status := statusCodeForError(err, admission)
+		status := statusCodeForError(err, admission, OverloadConfig{})
 		if status == 0 {
 			return
 		}
@@ -57,13 +59,15 @@ func DefaultErrorHandlerWithAdmission(admission AdmissionConfig) ErrorHandler {
 func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handler {
 	admissionCfg := cfg.Admission
 	NormalizeAdmissionConfig(&admissionCfg)
+	overloadCfg := cfg.Overload
+	NormalizeOverloadHTTPConfig(&overloadCfg.HTTP)
 
 	eh := cfg.ErrorHandler
 	if eh == nil {
-		eh = DefaultErrorHandlerWithAdmission(admissionCfg)
+		eh = defaultMiddlewareErrorHandler(admissionCfg, overloadCfg)
 	}
 
-	if err := validateMiddlewareConfig(queue, cfg, admissionCfg); err != nil {
+	if err := validateMiddlewareConfig(queue, cfg, admissionCfg, overloadCfg); err != nil {
 		configErr := err
 		return func(http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +88,16 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 				return
 			}
 			if err := meta.Lane.Validate(); err != nil {
+				eh(rec, r, err)
+				cfg.observeHTTPError(r, rec, queue, meta, err)
+				return
+			}
+
+			if err := keylane.CheckOverload(queue, overloadCfg.CoreConfig(), meta); err != nil {
+				if handleOverloadHTTP(rec, r, err, overloadCfg) {
+					cfg.observeHTTPError(r, rec, queue, meta, err)
+					return
+				}
 				eh(rec, r, err)
 				cfg.observeHTTPError(r, rec, queue, meta, err)
 				return
@@ -159,7 +173,49 @@ func (cfg Config) observeHTTPError(r *http.Request, rec *responseRecorder, q *ke
 	cfg.observeHTTP(r, rec, keylane.ObservationForError(q, meta, err))
 }
 
-func validateMiddlewareConfig(queue *keylane.Queue, cfg Config, admission AdmissionConfig) error {
+func defaultMiddlewareErrorHandler(admission AdmissionConfig, overload OverloadConfig) ErrorHandler {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		if handleOverloadHTTP(w, r, err, overload) {
+			return
+		}
+		status := statusCodeForError(err, admission, overload)
+		if status == 0 {
+			return
+		}
+		http.Error(w, http.StatusText(status), status)
+	}
+}
+
+// handleOverloadHTTP writes an overload response. Returns true if err was handled.
+func handleOverloadHTTP(w http.ResponseWriter, r *http.Request, err error, cfg OverloadConfig) bool {
+	if err == nil || !cfg.Enabled {
+		return false
+	}
+	var oerr keylane.OverloadError
+	if !errors.As(err, &oerr) {
+		return false
+	}
+	if !errors.Is(err, keylane.ErrOverloadRejected) &&
+		!errors.Is(err, keylane.ErrOverloadShed) &&
+		!errors.Is(err, keylane.ErrOverloadDegraded) {
+		return false
+	}
+
+	if oerr.Decision.Action == keylane.OverloadDegrade && cfg.DegradeHandler != nil {
+		cfg.DegradeHandler(w, r, oerr.Decision)
+		return true
+	}
+
+	status := overloadStatusCode(err, cfg.HTTP, cfg.DegradeHandler)
+	if status == 0 {
+		return false
+	}
+	writeRetryAfter(w, oerr.Decision, cfg.HTTP)
+	http.Error(w, http.StatusText(status), status)
+	return true
+}
+
+func validateMiddlewareConfig(queue *keylane.Queue, cfg Config, admission AdmissionConfig, overload OverloadConfig) error {
 	if queue == nil {
 		return keylane.ErrNilQueue
 	}
@@ -169,12 +225,18 @@ func validateMiddlewareConfig(queue *keylane.Queue, cfg Config, admission Admiss
 	if cfg.LaneFunc == nil {
 		return ErrMissingLaneFunc
 	}
-	return ValidateAdmissionConfig(admission)
+	if err := ValidateAdmissionConfig(admission); err != nil {
+		return err
+	}
+	return ValidateOverloadConfig(overload)
 }
 
-func statusCodeForError(err error, admission AdmissionConfig) int {
+func statusCodeForError(err error, admission AdmissionConfig, overload OverloadConfig) int {
 	if err == nil {
 		return 0
+	}
+	if code := overloadStatusCode(err, overload.HTTP, overload.DegradeHandler); code != 0 {
+		return code
 	}
 	switch {
 	case errors.Is(err, ErrMissingKeyFunc),
