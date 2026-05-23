@@ -1,5 +1,7 @@
 # go-keylane
 
+![CI](https://github.com/haluan/go-keylane/actions/workflows/ci.yml/badge.svg)
+
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
 > Status: v0.3 — request runtime and HTTP integration. Public APIs may still evolve before a stable v1.0.
@@ -201,6 +203,41 @@ It provides:
 > **Safe Alternatives:**
 > - Submit separate fire-and-forget jobs and coordinate results in the outer caller context using standard tools like `sync.WaitGroup`.
 > - Use independent `Queue` instances if jobs must have caller-dependent execution pipelines.
+
+---
+
+## Continuous integration
+
+GitHub Actions runs on every pull request and on pushes to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+- `gofmt` check
+- `go mod tidy` integrity (root `go.mod` / `go.sum`)
+- `go vet` and `go test` for the root module and adapter modules (`httpkeylane`, `metrics/prometheus`, `tracing/otel`)
+- `go test -race` for the same modules (separate job)
+
+Run the same checks locally:
+
+```bash
+make ci
+make ci-race
+```
+
+Or step by step:
+
+```bash
+go mod tidy
+git diff --exit-code go.mod
+# if go.sum exists:
+# git diff --exit-code go.sum
+test -z "$(gofmt -l .)"
+go vet ./...
+go test ./...
+go test -race ./...
+cd httpkeylane && go vet ./... && go test ./...
+cd httpkeylane && go test -race ./...
+cd metrics/prometheus && go test ./...
+cd tracing/otel && go test ./...
+```
 
 ---
 

@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify module files
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod
+          if [ -f go.sum ]; then git diff --exit-code go.sum; fi
+
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet (root)
+        run: go vet ./...
+
+      - name: Test (root)
+        run: go test ./...
+
+      - name: Vet and test (httpkeylane)
+        run: |
+          cd httpkeylane
+          go mod download
+          go vet ./...
+          go test ./...
+
+      - name: Test (metrics/prometheus)
+        run: |
+          cd metrics/prometheus
+          go mod download
+          go test ./...
+
+      - name: Test (tracing/otel)
+        run: |
+          cd tracing/otel
+          go mod download
+          go test ./...
+
+  race:
+    name: Race
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Race tests (root)
+        run: go test -race ./...
+
+      - name: Race tests (httpkeylane)
+        run: |
+          cd httpkeylane
+          go mod download
+          go test -race ./...
+
+      - name: Race tests (metrics/prometheus)
+        run: |
+          cd metrics/prometheus
+          go mod download
+          go test -race ./...
+
+      - name: Race tests (tracing/otel)
+        run: |
+          cd tracing/otel
+          go mod download
+          go test -race ./...
