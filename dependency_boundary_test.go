@@ -10,7 +10,7 @@ import (
 )
 
 // TestDependencyBoundaryCoreModule verifies the root keylane module does not depend on
-// Prometheus or OpenTelemetry (KL-1208). Adapters live in separate submodules.
+// Prometheus or OpenTelemetry. Adapters live in separate submodules.
 func TestDependencyBoundaryCoreModule(t *testing.T) {
 	t.Helper()
 	out, err := exec.Command("go", "list", "-deps", ".").Output()

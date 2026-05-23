@@ -3,7 +3,7 @@
 
 package keylane
 
-// DefaultObservabilityConfig returns full visibility defaults (KL-1207 visibility mode).
+// DefaultObservabilityConfig returns full visibility defaults.
 func DefaultObservabilityConfig() ObservabilityConfig {
 	return ObservabilityConfig{
 		EnableStats:           true,
@@ -16,7 +16,7 @@ func DefaultObservabilityConfig() ObservabilityConfig {
 	}
 }
 
-// LowAllocationObservabilityConfig returns the KL-1207 low-allocation preset:
+// LowAllocationObservabilityConfig returns the low-allocation preset:
 // counters and pull APIs stay available; hot-path timing and hooks are off.
 func LowAllocationObservabilityConfig() ObservabilityConfig {
 	return ObservabilityConfig{
