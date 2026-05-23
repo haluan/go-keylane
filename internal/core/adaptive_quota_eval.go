@@ -47,12 +47,10 @@ func EvaluateAdaptiveQuota(
 			OldQuota:       oldQ,
 			NewQuota:       oldQ,
 			GlobalPressure: pressure,
-			QueueDepth:     sig.QueueDepth,
-			QueueWaitP95:   sig.QueueWaitMax,
-			RunP95:         sig.RunMax,
 			PolicyVersion:  snap.PolicyVersion,
 			QuotaVersion:   snap.QuotaVersion,
 		}
+		fillDecisionSignals(&decisions[i], sig)
 
 		if !pol.Enabled {
 			decisions[i].Reason = QuotaReasonIncreaseDisabled
@@ -176,7 +174,7 @@ func applyCandidate(cfg AdaptiveQuotaConfig, policies []resolvedLaneAdaptivePoli
 	if newQ > int(MaxLaneQuota) {
 		newQ = int(MaxLaneQuota)
 	}
-	return QuotaAdjustmentDecision{
+	d := QuotaAdjustmentDecision{
 		Lane:           pol.Lane,
 		Class:          pol.Class,
 		Action:         c.action,
@@ -184,12 +182,24 @@ func applyCandidate(cfg AdaptiveQuotaConfig, policies []resolvedLaneAdaptivePoli
 		OldQuota:       oldQ,
 		NewQuota:       newQ,
 		GlobalPressure: pressure,
-		QueueDepth:     sig.QueueDepth,
-		QueueWaitP95:   sig.QueueWaitMax,
-		RunP95:         sig.RunMax,
 		PolicyVersion:  snap.PolicyVersion,
 		QuotaVersion:   snap.QuotaVersion,
 	}
+	fillDecisionSignals(&d, sig)
+	return d
+}
+
+// fillDecisionSignals maps lane signal timing into decision/event fields.
+// P50 uses average; P95/P99 use max when dedicated percentiles are unavailable.
+func fillDecisionSignals(d *QuotaAdjustmentDecision, sig LaneAdaptiveSignal) {
+	d.QueueDepth = sig.QueueDepth
+	d.InFlight = sig.InFlight
+	d.QueueWaitP50 = sig.QueueWaitAvg
+	d.QueueWaitP95 = sig.QueueWaitMax
+	d.QueueWaitP99 = sig.QueueWaitMax
+	d.RunP50 = sig.RunAvg
+	d.RunP95 = sig.RunMax
+	d.RunP99 = sig.RunMax
 }
 
 func queueWaitHigh(sig LaneAdaptiveSignal, pol resolvedLaneAdaptivePolicy, cfg AdaptiveQuotaConfig) bool {

@@ -106,9 +106,6 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 			err := job.Run(runCtx)
 			if needRunDuration {
 				runDuration = time.Since(startedAt)
-				if s.Obs.EnableRunTiming {
-					s.recordGCPressureRunDuration(shardID, job.LaneID, uint64(runDuration.Nanoseconds()))
-				}
 			}
 
 			if s.Obs.EnableCounters {
@@ -120,6 +117,10 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				} else {
 					counters.failedTotal.Add(1)
 				}
+			}
+
+			if needRunDuration && s.Obs.EnableRunTiming {
+				s.recordGCPressureRunDuration(shardID, job.LaneID, uint64(runDuration.Nanoseconds()))
 			}
 
 			s.emitObservabilityHooks(shardID, job.LaneID, queueWait, runDuration, err)

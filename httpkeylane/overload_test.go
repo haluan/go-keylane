@@ -327,3 +327,66 @@ func TestHTTPOverloadRejectionDoesNotEnqueue(t *testing.T) {
 		t.Errorf("TotalQueued = %d, want %d (no enqueue on overload reject)", afterQueued, beforeQueued)
 	}
 }
+
+func TestMiddlewareOverloadBestEffortRejectedCriticalKept(t *testing.T) {
+	q, err := keylane.New(keylane.Config{
+		ShardCount: 1, WorkerCount: 2, QueueSizePerLane: 10,
+		LaneQuotas: map[keylane.Lane]int{"default": 2, "critical": 2, "best_effort": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = q.UpdateOverloadPolicy(keylane.OverloadPolicy{
+		Default: keylane.LaneOverloadPolicy{Class: keylane.LaneNormal, RejectAboveRatio: 0.90, MaxQueueDepth: 100},
+		Lanes: []keylane.LaneOverloadPolicy{
+			{Lane: "best_effort", Class: keylane.LaneBestEffort, RejectAboveRatio: 0.75, ShedAboveRatio: 0.50, MaxQueueDepth: 100},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	for _, lane := range []keylane.Lane{"default", "critical", "best_effort"} {
+		for i := 0; i < 8; i++ {
+			_ = q.Submit(ctx, keylane.Job{
+				Key: "k", Lane: lane, Run: func(context.Context) error { return nil },
+			})
+		}
+	}
+
+	beErr := keylane.CheckOverload(q, keylane.OverloadConfig{Enabled: true}, keylane.RequestMeta{
+		Key: "k", Lane: "best_effort",
+	})
+	if beErr == nil {
+		t.Fatal("CheckOverload best_effort = nil, want shed or reject")
+	}
+	critErr := keylane.CheckOverload(q, keylane.OverloadConfig{Enabled: true}, keylane.RequestMeta{
+		Key: "k", Lane: "critical",
+	})
+	if critErr != nil {
+		t.Fatalf("CheckOverload critical = %v, want nil under same pressure", critErr)
+	}
+
+	beHandler := Middleware(q, Config{
+		KeyFunc:  StaticKey("k"),
+		LaneFunc: StaticLane(keylane.Lane("best_effort")),
+		Overload: OverloadConfig{Enabled: true},
+	})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("best_effort handler should not run under overload")
+	}))
+
+	beSrv := httptest.NewServer(beHandler)
+	defer beSrv.Close()
+
+	beResp, err := http.Get(beSrv.URL)
+	if err != nil {
+		t.Fatalf("best_effort Get: %v", err)
+	}
+	io.Copy(io.Discard, beResp.Body)
+	beResp.Body.Close()
+
+	if beResp.StatusCode == http.StatusOK {
+		t.Errorf("best_effort status = %d, want overload reject/shed", beResp.StatusCode)
+	}
+}

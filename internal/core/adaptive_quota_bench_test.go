@@ -35,6 +35,46 @@ func BenchmarkAdaptiveQuotaDecisionTick(b *testing.B) {
 	}
 }
 
+func BenchmarkAdaptiveQuotaDecisionTick4Lanes(b *testing.B) {
+	benchmarkAdaptiveQuotaDecisionTickLanes(b, 4)
+}
+
+func BenchmarkAdaptiveQuotaDecisionTick16Lanes(b *testing.B) {
+	benchmarkAdaptiveQuotaDecisionTickLanes(b, 16)
+}
+
+func BenchmarkAdaptiveQuotaDecisionTick64Lanes(b *testing.B) {
+	benchmarkAdaptiveQuotaDecisionTickLanes(b, 64)
+}
+
+func benchmarkAdaptiveQuotaDecisionTickLanes(b *testing.B, n int) {
+	cfg := AdaptiveQuotaConfig{
+		Enabled: true, WarmupDuration: 0, CooldownDuration: 0,
+		PressureHigh: 0.85, PressureLow: 0.60,
+		IncreaseStep: 1, DecreaseStep: 1,
+		MaxAdjustmentsPerTick: 1, EnableIncrease: true, EnableDecrease: true,
+	}
+	policies := make([]resolvedLaneAdaptivePolicy, n)
+	lanes := make([]LaneAdaptiveSignal, n)
+	for i := 0; i < n; i++ {
+		policies[i] = resolvedLaneAdaptivePolicy{
+			LaneID: LaneID(i), Lane: "l", Class: LaneClassNormal,
+			Enabled: true, MinQuota: 1, MaxQuota: 8, AllowIncrease: true, AllowDecrease: true,
+		}
+		lanes[i] = LaneAdaptiveSignal{
+			LaneID: LaneID(i), CurrentQuota: 2, QueueWaitSamples: 5,
+		}
+	}
+	snap := AdaptiveSignalSnapshot{GlobalPressure: 0.5, Lanes: lanes}
+	state := newAdaptiveControllerState(time.Now().Add(-time.Hour), n)
+	now := time.Now()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EvaluateAdaptiveQuota(cfg, policies, snap, state, now)
+	}
+}
+
 func BenchmarkAdaptiveQuotaWithOverloadSignals(b *testing.B) {
 	reg, _ := NewLaneRegistry(map[string]int{"critical": 2, "best_effort": 1})
 	s, _ := NewScheduler(1, 2, 100, reg)

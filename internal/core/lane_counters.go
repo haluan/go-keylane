@@ -38,6 +38,117 @@ type laneCounters struct {
 	queueFullTotal      atomic.Int64
 	queueWaitTotalNanos atomic.Int64
 	queueWaitCount      atomic.Int64
+
+	quotaChangeTotal      atomic.Uint64
+	adaptiveIncreaseTotal atomic.Uint64
+	adaptiveDecreaseTotal atomic.Uint64
+	adaptiveHoldTotal     atomic.Uint64
+	lastQuotaChangeUnix   atomic.Int64
+	lastAdaptiveReason    atomic.Uint64
+}
+
+type LaneAdaptiveStatsSnapshot struct {
+	LaneName string
+
+	KeepTotal      uint64
+	RejectTotal    uint64
+	ShedTotal      uint64
+	DegradeTotal   uint64
+	QueueFullTotal uint64
+
+	QuotaChangeTotal      uint64
+	AdaptiveIncreaseTotal uint64
+	AdaptiveDecreaseTotal uint64
+	AdaptiveHoldTotal     uint64
+
+	LastQuotaChangeUnix int64
+	LastAdaptiveReason  QuotaAdjustmentReason
+}
+
+func (c *laneCounters) snapshotAdaptiveStats(laneName string) LaneAdaptiveStatsSnapshot {
+	counters := c.snapshotGCPressure()
+	reason := QuotaAdjustmentReason("")
+	if idx := c.lastAdaptiveReason.Load(); idx != 0 {
+		reason = reasonFromIndex(idx)
+	}
+	return LaneAdaptiveStatsSnapshot{
+		LaneName:              laneName,
+		KeepTotal:             counters.Accepted,
+		RejectTotal:           counters.AdmissionRejected + counters.OverloadRejected,
+		ShedTotal:             counters.OverloadShed,
+		DegradeTotal:          counters.OverloadDegrade,
+		QueueFullTotal:        counters.QueueFull,
+		QuotaChangeTotal:      c.quotaChangeTotal.Load(),
+		AdaptiveIncreaseTotal: c.adaptiveIncreaseTotal.Load(),
+		AdaptiveDecreaseTotal: c.adaptiveDecreaseTotal.Load(),
+		AdaptiveHoldTotal:     c.adaptiveHoldTotal.Load(),
+		LastQuotaChangeUnix:   c.lastQuotaChangeUnix.Load(),
+		LastAdaptiveReason:    reason,
+	}
+}
+
+func (c *laneCounters) recordLastAdaptiveReason(reason QuotaAdjustmentReason) {
+	c.lastAdaptiveReason.Store(reasonIndex(reason))
+}
+
+func (c *laneCounters) recordManualQuotaChange(nowUnix int64) {
+	c.quotaChangeTotal.Add(1)
+	c.lastQuotaChangeUnix.Store(nowUnix)
+}
+
+func (c *laneCounters) recordAdaptiveDecision(action QuotaAdjustmentAction, reason QuotaAdjustmentReason, nowUnix int64, countHold bool) {
+	c.recordLastAdaptiveReason(reason)
+	switch action {
+	case QuotaAdjustmentIncrease:
+		c.adaptiveIncreaseTotal.Add(1)
+	case QuotaAdjustmentDecrease:
+		c.adaptiveDecreaseTotal.Add(1)
+	case QuotaAdjustmentHold:
+		if countHold {
+			c.adaptiveHoldTotal.Add(1)
+		}
+	}
+	if action == QuotaAdjustmentIncrease || action == QuotaAdjustmentDecrease {
+		c.quotaChangeTotal.Add(1)
+		c.lastQuotaChangeUnix.Store(nowUnix)
+	}
+}
+
+func reasonIndex(r QuotaAdjustmentReason) uint64 {
+	for i, reason := range allQuotaAdjustmentReasons {
+		if reason == r {
+			return uint64(i + 1)
+		}
+	}
+	return 0
+}
+
+func reasonFromIndex(idx uint64) QuotaAdjustmentReason {
+	if idx == 0 || idx > uint64(len(allQuotaAdjustmentReasons)) {
+		return ""
+	}
+	return allQuotaAdjustmentReasons[idx-1]
+}
+
+var allQuotaAdjustmentReasons = []QuotaAdjustmentReason{
+	QuotaReasonNone,
+	QuotaReasonCriticalQueueWaitHigh,
+	QuotaReasonNormalQueueWaitHigh,
+	QuotaReasonGlobalPressureHigh,
+	QuotaReasonBackgroundPressureHigh,
+	QuotaReasonBestEffortPressureHigh,
+	QuotaReasonRunTimeTooHigh,
+	QuotaReasonCooldownActive,
+	QuotaReasonAtMinBound,
+	QuotaReasonAtMaxBound,
+	QuotaReasonInsufficientSamples,
+	QuotaReasonIncreaseDisabled,
+	QuotaReasonDecreaseDisabled,
+	QuotaReasonWarmupActive,
+	QuotaReasonNeutralPressure,
+	QuotaReasonBackgroundQueueWaitHigh,
+	QuotaReasonQueueFull,
+	QuotaReasonUpdateFailed,
 }
 
 func (c *laneCounters) snapshotGCPressureQueueWait() QueueWaitStatsGCPressure {

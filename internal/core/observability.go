@@ -14,10 +14,11 @@ type ObservabilityConfig struct {
 	EnableHooks           bool
 	EnableDebugSnapshot   bool
 
-	TrackQueueWait   bool
-	SlowJobThreshold time.Duration
-	OnJobTiming      func(shardID int, laneID LaneID, laneName string, queueWait, runDuration time.Duration, outcome JobOutcome)
-	OnSlowJob        func(shardID int, laneID LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome JobOutcome)
+	TrackQueueWait     bool
+	SlowJobThreshold   time.Duration
+	OnJobTiming        func(shardID int, laneID LaneID, laneName string, queueWait, runDuration time.Duration, outcome JobOutcome)
+	OnSlowJob          func(shardID int, laneID LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome JobOutcome)
+	OnOverloadDecision func(laneID LaneID, laneName string, result OverloadEvalResult)
 
 	// Used only for benchmark testing to compare with and without sync.Pool
 	DisablePooling bool

@@ -137,13 +137,14 @@ go test -bench='BenchmarkAdaptiveQuotaDecisionTick|BenchmarkAdaptiveQuotaWithOve
 |-----------|---------|
 | `BenchmarkSubmitWithAdaptiveQuotaDisabled` | Submit with controller off |
 | `BenchmarkSubmitWithAdaptiveQuotaEnabled` | Submit with controller on (long eval interval) |
+| `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` | KL-1405 spec aliases (delegate to the `WithAdaptiveQuota` names) |
 | `BenchmarkFixedQuotaCriticalAndBackground` | Alternating critical/background submit, adaptive off |
 | `BenchmarkAdaptiveQuotaCriticalAndBackground` | Same workload, adaptive on |
 | `BenchmarkAdaptiveQuotaSnapshot` | `AdaptiveQuotaSnapshot()` read cost |
 | `BenchmarkAdaptiveQuotaDecisionTick` | Pure evaluator tick (no scheduler) |
 | `BenchmarkAdaptiveQuotaWithOverloadSignals` | Signal snapshot build + one eval tick |
 
-See [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md).
+See [adaptive-quota.md](adaptive-quota.md), [adaptive-tuning.md](adaptive-tuning.md), and [benchmarks/adaptive-quota.md](benchmarks/adaptive-quota.md).
 
 ---
 

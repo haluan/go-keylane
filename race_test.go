@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestRaceConcurrentSubmit(t *testing.T) {
@@ -263,5 +264,97 @@ func TestRaceConcurrentLowAllocationObservability(t *testing.T) {
 		}()
 	}
 
+	wg.Wait()
+}
+
+func TestRaceConcurrentSubmitAndUpdateLaneQuota(t *testing.T) {
+	ctx := testTimeout(t)
+	q, err := New(Config{
+		ShardCount: 2, WorkerCount: 2, QueueSizePerLane: 32,
+		LaneQuotas: map[Lane]int{"default": 2},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = q.Start(ctx)
+	defer func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 3*time.Second)
+		defer c()
+		_ = q.Stop(stopCtx)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{Key: "k", Lane: "default", Run: func(context.Context) error { return nil }})
+		}()
+		go func() {
+			defer wg.Done()
+			_, _ = q.UpdateLaneQuota("default", 2)
+		}()
+	}
+	wg.Wait()
+}
+
+func TestRaceConcurrentSubmitAndAdaptiveSnapshot(t *testing.T) {
+	q := adaptiveQuotaTestQueue(t)
+	ctx := testTimeout(t)
+	_ = q.Start(ctx)
+	defer func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 3*time.Second)
+		defer c()
+		_ = q.Stop(stopCtx)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 30; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{Key: "k", Lane: "default", Run: func(context.Context) error { return nil }})
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.AdaptiveDebugSnapshot()
+			_ = q.AdaptiveQuotaSnapshot()
+		}()
+	}
+	wg.Wait()
+}
+
+func TestRaceConcurrentSubmitAndCheckOverload(t *testing.T) {
+	ctx := testTimeout(t)
+	q, err := New(Config{
+		ShardCount: 2, WorkerCount: 2, QueueSizePerLane: 32,
+		LaneQuotas:      map[Lane]int{"default": 2, "best_effort": 1},
+		OverloadEnabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = q.UpdateOverloadPolicy(OverloadPolicy{
+		Default: LaneOverloadPolicy{Class: LaneNormal, RejectAboveRatio: 0.90, MaxQueueDepth: 100},
+	})
+	_ = q.Start(ctx)
+	defer func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 3*time.Second)
+		defer c()
+		_ = q.Stop(stopCtx)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 25; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{Key: "k", Lane: "default", Run: func(context.Context) error { return nil }})
+		}()
+		go func() {
+			defer wg.Done()
+			_ = CheckOverload(q, OverloadConfig{Enabled: true}, RequestMeta{Key: "k", Lane: "best_effort"})
+		}()
+	}
 	wg.Wait()
 }
