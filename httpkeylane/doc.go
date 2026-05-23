@@ -11,16 +11,28 @@
 // request context.
 //
 // KeyFunc and LaneFunc are required. There is no implicit default key or lane.
+// Use key helpers (HeaderKey, CompositeKey, FirstNonEmptyKey, etc.) and lane
+// helpers (MethodLaneMapper, RouteLaneMapper) to reduce boilerplate.
+//
+// CompositeKey joins non-empty parts as length-prefixed segments separated by "|"
+// (for example "8:tenant-42|10:customer-9") to avoid delimiter collisions.
+//
+// RouteLaneMapper evaluates LaneRule entries in declared order; the first match
+// wins. Put more specific rules before general rules.
 //
 // Example:
 //
 //	mw := httpkeylane.Middleware(queue, httpkeylane.Config{
-//	    KeyFunc: func(r *http.Request) string {
-//	        return r.Header.Get("X-Tenant-ID")
-//	    },
-//	    LaneFunc: func(r *http.Request) keylane.Lane {
-//	        return keylane.Lane(r.Method)
-//	    },
+//	    KeyFunc: httpkeylane.FirstNonEmptyKey(
+//	        httpkeylane.HeaderKey("X-Tenant-ID"),
+//	        httpkeylane.QueryKey("tenant_id"),
+//	    ),
+//	    LaneFunc: httpkeylane.RouteLaneMapper(
+//	        []httpkeylane.LaneRule{
+//	            {Method: http.MethodPost, PathPrefix: "/payments", Lane: keylane.Lane("payment-write")},
+//	        },
+//	        httpkeylane.MethodLaneMapper(),
+//	    ),
 //	})
 //	http.Handle("/api/", mw(handler))
 package httpkeylane
