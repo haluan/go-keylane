@@ -4,7 +4,7 @@
 package keylane
 
 // StatsGCPressureVersion is the schema version of StatsGCPressureSnapshot.
-const StatsGCPressureVersion = "4"
+const StatsGCPressureVersion = "5"
 
 // StatsGCPressureSnapshot is a read-only, best-effort snapshot of queue depth,
 // in-flight pressure, and cumulative per-lane counters across shards and lanes.
@@ -49,9 +49,14 @@ type LaneCountersGCPressure struct {
 	// Accepted counts jobs successfully admitted into the lane queue. Answers: how much
 	// traffic did the scheduler accept for this lane?
 	Accepted uint64
-	// Rejected counts enqueue attempts not accepted, including queue-full and scheduler
-	// stopped/not-started admission failures. Answers: how often does this lane reject work?
+	// Rejected counts enqueue attempts not accepted, including queue-full, scheduler
+	// stopped/not-started failures, and pressure admission rejections. Answers: how often
+	// does this lane reject work?
 	Rejected uint64
+	// AdmissionRejected counts rejections by pressure-based admission control before
+	// enqueue. Each admission rejection also increments Rejected. Answers: how often is
+	// this lane shedding load due to runtime pressure (distinct from QueueFull)?
+	AdmissionRejected uint64
 	// Completed counts accepted jobs that finished with a nil error. Answers: how much
 	// work completed normally for this lane?
 	Completed uint64

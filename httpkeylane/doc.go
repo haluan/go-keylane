@@ -20,6 +20,10 @@
 // RouteLaneMapper evaluates LaneRule entries in declared order; the first match
 // wins. Put more specific rules before general rules.
 //
+// Admission control (Config.Admission) is disabled by default. When enabled, requests
+// are rejected before enqueue when Queue.Pressure().TotalDepthRatio meets or exceeds
+// RejectAboveRatio (default 0.90). Default HTTP rejection status is 503.
+//
 // Example:
 //
 //	mw := httpkeylane.Middleware(queue, httpkeylane.Config{

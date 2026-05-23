@@ -29,6 +29,11 @@ func SubmitRequest[I any, O any](
 		return future, err
 	}
 
+	if err := CheckAdmission(q, req.Admission, req.Meta); err != nil {
+		future.complete(zero, err)
+		return future, err
+	}
+
 	reqCtx := ctx
 	input := req.Input
 	handle := req.Handle

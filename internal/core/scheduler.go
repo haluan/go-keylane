@@ -144,6 +144,18 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 	return shardID, becameReady, err
 }
 
+// RecordPressureAdmissionRejected increments the lane rejected counter for a
+// pressure-based admission rejection before enqueue.
+func (s *Scheduler) RecordPressureAdmissionRejected(laneID LaneID) {
+	if !s.Obs.EnableCounters {
+		return
+	}
+	if int(laneID) < 0 || int(laneID) >= len(s.laneCounters) {
+		return
+	}
+	s.laneCounters[laneID].recordPressureAdmissionRejected()
+}
+
 // Stats returns a snapshot of the scheduler's stats.
 func (s *Scheduler) Stats() ([]ShardStats, int) {
 	shardCount := len(s.shards)

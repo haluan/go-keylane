@@ -60,6 +60,7 @@ func (c *Collector) Collect(ch chan<- prom.Metric) {
 		ch <- prom.MustNewConstMetric(descJobsCompleted, prom.CounterValue, float64(counters.Completed), labels...)
 		ch <- prom.MustNewConstMetric(descJobsFailed, prom.CounterValue, float64(counters.Failed), labels...)
 		ch <- prom.MustNewConstMetric(descQueueFull, prom.CounterValue, float64(counters.QueueFull), labels...)
+		ch <- prom.MustNewConstMetric(descAdmissionRejected, prom.CounterValue, float64(counters.AdmissionRejected), labels...)
 		ch <- prom.MustNewConstMetric(descLaneDepth, prom.GaugeValue, float64(lane.Queued), labels...)
 		ch <- prom.MustNewConstMetric(descInflight, prom.GaugeValue, float64(lane.InFlight),
 			c.name, "", lane.Name,

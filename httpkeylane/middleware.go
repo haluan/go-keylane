@@ -29,25 +29,37 @@ type Config struct {
 	LaneFunc LaneFunc
 	// ErrorHandler is optional. Defaults to status mapping via statusCodeForError.
 	ErrorHandler ErrorHandler
+	// Admission is optional pressure-based admission control (disabled by default).
+	Admission AdmissionConfig
 }
 
 // DefaultErrorHandler maps errors to HTTP status codes and writes a plain-text body.
 func DefaultErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	status := statusCodeForError(err)
-	if status == 0 {
-		return
+	DefaultErrorHandlerWithAdmission(AdmissionConfig{})(w, r, err)
+}
+
+// DefaultErrorHandlerWithAdmission is the default error handler with admission status mapping.
+func DefaultErrorHandlerWithAdmission(admission AdmissionConfig) ErrorHandler {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		status := statusCodeForError(err, admission)
+		if status == 0 {
+			return
+		}
+		http.Error(w, http.StatusText(status), status)
 	}
-	http.Error(w, http.StatusText(status), status)
 }
 
 // Middleware returns net/http middleware that runs the wrapped handler inside Keylane.
 func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handler {
+	admissionCfg := cfg.Admission
+	NormalizeAdmissionConfig(&admissionCfg)
+
 	eh := cfg.ErrorHandler
 	if eh == nil {
-		eh = DefaultErrorHandler
+		eh = DefaultErrorHandlerWithAdmission(admissionCfg)
 	}
 
-	if err := validateMiddlewareConfig(queue, cfg); err != nil {
+	if err := validateMiddlewareConfig(queue, cfg, admissionCfg); err != nil {
 		configErr := err
 		return func(http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +84,6 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 				return
 			}
 
-			var served atomic.Bool
 			meta := keylane.RequestMeta{
 				Key:  key,
 				Lane: lane,
@@ -81,6 +92,12 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 				meta.RequestID = rid
 			}
 
+			if err := keylane.CheckAdmission(queue, admissionCfg.CoreConfig(), meta); err != nil {
+				eh(w, r, err)
+				return
+			}
+
+			var served atomic.Bool
 			req := keylane.Request[struct{}, struct{}]{
 				Meta:  meta,
 				Input: struct{}{},
@@ -110,7 +127,7 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 	}
 }
 
-func validateMiddlewareConfig(queue *keylane.Queue, cfg Config) error {
+func validateMiddlewareConfig(queue *keylane.Queue, cfg Config, admission AdmissionConfig) error {
 	if queue == nil {
 		return keylane.ErrNilQueue
 	}
@@ -120,10 +137,10 @@ func validateMiddlewareConfig(queue *keylane.Queue, cfg Config) error {
 	if cfg.LaneFunc == nil {
 		return ErrMissingLaneFunc
 	}
-	return nil
+	return ValidateAdmissionConfig(admission)
 }
 
-func statusCodeForError(err error) int {
+func statusCodeForError(err error, admission AdmissionConfig) int {
 	if err == nil {
 		return 0
 	}
@@ -135,6 +152,8 @@ func statusCodeForError(err error) int {
 	case errors.Is(err, keylane.ErrInvalidKey),
 		errors.Is(err, keylane.ErrInvalidLane):
 		return http.StatusBadRequest
+	case errors.Is(err, keylane.ErrAdmissionRejected):
+		return rejectStatusCode(admission)
 	case errors.Is(err, keylane.ErrQueueFull),
 		errors.Is(err, keylane.ErrStopped),
 		errors.Is(err, keylane.ErrNotStarted),
