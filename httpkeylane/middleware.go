@@ -31,6 +31,10 @@ type Config struct {
 	ErrorHandler ErrorHandler
 	// Admission is optional pressure-based admission control (disabled by default).
 	Admission AdmissionConfig
+	// OperationFunc is optional. Sets RequestMeta.Operation when non-nil.
+	OperationFunc OperationFunc
+	// Observe is optional. Called with HTTP metadata and a request observation snapshot.
+	Observe ObserveFunc
 }
 
 // DefaultErrorHandler maps errors to HTTP status codes and writes a plain-text body.
@@ -71,33 +75,28 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
+			rec := newResponseRecorder(w)
 
-			key := cfg.KeyFunc(r)
-			if key == "" {
-				eh(w, r, keylane.ErrInvalidKey)
+			meta := buildRequestMeta(cfg, r)
+			if meta.Key == "" {
+				eh(rec, r, keylane.ErrInvalidKey)
+				cfg.observeHTTPError(r, rec, queue, meta, keylane.ErrInvalidKey)
 				return
 			}
-
-			lane := cfg.LaneFunc(r)
-			if err := lane.Validate(); err != nil {
-				eh(w, r, err)
+			if err := meta.Lane.Validate(); err != nil {
+				eh(rec, r, err)
+				cfg.observeHTTPError(r, rec, queue, meta, err)
 				return
-			}
-
-			meta := keylane.RequestMeta{
-				Key:  key,
-				Lane: lane,
-			}
-			if rid := r.Header.Get("X-Request-ID"); rid != "" {
-				meta.RequestID = rid
 			}
 
 			if err := keylane.CheckAdmission(queue, admissionCfg.CoreConfig(), meta); err != nil {
-				eh(w, r, err)
+				eh(rec, r, err)
+				cfg.observeHTTPError(r, rec, queue, meta, err)
 				return
 			}
 
 			var served atomic.Bool
+
 			req := keylane.Request[struct{}, struct{}]{
 				Meta:  meta,
 				Input: struct{}{},
@@ -106,25 +105,58 @@ func Middleware(queue *keylane.Queue, cfg Config) func(http.Handler) http.Handle
 						return struct{}{}, err
 					}
 					served.Store(true)
-					next.ServeHTTP(w, r.WithContext(reqCtx))
+					next.ServeHTTP(rec, r.WithContext(reqCtx))
+					if err := reqCtx.Err(); err != nil {
+						return struct{}{}, err
+					}
 					return struct{}{}, nil
 				},
 			}
 
 			future, err := keylane.SubmitRequest(ctx, queue, req)
 			if err != nil {
-				eh(w, r, err)
+				eh(rec, r, err)
+				cfg.observeHTTPError(r, rec, queue, meta, err)
 				return
 			}
 
-			if _, err := future.Await(ctx); err != nil {
-				if !served.Load() {
-					eh(w, r, err)
-				}
-				return
+			_, awaitErr := future.Await(ctx)
+			if awaitErr != nil && !served.Load() {
+				eh(rec, r, awaitErr)
 			}
+			cfg.observeHTTPError(r, rec, queue, meta, awaitErr)
 		})
 	}
+}
+
+func buildRequestMeta(cfg Config, r *http.Request) keylane.RequestMeta {
+	meta := keylane.RequestMeta{
+		Transport: TransportHTTP,
+		Key:       cfg.KeyFunc(r),
+		Lane:      cfg.LaneFunc(r),
+	}
+	if cfg.OperationFunc != nil {
+		meta.Operation = cfg.OperationFunc(r)
+	}
+	if rid := r.Header.Get("X-Request-ID"); rid != "" {
+		meta.RequestID = rid
+	}
+	return meta
+}
+
+func (cfg Config) observeHTTP(r *http.Request, rec *responseRecorder, obs keylane.RequestObservation) {
+	if cfg.Observe == nil {
+		return
+	}
+	cfg.Observe(HTTPRequestMetadata{
+		Method:     r.Method,
+		Path:       r.URL.Path,
+		StatusCode: rec.StatusCode(),
+	}, obs)
+}
+
+func (cfg Config) observeHTTPError(r *http.Request, rec *responseRecorder, q *keylane.Queue, meta keylane.RequestMeta, err error) {
+	cfg.observeHTTP(r, rec, keylane.ObservationForError(q, meta, err))
 }
 
 func validateMiddlewareConfig(queue *keylane.Queue, cfg Config, admission AdmissionConfig) error {

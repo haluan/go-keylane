@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -22,6 +25,7 @@ func (q *Queue) TrySubmit(job Job) bool {
 	if err != nil {
 		return false
 	}
+	iJob.UseWorkerTiming = job.UseWorkerTiming
 
 	shardID, becameReady, err := q.sched.TryEnqueue(iJob)
 	if err != nil {

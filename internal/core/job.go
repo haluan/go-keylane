@@ -23,6 +23,8 @@ type InternalJob struct {
 	// EnqueuedAt is when v1 queue-wait tracking is enabled (TrackQueueWait). Set on the
 	// same successful admission as AcceptedAt. Zero means not set.
 	EnqueuedAt time.Time
+	// UseWorkerTiming attaches WorkerTiming to context before Run (SubmitRequest path).
+	UseWorkerTiming bool
 }
 
 // NewInternalJob creates an InternalJob from its components.

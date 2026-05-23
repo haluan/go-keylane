@@ -26,6 +26,10 @@ type RequestMeta struct {
 	Key string
 	// Lane selects the workload class queue (required).
 	Lane Lane
+	// Transport is an optional transport name (for example "http" or "worker").
+	Transport string
+	// Operation is an optional stable operation name for observability (low cardinality).
+	Operation string
 }
 
 // Request is a typed unit of business work with input and output.

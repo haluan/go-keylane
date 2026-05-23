@@ -95,6 +95,9 @@ Enabled when `Observability.EnableHooks` is true (off in low-allocation mode).
 
 - **`OnJobTiming`** — after each job: shard, lane, queue wait, run duration, outcome.
 - **`OnSlowJob`** — when run duration ≥ `SlowJobThreshold`.
+- **`Hooks.Request`** (`OnQueued`, `OnStarted`, `OnCompleted`, `OnRejected`) — `SubmitRequest` lifecycle with transport-agnostic `RequestObservation` (queue wait, run, outcome). Complements job-level timing; both may fire for the same work.
+
+HTTP middleware (`httpkeylane`) sets `RequestMeta.Transport` / `Operation` and optional `Config.Observe` for status codes; configure request hooks on `keylane.Config.Observability.Hooks.Request`.
 
 Hooks run outside scheduler locks. Nil hooks are safe. Hook panics are recovered.
 

@@ -59,7 +59,9 @@ func isUnsetObservabilityConfig(c ObservabilityConfig) bool {
 		return false
 	}
 	return !c.TrackQueueWait && c.SlowJobThreshold == 0 &&
-		c.Hooks.OnJobTiming == nil && c.Hooks.OnSlowJob == nil
+		c.Hooks.OnJobTiming == nil && c.Hooks.OnSlowJob == nil &&
+		c.Hooks.Request.OnQueued == nil && c.Hooks.Request.OnStarted == nil &&
+		c.Hooks.Request.OnCompleted == nil && c.Hooks.Request.OnRejected == nil
 }
 
 func anyEnableFlagExplicit(c ObservabilityConfig) bool {
@@ -76,5 +78,7 @@ func legacyOnlyObservabilityConfig(c ObservabilityConfig) bool {
 		return false
 	}
 	return c.TrackQueueWait || c.SlowJobThreshold > 0 ||
-		c.Hooks.OnJobTiming != nil || c.Hooks.OnSlowJob != nil
+		c.Hooks.OnJobTiming != nil || c.Hooks.OnSlowJob != nil ||
+		c.Hooks.Request.OnQueued != nil || c.Hooks.Request.OnStarted != nil ||
+		c.Hooks.Request.OnCompleted != nil || c.Hooks.Request.OnRejected != nil
 }

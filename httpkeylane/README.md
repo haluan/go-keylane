@@ -74,6 +74,23 @@ Uses `queue.Pressure().TotalDepthRatio` from the core runtime. Key and lane are 
 
 Override with `Config.ErrorHandler`.
 
+## Request observability
+
+- **`OperationFunc`** — optional stable operation name on `RequestMeta.Operation` (empty by default; raw path is not used as the operation).
+- **`Observe`** — optional callback with `HTTPRequestMetadata` (method, path, status) and `keylane.RequestObservation`.
+- **Request hooks** — configure `queue` config: `Observability.Hooks.Request` (`OnQueued`, `OnStarted`, `OnCompleted`, `OnRejected`) for queue wait, run duration, and outcomes.
+
+```go
+mw := httpkeylane.Middleware(queue, httpkeylane.Config{
+    KeyFunc:  httpkeylane.HeaderKey("X-Tenant-ID"),
+    LaneFunc: httpkeylane.MethodLaneMapper(),
+    OperationFunc: func(r *http.Request) string { return "payments.create" },
+    Observe: func(h httpkeylane.HTTPRequestMetadata, obs keylane.RequestObservation) {
+        // metrics/logging with h.StatusCode and obs.Outcome
+    },
+})
+```
+
 ## Testing
 
 ```bash

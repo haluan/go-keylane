@@ -5,12 +5,24 @@ package keylane
 
 import "time"
 
+// RequestHooks contains optional callbacks for the request runtime (SubmitRequest).
+// Request hooks are disabled when Observability.EnableHooks is false or callbacks are nil.
+// They complement job-level OnJobTiming hooks; both may fire for SubmitRequest work.
+type RequestHooks struct {
+	OnQueued    func(RequestMeta)
+	OnStarted   func(RequestObservation)
+	OnCompleted func(RequestObservation)
+	OnRejected  func(RequestObservation)
+}
+
 // Hooks contains user-definable callbacks for observability events.
 type Hooks struct {
 	// OnJobTiming is called after each accepted job finishes Run, with queue wait and run duration.
 	OnJobTiming func(JobTimingEvent)
 	// OnSlowJob is called when a job's run duration meets or exceeds the slow job threshold.
 	OnSlowJob func(SlowJobEvent)
+	// Request holds optional SubmitRequest lifecycle hooks.
+	Request RequestHooks
 }
 
 // JobTimingEvent contains queue wait and run duration for a completed job.
