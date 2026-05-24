@@ -42,6 +42,8 @@ type DebugSnapshot struct {
 
 	Shards []ShardSnapshot
 	Lanes  []LaneSnapshot
+
+	PerKeyAdmissionSnapshots []PerKeyAdmissionSnapshot
 }
 
 // ShardSnapshot reports current queue depth and in-flight jobs for one shard.

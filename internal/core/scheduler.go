@@ -12,36 +12,37 @@ import (
 
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards            []shard
-	ReadyCh           chan int
-	workerCount       int
-	quotaPolicy       atomic.Pointer[quotaPolicySnapshot]
-	quotaVersion      atomic.Uint64
-	quotaMu           sync.Mutex
-	admissionPolicy   atomic.Pointer[admissionPolicySnapshot]
-	admissionVersion  atomic.Uint64
-	admissionMu       sync.Mutex
-	overloadPolicy    atomic.Pointer[overloadPolicySnapshot]
-	overloadVersion   atomic.Uint64
-	overloadMu        sync.Mutex
-	laneReg           *LaneRegistry
-	queueSizePerLane  int
-	mu                sync.RWMutex
-	state             lifecycleState
-	stopDone          chan struct{}
-	workerCancel      context.CancelFunc
-	workerWG          sync.WaitGroup
-	inflight          atomic.Int64
-	shardInflight     []atomic.Int64
-	laneInflight      []atomic.Int64
-	Obs               ObservabilityConfig
-	laneCounters      []laneCounters
-	queueWaitGlobal   queueWaitAccum
-	shardQueueWait    []queueWaitAccum
-	runDurationGlobal runDurationAccum
-	shardRunDuration  []runDurationAccum
-	hotKeyCfg         HotKeyConfig
-	hotKeyTrackers    []*hotKeyTracker
+	shards             []shard
+	ReadyCh            chan int
+	workerCount        int
+	quotaPolicy        atomic.Pointer[quotaPolicySnapshot]
+	quotaVersion       atomic.Uint64
+	quotaMu            sync.Mutex
+	admissionPolicy    atomic.Pointer[admissionPolicySnapshot]
+	admissionVersion   atomic.Uint64
+	admissionMu        sync.Mutex
+	overloadPolicy     atomic.Pointer[overloadPolicySnapshot]
+	overloadVersion    atomic.Uint64
+	overloadMu         sync.Mutex
+	laneReg            *LaneRegistry
+	queueSizePerLane   int
+	mu                 sync.RWMutex
+	state              lifecycleState
+	stopDone           chan struct{}
+	workerCancel       context.CancelFunc
+	workerWG           sync.WaitGroup
+	inflight           atomic.Int64
+	shardInflight      []atomic.Int64
+	laneInflight       []atomic.Int64
+	Obs                ObservabilityConfig
+	laneCounters       []laneCounters
+	queueWaitGlobal    queueWaitAccum
+	shardQueueWait     []queueWaitAccum
+	runDurationGlobal  runDurationAccum
+	shardRunDuration   []runDurationAccum
+	hotKeyCfg          HotKeyConfig
+	hotKeyTrackers     []*hotKeyTracker
+	perKeyAdmissionCfg PerKeyAdmissionConfig
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -94,6 +95,84 @@ func (s *Scheduler) hotKeyTrackerForShard(shardID int) *hotKeyTracker {
 		return nil
 	}
 	return s.hotKeyTrackers[shardID]
+}
+
+// ConfigurePerKeyAdmission applies per-key mitigation policy (requires hot key tracking when enabled).
+func (s *Scheduler) ConfigurePerKeyAdmission(cfg PerKeyAdmissionConfig) error {
+	if cfg.Enabled && (!s.hotKeyCfg.Enabled || s.hotKeyCfg.MaxTrackedKeysPerShard <= 0) {
+		return ErrInvalidPerKeyAdmissionConfig
+	}
+	s.perKeyAdmissionCfg = cfg
+	return nil
+}
+
+// EvaluatePerKeyAdmission evaluates mitigation for a key before enqueue using active queue config.
+func (s *Scheduler) EvaluatePerKeyAdmission(shardID int, keyHash uint64, laneID LaneID) PerKeyAdmissionDecision {
+	return s.EvaluatePerKeyAdmissionWithConfig(shardID, keyHash, laneID, s.perKeyAdmissionCfg)
+}
+
+// EvaluatePerKeyAdmissionWithConfig evaluates mitigation using the supplied config snapshot.
+func (s *Scheduler) EvaluatePerKeyAdmissionWithConfig(shardID int, keyHash uint64, laneID LaneID, cfg PerKeyAdmissionConfig) PerKeyAdmissionDecision {
+	allow := PerKeyAdmissionDecision{
+		Action:       PerKeyMitigationAllow,
+		Reason:       PerKeyAdmissionReasonNone,
+		ShardID:      shardID,
+		LaneID:       uint16(laneID),
+		KeyHash:      keyHash,
+		HotKeyStatus: HotKeyStatusNone,
+	}
+	if !perKeyAdmissionEnabled(cfg) {
+		return allow
+	}
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk == nil {
+		return allow
+	}
+	var shardDepth uint64
+	if shardID >= 0 && shardID < len(s.shards) {
+		sh := &s.shards[shardID]
+		sh.mu.Lock()
+		shardDepth = uint64(sh.totalDepthLocked())
+		sh.mu.Unlock()
+	}
+	var waitNanos uint64
+	if shardID >= 0 && shardID < len(s.shardQueueWait) {
+		waitNanos = s.shardQueueWait[shardID].totalNanos.Load()
+	}
+	pressure := s.Pressure().TotalDepthRatio
+	return hk.evaluatePerKeyAdmission(shardID, keyHash, laneID, shardDepth, waitNanos, pressure, cfg, time.Now())
+}
+
+// PerKeyAdmissionSnapshots returns copy-out per-key mitigation state across shards.
+func (s *Scheduler) PerKeyAdmissionSnapshots() []PerKeyAdmissionSnapshot {
+	if !perKeyAdmissionEnabled(s.perKeyAdmissionCfg) || s.hotKeyTrackers == nil {
+		return nil
+	}
+	perShard := s.perKeyAdmissionCfg.MaxSnapshotsPerShard
+	if perShard <= 0 {
+		perShard = 5
+	}
+	totalLimit := s.perKeyAdmissionCfg.MaxSnapshotsTotal
+	if totalLimit <= 0 {
+		totalLimit = 25
+	}
+	var out []PerKeyAdmissionSnapshot
+	for i, hk := range s.hotKeyTrackers {
+		if hk == nil {
+			continue
+		}
+		remaining := totalLimit - len(out)
+		if remaining <= 0 {
+			break
+		}
+		shardLimit := perShard
+		if shardLimit > remaining {
+			shardLimit = remaining
+		}
+		part := hk.perKeyAdmissionSnapshots(i, shardLimit)
+		out = append(out, part...)
+	}
+	return out
 }
 
 // Start launches the worker goroutines.

@@ -55,6 +55,16 @@ func SubmitRequest[I any, O any](
 		return future, err
 	}
 
+	perKeyCfg := q.config.PerKeyAdmission
+	if req.PerKeyAdmission.Enabled {
+		perKeyCfg = req.PerKeyAdmission
+	}
+	if err := CheckPerKeyAdmission(q, perKeyCfg, meta); err != nil {
+		future.complete(zero, err)
+		reject(err)
+		return future, err
+	}
+
 	reqCtx := ctx
 	input := req.Input
 	handle := req.Handle

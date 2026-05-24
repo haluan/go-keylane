@@ -52,3 +52,5 @@ go test -bench='HotKey|QueueFull|Eviction' -benchmem ./internal/core/...
 ```
 
 Compare disabled vs enabled submit benchmarks before enabling in production.
+
+For autoscaling and capacity decisions, see [autoscaling-signals.md](autoscaling-signals.md) (localized hot key vs distributed backlog).

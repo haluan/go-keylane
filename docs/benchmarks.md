@@ -89,6 +89,23 @@ go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 go test -bench='BenchmarkEvaluateOverload|BenchmarkCheckOverload' -benchmem ./internal/core .
 ```
 
+### Per-key admission guardrails
+
+```bash
+go test -bench='PerKey|per_key' -benchmem .
+go test -bench='PerKey|per_key' -benchmem ./internal/core
+```
+
+| Benchmark | Scenario |
+|-----------|----------|
+| `BenchmarkSubmitPerKeyEnabledColdKeys` | Per-key on; single cold key only |
+| `BenchmarkSubmitPerKeyOneDominantHotKey` | Steady dominant key after warm-up |
+| `BenchmarkSubmitPerKeyManyUniqueBeyondCap` | Unique keys above `MaxTrackedKeysPerShard` |
+| `BenchmarkCheckPerKeyAdmissionThrottle` / `Reject` | Pre-seeded hot key; check path only |
+| `BenchmarkDebugSnapshotPerKeyMitigation` | Snapshot with active mitigation rows |
+
+Core package: `BenchmarkPerKeyEvaluateColdKey`, `DominantHotKey`, `ManyKeysBeyondCap`, `Throttle`, `Reject`.
+
 ### Admission Hot-Path Guardrails
 
 Two benchmarks verify that the successful-admit path (pressure below all thresholds, depth zero) allocates nothing:

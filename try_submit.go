@@ -15,6 +15,24 @@ func (q *Queue) TrySubmit(job Job) bool {
 		return false
 	}
 
+	meta := RequestMeta{Key: job.Key, Lane: job.Lane}
+
+	if q.config.OverloadEnabled {
+		if err := CheckOverload(q, OverloadConfig{Enabled: true}, meta); err != nil {
+			return false
+		}
+	}
+
+	if q.config.AdmissionEnabled {
+		if err := CheckAdmission(q, AdmissionConfig{Enabled: true}, meta); err != nil {
+			return false
+		}
+	}
+
+	if err := CheckPerKeyAdmission(q, q.config.PerKeyAdmission, meta); err != nil {
+		return false
+	}
+
 	laneID, ok := q.reg.Lookup(string(job.Lane))
 	if !ok {
 		return false

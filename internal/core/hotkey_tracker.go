@@ -19,6 +19,14 @@ type hotKeyEntry struct {
 	queueWaitApproxNanos uint64
 	lastSeenUnixNano     int64
 	epoch                uint64
+
+	inflightApprox int64
+
+	lastAction            PerKeyMitigationAction
+	lastReason            PerKeyAdmissionReason
+	lastDecisionUnixNano  int64
+	cooldownUntilUnixNano int64
+	recoveryUntilUnixNano int64
 }
 
 type hotKeyTracker struct {
