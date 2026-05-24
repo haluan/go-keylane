@@ -156,6 +156,63 @@ Also see [adaptive-quota.md](adaptive-quota.md), [overload-policy.md](overload-p
 
 ---
 
+## v0.5 diagnostics (hot key, shard pressure, autoscaling)
+
+When KL-1501–1504 features are enabled, `DebugSnapshot()` (version `"4"`) adds bounded v0.5 fields:
+
+| Field | API | Purpose |
+|-------|-----|---------|
+| `PressureSummary` | `Queue.PressureSummary()` | Global/shard pressure class, hot shards, lane dominance |
+| `ScaleSignal` | `Queue.ScaleSignal()` | Autoscaling recommendation with reason and scope |
+| `PerKeyAdmissionSnapshots` | in `DebugSnapshot()` | Per-key mitigation state (hash-only by default) |
+| `HotKeyCandidates` | per shard in `DebugSnapshot().Shards[]` | Hot key candidates with `KeyHash`, ratios, status |
+| `HotKeys` | `DebugSnapshot().HotKeys` | Spec-aligned flat list (`HotKeyCandidateSnapshot`, stable-sorted) |
+| `Mitigations` | `DebugSnapshot().Mitigations` | Spec-aligned `PerKeyMitigationSnapshot` list |
+| `ShardPressure` | `DebugSnapshot().ShardPressure` | Per-shard pressure snapshots (flat slice) |
+
+**Spec name mapping (KL-1505)**
+
+| Spec | Implementation |
+|------|----------------|
+| `Observer` | `Hooks` struct with optional function fields |
+| `OnShardPressure` | `OnShardPressureSummary` |
+| `ShardPressureEvent` | `ShardPressureSummaryEvent` |
+| `HotKeyCandidateSnapshot` | `HotKeyCandidateSnapshot` (includes `LastSeenUnixNano`) |
+| `PerKeyMitigationSnapshot` | `PerKeyMitigationSnapshot` (see also `PerKeyAdmissionSnapshots`) |
+
+**When to use which pull API**
+
+- **`ScaleSignal()`** — autoscaler input: `Recommended`, `Reason`, `Scope`, `PressureRatio`, worker and queue ratios. Cheap enough for periodic polling.
+- **`PressureSummary()`** — mitigation vs scale classification (`Class`, `ScaleRelevant`, `MitigationRelevant`, per-shard `Class`).
+- **`DebugSnapshot()`** — full point-in-time view including v0.5 sections above plus hot shard/lane rankings.
+
+**Privacy:** `HotKeyConfig.ExposeRawKey` defaults to `false`. Snapshots, hooks, and Prometheus metrics emit **`KeyHash` only** — never raw tenant keys unless you explicitly opt in.
+
+**Optional v0.5 hooks** (require `Observability.EnableDebugSnapshot` and `EnableHooks`; set `Observability = DefaultObservabilityConfig()` before assigning callbacks):
+
+| Hook | When it fires |
+|------|----------------|
+| `OnHotKeyCandidate` | After `DebugSnapshot()` observes a hot key candidate |
+| `OnShardPressureSummary` | After `PressureSummary()` completes |
+| `OnScaleSignal` | After `ScaleSignal()` with `DiagnosticsEnabled=true` |
+| `OnPerKeyAdmissionDecision` | Per-key throttle/reject/shed at admission (existing KL-1502) |
+
+Hooks fire outside scheduler locks with panic recovery. Nil callbacks are no-ops.
+
+**Why CPU/memory can stay flat during backpressure:** keylane shapes concurrency and queue depth; high queue wait with low CPU often means worker saturation or localized hot keys, not necessarily high host CPU. Use `WorkerBusyRatio`, `PressureSummary.Class`, and queue-wait metrics together — see [pressure-diagnostics.md](pressure-diagnostics.md) and [hot-key-mitigation.md](hot-key-mitigation.md).
+
+**v0.5 tests and benchmarks:**
+
+```bash
+go test ./... -run 'HotKey|PerKey|ShardPressure|ScaleSignal|Scenario|Leak|Race|V05'
+go test ./... -bench 'HotKey|PerKey|ShardPressure|ScaleSignal|Snapshot|V05|Baseline' -benchmem .
+cd metrics/prometheus && go test ./...
+```
+
+See [v0.5-runtime-signals.md](v0.5-runtime-signals.md), [shard-pressure-diagnostics.md](shard-pressure-diagnostics.md), [autoscaling-signals.md](autoscaling-signals.md), and [benchmarks.md](benchmarks.md).
+
+---
+
 ## Related documentation
 
 - [debugging.md](debugging.md) — production troubleshooting

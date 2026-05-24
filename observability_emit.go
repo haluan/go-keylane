@@ -18,7 +18,7 @@ func (q *Queue) emitQuotaChange(e QuotaChangeEvent) {
 		return
 	}
 	if h := q.config.Observability.Hooks.OnQuotaChange; h != nil {
-		h(e)
+		callHook(func() { h(e) })
 	}
 }
 
@@ -27,7 +27,7 @@ func (q *Queue) emitOverloadPolicy(e OverloadPolicyEvent) {
 		return
 	}
 	if h := q.config.Observability.Hooks.OnOverloadPolicyDecision; h != nil {
-		h(e)
+		callHook(func() { h(e) })
 	}
 }
 
@@ -93,6 +93,47 @@ func overloadPolicyEventFromCore(lane Lane, r core.OverloadEvalResult, globalPre
 		QueueDepth:     r.LaneDepth,
 		MaxQueueDepth:  r.MaxDepth,
 		PolicyVersion:  r.PolicyVersion,
+	}
+}
+
+func (q *Queue) emitHotKeyCandidate(c HotKeyCandidate) {
+	if !q.hooksEnabled() {
+		return
+	}
+	if h := q.config.Observability.Hooks.OnHotKeyCandidate; h != nil {
+		callHook(func() { h(HotKeyCandidateEvent{Time: time.Now(), Candidate: c}) })
+	}
+}
+
+func (q *Queue) emitShardPressureSummary(summary PressureSummarySnapshot) {
+	if !q.hooksEnabled() {
+		return
+	}
+	if h := q.config.Observability.Hooks.OnShardPressureSummary; h != nil {
+		callHook(func() { h(ShardPressureSummaryEvent{Time: time.Now(), Summary: summary}) })
+	}
+}
+
+func (q *Queue) emitScaleSignal(sig ScaleSignal) {
+	if !q.hooksEnabled() || !sig.DiagnosticsEnabled {
+		return
+	}
+	if h := q.config.Observability.Hooks.OnScaleSignal; h != nil {
+		callHook(func() { h(ScaleSignalEvent{Time: time.Now(), Signal: sig}) })
+	}
+}
+
+func (q *Queue) emitHotKeyCandidatesFromSnapshot(snap DebugSnapshot) {
+	if !q.hooksEnabled() || q.config.Observability.Hooks.OnHotKeyCandidate == nil {
+		return
+	}
+	for _, sh := range snap.Shards {
+		if sh.HotKeyCandidate != nil {
+			q.emitHotKeyCandidate(*sh.HotKeyCandidate)
+		}
+		for _, c := range sh.HotKeyCandidates {
+			q.emitHotKeyCandidate(c)
+		}
 	}
 }
 

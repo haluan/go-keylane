@@ -83,6 +83,8 @@ type PerKeyAdmissionSnapshot struct {
 
 	CooldownRemaining time.Duration
 	LastDecisionAt    time.Time
+
+	RejectedApprox uint64
 }
 
 func perKeyAdmissionEnabled(cfg PerKeyAdmissionConfig) bool {
@@ -365,6 +367,7 @@ func (t *hotKeyTracker) perKeyAdmissionSnapshots(shardID int, limit int) []PerKe
 			Reason:            e.lastReason,
 			QueuedApprox:      e.queuedApprox,
 			InflightApprox:    e.inflightApprox,
+			RejectedApprox:    e.rejectedApprox,
 			CooldownRemaining: cooldownRem,
 			LastDecisionAt:    lastAt,
 		})

@@ -89,6 +89,33 @@ go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 go test -bench='BenchmarkEvaluateOverload|BenchmarkCheckOverload' -benchmem ./internal/core .
 ```
 
+### v0.5 observability (KL-1505)
+
+Focused test and benchmark commands for hot key, per-key admission, shard pressure, scale signal, and scenario coverage:
+
+```bash
+go test ./... -run 'HotKey|PerKey|ShardPressure|ScaleSignal|Scenario|Leak|Race|V05'
+go test ./... -bench 'HotKey|PerKey|ShardPressure|ScaleSignal|Snapshot|V05|Baseline' -benchmem .
+cd metrics/prometheus && go test ./...
+```
+
+v0.5 metric contract tests (cardinality, required families) live in `metrics/prometheus/v05_metrics_test.go`; the core module stays adapter-free.
+
+| Benchmark | Scenario |
+|-----------|----------|
+| `BenchmarkV05SubmitBaseline` / `BenchmarkSubmitBaseline` | All v0.5 features disabled (pre-v0.5 submit path) |
+| `BenchmarkSubmitWithHotKeyTrackingDisabled` | Shard pressure + autoscaling on; hot key + per-key off |
+| `BenchmarkSubmitManyUniqueKeysBoundedTracker` | Many unique keys; tracker stays within cap |
+| `BenchmarkSubmitWithHotKeyTrackingEnabled` | Hot key tracking on |
+| `BenchmarkSubmitSingleHotKey` | One hot key vs many keys |
+| `BenchmarkPerKeyAdmissionAllow` | Per-key allow path |
+| `BenchmarkPerKeyAdmissionRejectHotKey` | Per-key reject on hot key |
+| `BenchmarkShardPressureSnapshot` | `PressureSummary()` with hot keys |
+| `BenchmarkScaleSignalCalculation` | Idle scale signal |
+| `BenchmarkDebugSnapshotWithV05Diagnostics` | Full v0.5 `DebugSnapshot()` after warm backlog |
+
+See [observability.md](observability.md) for v0.5 diagnostics, hooks, and privacy defaults.
+
 ### Shard pressure diagnostics (KL-1503)
 
 ```bash

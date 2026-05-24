@@ -123,3 +123,25 @@ func TestHotKeyTrackerExposeRawKey(t *testing.T) {
 		t.Fatalf("Key = %q, want tenant-a", top.Key)
 	}
 }
+
+func TestHotKeyTrackerEntryExpiresAfterWindow(t *testing.T) {
+	t.Parallel()
+	cfg := HotKeyConfig{
+		Enabled:                true,
+		MaxTrackedKeysPerShard: 8,
+		DetectionWindow:        50 * time.Millisecond,
+		HotKeyDepthRatio:       0.4,
+	}
+	tr := newHotKeyTracker(cfg)
+	start := time.Now()
+	tr.observeSubmit(99, 0, "", start)
+	tr.observeEnqueue(99, 0, "", start)
+	if tr.len() != 1 {
+		t.Fatalf("len = %d, want 1", tr.len())
+	}
+	later := start.Add(2 * cfg.DetectionWindow)
+	tr.expireStaleEntriesLocked(later)
+	if tr.len() != 0 {
+		t.Fatalf("len = %d after expiry, want 0", tr.len())
+	}
+}

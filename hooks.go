@@ -5,6 +5,12 @@ package keylane
 
 import "time"
 
+// callHook invokes fn and recovers panics so observer failures do not break callers.
+func callHook(fn func()) {
+	defer func() { _ = recover() }()
+	fn()
+}
+
 // RequestHooks contains optional callbacks for the request runtime (SubmitRequest).
 // Request hooks are disabled when Observability.EnableHooks is false or callbacks are nil.
 // They complement job-level OnJobTiming hooks; both may fire for SubmitRequest work.
@@ -34,6 +40,30 @@ type Hooks struct {
 	OnOverloadPolicyDecision func(OverloadPolicyEvent)
 	// OnPerKeyAdmissionDecision fires when per-key admission throttles, rejects, or sheds a request.
 	OnPerKeyAdmissionDecision func(PerKeyAdmissionDecisionEvent)
+	// OnHotKeyCandidate fires when a hot key candidate is observed in DebugSnapshot (KL-1505).
+	OnHotKeyCandidate func(HotKeyCandidateEvent)
+	// OnShardPressureSummary fires after PressureSummary is computed (KL-1505).
+	OnShardPressureSummary func(ShardPressureSummaryEvent)
+	// OnScaleSignal fires after ScaleSignal is computed when diagnostics are enabled (KL-1505).
+	OnScaleSignal func(ScaleSignalEvent)
+}
+
+// HotKeyCandidateEvent carries hot key candidate metadata (key_hash only by default).
+type HotKeyCandidateEvent struct {
+	Time      time.Time
+	Candidate HotKeyCandidate
+}
+
+// ShardPressureSummaryEvent carries global shard pressure summary (KL-1505).
+type ShardPressureSummaryEvent struct {
+	Time    time.Time
+	Summary PressureSummarySnapshot
+}
+
+// ScaleSignalEvent carries autoscaling signal snapshot (KL-1505).
+type ScaleSignalEvent struct {
+	Time   time.Time
+	Signal ScaleSignal
 }
 
 // PerKeyAdmissionDecisionEvent carries per-key admission decision metadata (key_hash only).

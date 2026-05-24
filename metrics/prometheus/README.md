@@ -37,6 +37,7 @@ Each scrape calls `Queue.StatsGCPressure()` and `Queue.Pressure()` (on-demand al
 | `keylane_queue_full_total` | Counter | `scheduler`, `lane` |
 | `keylane_lane_depth` | Gauge | `scheduler`, `lane` |
 | `keylane_shard_depth` | Gauge | `scheduler`, `shard_id` |
+| `keylane_shard_queue_depth` | Gauge | `scheduler`, `shard_id` (spec alias; same value as `shard_depth`) |
 | `keylane_inflight_jobs` | Gauge | `scheduler`, `shard_id`, `lane` |
 | `keylane_queue_wait_seconds` | Summary | `scheduler`, `lane` |
 | `keylane_run_duration_seconds` | Summary | `scheduler`, `lane` |

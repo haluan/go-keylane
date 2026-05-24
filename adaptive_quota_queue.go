@@ -34,7 +34,7 @@ func (q *Queue) initAdaptiveController() {
 		if hAdaptive != nil || q.config.Observability.Hooks.OnQuotaChange != nil {
 			hook = func(d core.QuotaAdjustmentDecision, t time.Time) {
 				if hAdaptive != nil {
-					hAdaptive(adaptiveQuotaEventFromCore(d, t))
+					callHook(func() { hAdaptive(adaptiveQuotaEventFromCore(d, t)) })
 				}
 				if d.Reason != core.QuotaReasonUpdateFailed && d.NewQuota != d.OldQuota {
 					q.emitQuotaChange(QuotaChangeEvent{

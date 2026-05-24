@@ -70,6 +70,5 @@ func (q *Queue) emitRequestRejected(obs RequestObservation) {
 }
 
 func callRequestHook(fn func()) {
-	defer func() { _ = recover() }()
-	fn()
+	callHook(fn)
 }

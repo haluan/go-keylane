@@ -26,7 +26,16 @@ Hot key detection adds:
 | Hot shard (many keys) | One shard hot | Many keys share load |
 | Distributed backlog | Many shards pressured | No single dominant key |
 
-Use `DebugSnapshot().Shards[].HotKeyCandidate` together with `PressureSummary`, `HotShards`, and `HotLanes`.
+Use `DebugSnapshot().HotKeys` (flat list) or `DebugSnapshot().Shards[].HotKeyCandidates` together with `PressureSummary`, `HotShards`, and `HotLanes`.
+
+### Wait ratio visibility
+
+`WaitRatio` and shard-pressure `WaitContributionRatio` use cumulative shard queue wait as the denominator. They are often **zero** when:
+
+- The queue is not started (jobs only enqueue), or
+- Workers drain quickly and cumulative wait has not accumulated.
+
+For meaningful wait ratios in tests or dashboards, use a **blocked-worker** scenario (jobs held in `Run` while depth builds) or poll after sustained backlog.
 
 ## Why tracking must be bounded
 
