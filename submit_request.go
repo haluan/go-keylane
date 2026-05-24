@@ -19,8 +19,10 @@ func SubmitRequest[I any, O any](
 	future := newResultFuture[O]()
 	var zero O
 	policy := FailurePolicy{}
+	retryPolicy := RetryPolicy{}
 	if q != nil {
 		policy = q.failurePolicy
+		retryPolicy = resolveRetryPolicy(q.retryPolicy, req.Retry)
 	}
 	budget := NewDeadlineBudget(ctx, time.Now())
 	future.budgetTrace.AtSubmit = budget
@@ -101,11 +103,11 @@ func SubmitRequest[I any, O any](
 
 			handlerStartNow := time.Now()
 			handlerStartBudget := jobBudget.refreshAt(handlerStartNow)
-			future.budgetTrace.AtHandlerStart = handlerStartBudget
 
 			q.emitRequestStarted(q.newRequestObservation(meta, shardID, queueWait, 0, nil))
 
 			if err := reqCtx.Err(); err != nil {
+				future.budgetTrace.AtHandlerStart = handlerStartBudget
 				future.complete(zero, err, policy, handlerStartBudget, true)
 				runDur := time.Duration(0)
 				if !startedAt.IsZero() {
@@ -117,16 +119,33 @@ func SubmitRequest[I any, O any](
 				return err
 			}
 
-			out, err := handle(reqCtx, input)
+			future.budgetTrace.AtHandlerStart = handlerStartBudget
+
+			runStart := handlerStartNow
+			var out O
+			var err error
+			var beforeHandler bool
+
+			if retryPolicy.Enabled {
+				res := runWithRetry(reqCtx, policy, retryPolicy, handlerStartBudget, nil, nil, func(int) (O, error) {
+					return handle(reqCtx, input)
+				})
+				out, err, beforeHandler = res.val, res.err, res.beforeHandler
+			} else {
+				out, err = handle(reqCtx, input)
+				beforeHandler = false
+			}
+
+			finalBudget := handlerStartBudget.WithRuntimeAt(time.Since(runStart), time.Now())
+			if err != nil {
+				future.complete(zero, err, policy, finalBudget, beforeHandler)
+			} else {
+				future.complete(out, nil, policy, finalBudget, beforeHandler)
+			}
+
 			runDur := time.Duration(0)
 			if !startedAt.IsZero() {
 				runDur = time.Since(startedAt)
-			}
-			finalBudget := handlerStartBudget.WithRuntimeAt(runDur, time.Now())
-			if err != nil {
-				future.complete(zero, err, policy, finalBudget, false)
-			} else {
-				future.complete(out, nil, policy, finalBudget, false)
 			}
 			obs := q.newRequestObservation(meta, shardID, queueWait, runDur, err)
 			q.emitRequestCompleted(obs)

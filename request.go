@@ -38,6 +38,7 @@ type Request[I any, O any] struct {
 	Admission       AdmissionConfig
 	Overload        OverloadConfig
 	PerKeyAdmission PerKeyAdmissionConfig
+	Retry           RetryPolicy
 	Input           I
 	Handle          func(context.Context, I) (O, error)
 }

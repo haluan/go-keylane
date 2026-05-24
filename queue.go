@@ -25,6 +25,7 @@ type Queue struct {
 	perKeyAdmissionEnabled bool
 	perKeyAdmissionCore    core.PerKeyAdmissionConfig
 	failurePolicy          FailurePolicy
+	retryPolicy            RetryPolicy
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -41,6 +42,9 @@ func New(config Config) (*Queue, error) {
 	autoscaling := config.AutoscalingSignal
 	NormalizeAutoscalingSignalConfig(&autoscaling)
 	config.AutoscalingSignal = autoscaling
+	retry := config.Retry
+	NormalizeRetryPolicy(&retry)
+	config.Retry = retry
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -80,6 +84,7 @@ func New(config Config) (*Queue, error) {
 		perKeyAdmissionEnabled: config.PerKeyAdmission.Enabled,
 		perKeyAdmissionCore:    toCorePerKeyAdmissionConfig(config.PerKeyAdmission),
 		failurePolicy:          config.FailurePolicy,
+		retryPolicy:            config.Retry,
 	}
 	q.initAdaptiveController()
 	return q, nil

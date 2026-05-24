@@ -39,6 +39,9 @@ type Config struct {
 
 	// FailurePolicy configures optional custom failure classification.
 	FailurePolicy FailurePolicy
+
+	// Retry configures optional bounded in-worker retry (zero value disables).
+	Retry RetryPolicy
 }
 
 type ObservabilityConfig struct {
@@ -108,5 +111,14 @@ func (c Config) Validate() error {
 	}
 	as := c.AutoscalingSignal
 	NormalizeAutoscalingSignalConfig(&as)
-	return ValidateAutoscalingSignalConfig(as)
+	if err := ValidateAutoscalingSignalConfig(as); err != nil {
+		return err
+	}
+	return validateConfigRetry(c)
+}
+
+func validateConfigRetry(c Config) error {
+	retry := c.Retry
+	NormalizeRetryPolicy(&retry)
+	return ValidateRetryPolicy(retry)
 }

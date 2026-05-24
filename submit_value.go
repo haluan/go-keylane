@@ -17,8 +17,10 @@ func SubmitValue[T any](
 	future := newResultFuture[T]()
 	var zero T
 	policy := FailurePolicy{}
+	retryPolicy := RetryPolicy{}
 	if q != nil {
 		policy = q.failurePolicy
+		retryPolicy = resolveRetryPolicy(q.retryPolicy, job.Retry)
 	}
 	budget := NewDeadlineBudget(ctx, time.Now())
 	future.budgetTrace.AtSubmit = budget
@@ -51,14 +53,27 @@ func SubmitValue[T any](
 			}
 
 			runStart := handlerStartNow
-			val, err := job.Run(ctx)
+			var val T
+			var err error
+			var beforeHandler bool
+
+			if retryPolicy.Enabled {
+				res := runWithRetry(ctx, policy, retryPolicy, handlerStartBudget, nil, nil, func(int) (T, error) {
+					return job.Run(ctx)
+				})
+				val, err, beforeHandler = res.val, res.err, res.beforeHandler
+			} else {
+				val, err = job.Run(ctx)
+				beforeHandler = false
+			}
+
 			finalBudget := handlerStartBudget.WithRuntimeAt(time.Since(runStart), time.Now())
 			if err != nil {
-				future.complete(zero, err, policy, finalBudget, false)
+				future.complete(zero, err, policy, finalBudget, beforeHandler)
 			} else {
-				future.complete(val, nil, policy, finalBudget, false)
+				future.complete(val, nil, policy, finalBudget, beforeHandler)
 			}
-			return nil // The scheduler itself only cares about execution flow, not results
+			return nil
 		},
 	}
 
