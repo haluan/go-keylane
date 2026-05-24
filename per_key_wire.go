@@ -47,5 +47,6 @@ func copyPerKeyAdmissionSnapshot(s core.PerKeyAdmissionSnapshot) PerKeyAdmission
 		PressureRatio:     s.PressureRatio,
 		CooldownRemaining: s.CooldownRemaining,
 		LastDecisionAt:    s.LastDecisionAt,
+		RejectedApprox:    s.RejectedApprox,
 	}
 }

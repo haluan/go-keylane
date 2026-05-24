@@ -50,6 +50,11 @@ type DebugSnapshot struct {
 	Lanes  []LaneSnapshot
 
 	PerKeyAdmissionSnapshots []PerKeyAdmissionSnapshot
+
+	// KL-1505 spec-aligned top-level views (flattened from Shards / per-key state).
+	HotKeys       []HotKeyCandidateSnapshot
+	Mitigations   []PerKeyMitigationSnapshot
+	ShardPressure []ShardPressureSnapshot
 }
 
 // ShardSnapshot reports current queue depth and in-flight jobs for one shard.

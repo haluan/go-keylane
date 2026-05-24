@@ -272,17 +272,23 @@ func (q *Queue) Pressure() Pressure {
 // in-flight jobs, pressure, and hot shard/lane rankings. Safe for concurrent reads
 // while workers run; not a globally atomic stop-the-world snapshot.
 func (q *Queue) DebugSnapshot() DebugSnapshot {
-	return copyDebugSnapshot(q.sched.DebugSnapshot())
+	snap := copyDebugSnapshot(q.sched.DebugSnapshot())
+	q.emitHotKeyCandidatesFromSnapshot(snap)
+	return snap
 }
 
 // PressureSummary returns KL-1503 global shard pressure diagnostics.
 func (q *Queue) PressureSummary() PressureSummarySnapshot {
-	return q.sched.PressureSummarySnapshot()
+	summary := q.sched.PressureSummarySnapshot()
+	q.emitShardPressureSummary(summary)
+	return summary
 }
 
 // ScaleSignal returns KL-1504 autoscaling signal diagnostics.
 func (q *Queue) ScaleSignal() ScaleSignal {
-	return q.sched.ScaleSignalSnapshot()
+	sig := q.sched.ScaleSignalSnapshot()
+	q.emitScaleSignal(sig)
+	return sig
 }
 
 // ScaleAdmissionTotals returns cumulative admission counters aggregated across lanes.
@@ -294,6 +300,24 @@ func (q *Queue) ScaleAdmissionTotals() ScaleAdmissionTotals {
 		Throttled: throttled,
 	}
 }
+
+// HotKeyRejectedTotal returns cumulative hot-key reject observations since queue start.
+func (q *Queue) HotKeyRejectedTotal() uint64 {
+	return q.sched.HotKeyRejectedTotal()
+}
+
+// PerKeyAdmissionDecisionTotals returns cumulative per-key admission decisions by action and reason.
+func (q *Queue) PerKeyAdmissionDecisionTotals() []PerKeyAdmissionDecisionTotal {
+	coreTotals := q.sched.PerKeyAdmissionDecisionTotals()
+	out := make([]PerKeyAdmissionDecisionTotal, len(coreTotals))
+	for i, t := range coreTotals {
+		out[i] = PerKeyAdmissionDecisionTotal{Action: t.Action, Reason: t.Reason, Count: t.Count}
+	}
+	return out
+}
+
+// PerKeyAdmissionDecisionTotal is a cumulative per-key decision counter bucket.
+type PerKeyAdmissionDecisionTotal = core.PerKeyAdmissionDecisionTotal
 
 // ShardPressure returns KL-1503 diagnostics for one shard.
 func (q *Queue) ShardPressure(shardID int) (ShardPressureSnapshot, bool) {
@@ -398,7 +422,7 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 	for i, ps := range in.PerKeyAdmissionSnapshots {
 		perKeySnaps[i] = copyPerKeyAdmissionSnapshot(ps)
 	}
-	return DebugSnapshot{
+	out := DebugSnapshot{
 		Version:                  in.Version,
 		GeneratedAt:              in.GeneratedAt,
 		AdmissionPolicyVersion:   in.AdmissionPolicyVersion,
@@ -418,4 +442,6 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 		Lanes:                    lanes,
 		PerKeyAdmissionSnapshots: perKeySnaps,
 	}
+	enrichV05DebugSnapshot(&out)
+	return out
 }

@@ -79,6 +79,7 @@ func (c *scaleSignalCalculator) calculate(in scaleSignalInput, counters admissio
 		HotShardRatio:          in.HotShardRatio,
 		HotKeyCandidateCount:   in.HotKeyCandidateCount,
 		LocalizedHotKeyRatio:   in.LocalizedHotKeyRatio,
+		LocalizedHotKey:        in.LocalizedHotKeyRatio >= cfg.LocalizedHotKeyRatioThreshold && in.HotShardCount <= 2,
 		WindowStartedAt:        windowStart,
 		WindowEndedAt:          now,
 		Reason:                 ScaleReasonNone,
@@ -119,6 +120,7 @@ func (c *scaleSignalCalculator) calculate(in scaleSignalInput, counters admissio
 		sig.Reason = ScaleReasonLocalizedHotKey
 		sig.Scope = ScaleScopeHotKey
 		sig.Recommended = false
+		sig.LocalizedHotKey = true
 		return sig
 	}
 

@@ -100,9 +100,7 @@ func CheckOverload(q *Queue, cfg OverloadConfig, meta RequestMeta) error {
 
 	decision := overloadDecisionFromResult(meta.Lane, result)
 	pressure := q.sched.Pressure().TotalDepthRatio
-	if q.hooksEnabled() && q.config.Observability.Hooks.OnOverloadPolicyDecision != nil {
-		q.config.Observability.Hooks.OnOverloadPolicyDecision(overloadPolicyEventFromCore(meta.Lane, result, pressure))
-	}
+	q.emitOverloadPolicy(overloadPolicyEventFromCore(meta.Lane, result, pressure))
 	return OverloadError{Decision: decision}
 }
 

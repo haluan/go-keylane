@@ -46,6 +46,8 @@ type Scheduler struct {
 	shardPressureCfg     ShardPressureConfig
 	scaleCalc            *scaleSignalCalculator
 	perKeyThrottledTotal atomic.Uint64
+	hotKeyRejectedTotal  atomic.Uint64
+	perKeyDecisionCounts perKeyDecisionCounterGrid
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -153,6 +155,9 @@ func (s *Scheduler) EvaluatePerKeyAdmissionWithConfig(shardID int, keyHash uint6
 	dec := hk.evaluatePerKeyAdmission(shardID, keyHash, laneID, shardDepth, waitNanos, pressure, cfg, time.Now())
 	if dec.Action == PerKeyMitigationThrottle {
 		s.perKeyThrottledTotal.Add(1)
+	}
+	if dec.Action != PerKeyMitigationAllow {
+		s.recordPerKeyAdmissionDecision(dec.Action, dec.Reason)
 	}
 	return dec
 }
@@ -284,6 +289,7 @@ func (s *Scheduler) TryEnqueue(job InternalJob) (int, bool, error) {
 
 // RecordHotKeyReject records a rejection for an existing hot key tracker slot.
 func (s *Scheduler) RecordHotKeyReject(keyHash uint64, shardID int) {
+	s.hotKeyRejectedTotal.Add(1)
 	if hk := s.hotKeyTrackerForShard(shardID); hk != nil {
 		hk.observeReject(keyHash, time.Now())
 	}

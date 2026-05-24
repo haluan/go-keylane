@@ -207,6 +207,13 @@ func TestScaleSignalLocalizedHotKeyNotRecommended(t *testing.T) {
 	if sig.Scope != ScaleScopeHotKey {
 		t.Fatalf("scope = %q, want hot_key", sig.Scope)
 	}
+	if !sig.LocalizedHotKey {
+		t.Fatal("expected LocalizedHotKey true")
+	}
+	snap := scaleSignalToSnapshot(sig)
+	if !snap.LocalizedHotKey {
+		t.Fatal("expected LocalizedHotKey on snapshot")
+	}
 }
 
 func TestScaleSignalLocalizedHotKeyPreservesUnhealthyWindows(t *testing.T) {
@@ -322,6 +329,23 @@ func TestScaleSignalConfigureConcurrent(t *testing.T) {
 	}
 	close(stop)
 	wg.Wait()
+}
+
+func TestScaleSignalPressureRatioBounded(t *testing.T) {
+	t.Parallel()
+	calc := scaleSignalCalculator{cfg: testAutoscalingCfg()}
+	in := scaleSignalInput{
+		QueueDepthTotal: 50, QueueCapacityTotal: 100,
+		QueueWaitMax:    100 * time.Millisecond,
+		WorkerBusyRatio: 0.9,
+	}
+	sig := calc.calculate(in, admissionCounterSample{submitted: 10}, time.Now())
+	if sig.PressureRatio <= 0 {
+		t.Fatalf("PressureRatio = %v, want positive", sig.PressureRatio)
+	}
+	if sig.PressureRatio > 10 {
+		t.Fatalf("PressureRatio = %v, unexpectedly large", sig.PressureRatio)
+	}
 }
 
 func TestAdmissionRatesDelta(t *testing.T) {

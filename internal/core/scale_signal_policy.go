@@ -78,6 +78,7 @@ type ScaleSignal struct {
 
 	HotKeyCandidateCount int
 	LocalizedHotKeyRatio float64
+	LocalizedHotKey      bool
 
 	WindowStartedAt time.Time
 	WindowEndedAt   time.Time
@@ -105,6 +106,7 @@ type ScaleSignalSnapshot struct {
 	HotShardCount        int
 	HotKeyCandidateCount int
 	LocalizedHotKeyRatio float64
+	LocalizedHotKey      bool
 }
 
 func normalizeAutoscalingSignalConfig(cfg *AutoscalingSignalConfig) {
@@ -163,5 +165,6 @@ func scaleSignalToSnapshot(sig ScaleSignal) ScaleSignalSnapshot {
 		HotShardCount:          sig.HotShardCount,
 		HotKeyCandidateCount:   sig.HotKeyCandidateCount,
 		LocalizedHotKeyRatio:   sig.LocalizedHotKeyRatio,
+		LocalizedHotKey:        sig.LocalizedHotKey,
 	}
 }

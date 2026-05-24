@@ -89,6 +89,28 @@ type PerKeyAdmissionDecision struct {
 	CooldownRemaining time.Duration
 }
 
+// PerKeyMitigationSnapshot is the spec-aligned per-key mitigation debug view (KL-1505).
+// Cumulative per-action breakdown for a single key is approximate; use Prometheus
+// per_key_admission_decisions_total for global action/reason totals.
+type PerKeyMitigationSnapshot struct {
+	ShardID int
+	LaneID  uint16
+	KeyHash uint64
+
+	Action string
+	Reason string
+
+	AllowedApprox   uint64
+	DelayedApprox   uint64
+	RejectedApprox  uint64
+	ShedApprox      uint64
+	ThrottledApprox uint64
+
+	QueuedApprox   int64
+	InflightApprox int64
+	PressureRatio  float64
+}
+
 // PerKeyAdmissionSnapshot is a copy-out view of active per-key mitigation state.
 type PerKeyAdmissionSnapshot struct {
 	ShardID int
@@ -104,6 +126,9 @@ type PerKeyAdmissionSnapshot struct {
 
 	CooldownRemaining time.Duration
 	LastDecisionAt    time.Time
+
+	// RejectedApprox is cumulative rejects observed for this key hash on the shard.
+	RejectedApprox uint64
 }
 
 var (
@@ -247,7 +272,9 @@ func CheckPerKeyAdmission(q *Queue, cfg PerKeyAdmissionConfig, meta RequestMeta)
 
 	pub := copyPerKeyAdmissionDecision(dec)
 	if q.hooksEnabled() && q.config.Observability.Hooks.OnPerKeyAdmissionDecision != nil {
-		q.config.Observability.Hooks.OnPerKeyAdmissionDecision(PerKeyAdmissionDecisionEvent{Decision: pub})
+		callHook(func() {
+			q.config.Observability.Hooks.OnPerKeyAdmissionDecision(PerKeyAdmissionDecisionEvent{Decision: pub})
+		})
 	}
 	return PerKeyAdmissionError{Decision: pub}
 }

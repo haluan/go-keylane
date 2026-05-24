@@ -77,6 +77,10 @@ func (c *Collector) Collect(ch chan<- prom.Metric) {
 			c.name, shardID,
 		)
 		ch <- prom.MustNewConstMetric(
+			descShardQueueDepth, prom.GaugeValue, float64(shard.Queued),
+			c.name, shardID,
+		)
+		ch <- prom.MustNewConstMetric(
 			descInflight, prom.GaugeValue, float64(shard.InFlight),
 			c.name, shardID, "",
 		)
@@ -84,7 +88,30 @@ func (c *Collector) Collect(ch chan<- prom.Metric) {
 
 	emitQueueWaitSummary(ch, c.name, "", snap.QueueWait)
 	emitRunSummary(ch, c.name, "", snap.Run)
-	emitScaleSignal(ch, c.name, c.q.ScaleSignal(), c.q.ScaleAdmissionTotals())
+	sig := c.q.ScaleSignal()
+	totals := c.q.ScaleAdmissionTotals()
+	pressureSummary := c.q.PressureSummary()
+	emitScaleSignal(ch, c.name, sig, totals)
+	emitV05Metrics(ch, c.name, sig, pressureSummary, c.q.HotKeyRejectedTotal(), c.q.PerKeyAdmissionDecisionTotals())
+}
+
+func emitV05Metrics(
+	ch chan<- prom.Metric,
+	scheduler string,
+	sig keylane.ScaleSignal,
+	summary keylane.PressureSummarySnapshot,
+	hotKeyRejected uint64,
+	decisions []keylane.PerKeyAdmissionDecisionTotal,
+) {
+	ch <- prom.MustNewConstMetric(descHotKeyPressureRatio, prom.GaugeValue, sig.LocalizedHotKeyRatio, scheduler)
+	ch <- prom.MustNewConstMetric(descHotKeyRejectedTotal, prom.CounterValue, float64(hotKeyRejected), scheduler)
+	if summary.DiagnosticsEnabled {
+		ch <- prom.MustNewConstMetric(descShardPressureRatio, prom.GaugeValue, summary.QueueDepthRatio, scheduler)
+	}
+	for _, d := range decisions {
+		ch <- prom.MustNewConstMetric(descPerKeyAdmissionDecisionsTotal, prom.CounterValue, float64(d.Count), scheduler, d.Action, d.Reason)
+		ch <- prom.MustNewConstMetric(descPerKeyMitigationActionsTotal, prom.CounterValue, float64(d.Count), scheduler, d.Action, d.Reason)
+	}
 }
 
 const aggregateLaneLabel = "_all"

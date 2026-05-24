@@ -103,6 +103,28 @@ const (
 	HotKeyStatusDominant  = core.HotKeyStatusDominant
 )
 
+// HotKeyCandidateSnapshot is the spec-aligned debug snapshot view for a hot key candidate.
+// LastSeenUnixNano avoids time.Time allocation in exporters; LastSeen remains on HotKeyCandidate.
+type HotKeyCandidateSnapshot struct {
+	ShardID int
+	LaneID  uint16
+
+	KeyHash uint64
+	Key     string
+
+	SubmittedApprox uint64
+	QueuedApprox    int64
+	RejectedApprox  uint64
+
+	DepthRatio float64
+	WaitRatio  float64
+
+	Status HotKeyStatus
+	Reason string
+
+	LastSeenUnixNano int64
+}
+
 // HotKeyCandidate is a bounded, approximate view of key pressure on a shard.
 type HotKeyCandidate struct {
 	ShardID int

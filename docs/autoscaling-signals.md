@@ -124,7 +124,14 @@ The optional [metrics/prometheus](../metrics/prometheus/) collector exposes low-
 | `keylane_worker_busy_ratio` | Gauge | Worker saturation |
 | `keylane_hot_shard_count` | Gauge | Hot shard count |
 | `keylane_hot_key_candidate_count` | Gauge | Bounded hot key count |
+| `keylane_hot_key_pressure_ratio` | Gauge | Max localized hot key depth ratio at scrape |
+| `keylane_hot_key_rejected_total` | Counter | Hot key admission rejections |
 | `keylane_localized_hot_key_ratio` | Gauge | Localized key ratio |
+| `keylane_per_key_admission_decisions_total{action,reason}` | Counter | Per-key throttle/reject/shed decisions |
+| `keylane_per_key_mitigation_actions_total{action,reason}` | Counter | Alias for per-key mitigation totals |
+| `keylane_shard_pressure_ratio` | Gauge | Global shard pressure composite ratio |
+| `keylane_shard_depth` | Gauge | Per-shard queued depth (`shard_id` label) |
+| `keylane_shard_queue_depth` | Gauge | Spec alias of `keylane_shard_depth` (same value) |
 
 Per-lane breakdowns for `admission_rejected_total` and `admission_shed_total` use real lane names. Scheduler aggregates use the bounded sentinel label `lane="_all"`.
 

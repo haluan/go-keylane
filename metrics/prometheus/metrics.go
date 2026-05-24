@@ -56,6 +56,11 @@ var (
 		"Queued jobs per shard.",
 		labelShard, nil,
 	)
+	descShardQueueDepth = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "shard_queue_depth"),
+		"Queued jobs per shard (KL-1505 spec alias of shard_depth).",
+		labelShard, nil,
+	)
 	descInflight = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "inflight_jobs"),
 		"Jobs currently executing.",
@@ -78,6 +83,7 @@ var (
 	)
 
 	labelScaleRecommended = []string{"scheduler", "reason", "scope"}
+	labelPerKeyDecision   = []string{"scheduler", "action", "reason"}
 
 	descScalePressureRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "scale_pressure_ratio"),
@@ -124,6 +130,31 @@ var (
 		"KL-1504 localized hot key pressure ratio.",
 		labelScheduler, nil,
 	)
+	descHotKeyPressureRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "hot_key_pressure_ratio"),
+		"KL-1505 max localized hot key pressure ratio from scale signal.",
+		labelScheduler, nil,
+	)
+	descHotKeyRejectedTotal = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "hot_key_rejected_total"),
+		"KL-1505 cumulative hot key reject observations since queue start.",
+		labelScheduler, nil,
+	)
+	descPerKeyAdmissionDecisionsTotal = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "per_key_admission_decisions_total"),
+		"KL-1505 cumulative per-key admission decisions by action and reason.",
+		labelPerKeyDecision, nil,
+	)
+	descPerKeyMitigationActionsTotal = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "per_key_mitigation_actions_total"),
+		"KL-1505 cumulative per-key mitigation actions (alias of per_key_admission_decisions_total).",
+		labelPerKeyDecision, nil,
+	)
+	descShardPressureRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "shard_pressure_ratio"),
+		"KL-1505 global queue depth ratio from shard pressure summary.",
+		labelScheduler, nil,
+	)
 )
 
 func allDescriptors() []*prom.Desc {
@@ -136,6 +167,7 @@ func allDescriptors() []*prom.Desc {
 		descAdmissionShed,
 		descLaneDepth,
 		descShardDepth,
+		descShardQueueDepth,
 		descInflight,
 		descQueueWait,
 		descRunDuration,
@@ -149,5 +181,10 @@ func allDescriptors() []*prom.Desc {
 		descSignalHotShardCount,
 		descSignalHotKeyCandidateCount,
 		descSignalLocalizedHotKeyRatio,
+		descHotKeyPressureRatio,
+		descHotKeyRejectedTotal,
+		descPerKeyAdmissionDecisionsTotal,
+		descPerKeyMitigationActionsTotal,
+		descShardPressureRatio,
 	}
 }
