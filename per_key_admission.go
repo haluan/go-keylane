@@ -12,26 +12,26 @@ import (
 )
 
 // PerKeyMitigationAction is the mitigation outcome for a single key hash.
-type PerKeyMitigationAction string
+type PerKeyMitigationAction = core.PerKeyMitigationAction
 
 const (
-	PerKeyMitigationAllow    PerKeyMitigationAction = "allow"
-	PerKeyMitigationThrottle PerKeyMitigationAction = "throttle"
-	PerKeyMitigationReject   PerKeyMitigationAction = "reject"
-	PerKeyMitigationShed     PerKeyMitigationAction = "shed"
+	PerKeyMitigationAllow    = core.PerKeyMitigationAllow
+	PerKeyMitigationThrottle = core.PerKeyMitigationThrottle
+	PerKeyMitigationReject   = core.PerKeyMitigationReject
+	PerKeyMitigationShed     = core.PerKeyMitigationShed
 )
 
 // PerKeyAdmissionReason explains why a per-key decision was made.
-type PerKeyAdmissionReason string
+type PerKeyAdmissionReason = core.PerKeyAdmissionReason
 
 const (
-	PerKeyAdmissionReasonNone              PerKeyAdmissionReason = "none"
-	PerKeyAdmissionReasonHotKeyCandidate   PerKeyAdmissionReason = "hot_key_candidate"
-	PerKeyAdmissionReasonDominantHotKey    PerKeyAdmissionReason = "dominant_hot_key"
-	PerKeyAdmissionReasonMaxQueuedPerKey   PerKeyAdmissionReason = "max_queued_per_key"
-	PerKeyAdmissionReasonMaxInflightPerKey PerKeyAdmissionReason = "max_inflight_per_key"
-	PerKeyAdmissionReasonCooldownActive    PerKeyAdmissionReason = "cooldown_active"
-	PerKeyAdmissionReasonShardOverloaded   PerKeyAdmissionReason = "shard_overloaded"
+	PerKeyAdmissionReasonNone              = core.PerKeyAdmissionReasonNone
+	PerKeyAdmissionReasonHotKeyCandidate   = core.PerKeyAdmissionReasonHotKeyCandidate
+	PerKeyAdmissionReasonDominantHotKey    = core.PerKeyAdmissionReasonDominantHotKey
+	PerKeyAdmissionReasonMaxQueuedPerKey   = core.PerKeyAdmissionReasonMaxQueuedPerKey
+	PerKeyAdmissionReasonMaxInflightPerKey = core.PerKeyAdmissionReasonMaxInflightPerKey
+	PerKeyAdmissionReasonCooldownActive    = core.PerKeyAdmissionReasonCooldownActive
+	PerKeyAdmissionReasonShardOverloaded   = core.PerKeyAdmissionReasonShardOverloaded
 )
 
 // PerKeyAdmissionConfig controls targeted hot key mitigation (KL-1502).

@@ -9,11 +9,12 @@ type laneDepthInShard struct {
 }
 
 type shardDebugView struct {
-	shardID  uint32
-	depth    uint64
-	capacity uint64
-	inFlight uint64
-	laneDeps []laneDepthInShard
+	shardID        uint32
+	depth          uint64
+	capacity       uint64
+	inFlight       uint64
+	queueWaitNanos uint64
+	laneDeps       []laneDepthInShard
 }
 
 type laneDebugView struct {
@@ -27,6 +28,10 @@ type laneDebugView struct {
 	completed uint64
 	failed    uint64
 	queueFull uint64
+
+	admissionRejected uint64
+	overloadRejected  uint64
+	overloadShed      uint64
 
 	queueWaitTotal uint64
 	queueWaitMax   uint64
@@ -75,12 +80,18 @@ func (s *Scheduler) collectSchedulerDebugView() schedulerDebugView {
 
 		shard.mu.Unlock()
 
+		var waitNanos uint64
+		if i < len(s.shardQueueWait) {
+			waitNanos = s.shardQueueWait[i].totalNanos.Load()
+		}
+
 		shards[i] = shardDebugView{
-			shardID:  uint32(i),
-			depth:    shardDepth,
-			capacity: shardCapacity,
-			inFlight: uint64(s.shardInflight[i].Load()),
-			laneDeps: laneDeps,
+			shardID:        uint32(i),
+			depth:          shardDepth,
+			capacity:       shardCapacity,
+			inFlight:       uint64(s.shardInflight[i].Load()),
+			queueWaitNanos: waitNanos,
+			laneDeps:       laneDeps,
 		}
 	}
 
@@ -91,19 +102,22 @@ func (s *Scheduler) collectSchedulerDebugView() schedulerDebugView {
 		qw := s.laneCounters[i].snapshotGCPressureQueueWait()
 		run := s.laneCounters[i].snapshotGCPressureRun()
 		lanes[i] = laneDebugView{
-			laneID:         laneID,
-			name:           s.laneReg.Name(laneID),
-			depth:          laneDepth[i],
-			capacity:       laneCapacity[i],
-			inFlight:       uint64(s.laneInflight[i].Load()),
-			submitted:      counters.Submitted,
-			completed:      counters.Completed,
-			failed:         counters.Failed,
-			queueFull:      counters.QueueFull,
-			queueWaitTotal: qw.TotalNanos,
-			queueWaitMax:   qw.MaxNanos,
-			runTotal:       run.TotalNanos,
-			runMax:         run.MaxNanos,
+			laneID:            laneID,
+			name:              s.laneReg.Name(laneID),
+			depth:             laneDepth[i],
+			capacity:          laneCapacity[i],
+			inFlight:          uint64(s.laneInflight[i].Load()),
+			submitted:         counters.Submitted,
+			completed:         counters.Completed,
+			failed:            counters.Failed,
+			queueFull:         counters.QueueFull,
+			admissionRejected: counters.AdmissionRejected,
+			overloadRejected:  counters.OverloadRejected,
+			overloadShed:      counters.OverloadShed,
+			queueWaitTotal:    qw.TotalNanos,
+			queueWaitMax:      qw.MaxNanos,
+			runTotal:          run.TotalNanos,
+			runMax:            run.MaxNanos,
 		}
 	}
 

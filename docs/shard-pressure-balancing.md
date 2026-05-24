@@ -1,40 +1,62 @@
 # Shard Pressure Balancing
 
-> **Status:** KL-1503 (planned) — automated shard pressure **balancing actions** are not implemented yet. KL-1501 diagnostics are available today.
+KL-1503 provides **diagnostic-first** shard pressure balancing: explain whether pressure is localized, lane-dominated, shard-skewed, distributed, or worker-bound—without automatic rebalancing.
 
-## Diagnostics today (KL-1501)
+See [pressure-diagnostics.md](pressure-diagnostics.md) for API and configuration.
 
-Use `Queue.DebugSnapshot()` to distinguish concentration patterns before changing quotas, shards, or admission policy.
+## Pattern table
 
-| Pattern | Hot shard? | Hot lane? | Hot key candidate? | Typical cause |
-|---------|------------|-----------|-------------------|---------------|
-| **Hot key** | Often one shard | May be one lane | Yes — one `KeyHash` dominates depth/submit/wait ratios | Single tenant, account, or cache key |
-| **Hot shard** | Yes | Mixed lanes | No strong candidate | Shard skew without one dominant key |
-| **Hot lane** | Many shards | Yes on `HotLanes` | Mixed | Lane quota or class imbalance |
-| **Distributed backlog** | Many shards pressured | Several lanes | No dominant key | Global overload; scale workers or admission |
+| Pattern | Pressure class | Signals | Typical response |
+|---------|----------------|---------|------------------|
+| **Hot key** | `localized_key` | `HotKeyCandidates`, high contribution ratio | Per-key admission (KL-1502) |
+| **Hot lane** | `lane_dominant` | `DominantLane`, `LaneBreakdown` | Lane quota / admission tuning |
+| **Hot shard** | `shard_hot` | High `SkewRatio`, one shard in `HotShards` | Resharding or key spread |
+| **Distributed backlog** | `distributed` | Many shards hot, `ScaleRelevant` | Scale workers / global admission |
+| **Worker saturation** | `worker_bound` | High `WorkerBusyRatio`, rising wait | More workers or shorter jobs |
 
-See [hot-key-mitigation.md](hot-key-mitigation.md) for hot key fields and [per-key-admission.md](per-key-admission.md) for mitigation actions.
+## APIs
 
-### Reading snapshots together
+```go
+summary := q.PressureSummary()
+hot := q.HotShards()
+shard, ok := q.ShardPressure(shardID)
+
+// Reuse backing array when polling hot shards:
+hot = q.AppendHotShards(hot[:0])
+
+snap := q.DebugSnapshot()
+if snap.PressureSummary.DiagnosticsEnabled {
+    _ = snap.PressureSummary.Class
+}
+_ = snap.Shards[i].ShardPressure.DiagnosticsEnabled
+```
+
+Legacy depth rankings remain on `snap.HotShards` and `snap.HotLanes` for backward compatibility.
+
+## Reading snapshots together
 
 ```go
 snap := q.DebugSnapshot()
-// Global: snap.Pressure, snap.HotShards, snap.HotLanes
-// Per shard: snap.Shards[i].TotalDepth, HotKeyCandidate, HotKeyCandidates
-// Per-key policy: snap.PerKeyAdmissionSnapshots
+// Coarse depth: snap.Pressure
+// KL-1503: snap.PressureSummary
+// Per shard: snap.Shards[i].ShardPressure, HotKeyCandidate
+// Per-key mitigation: snap.PerKeyAdmissionSnapshots
 ```
 
-1. If `Pressure.TotalDepthRatio` is high but no hot shard → check lane quotas and worker count.
-2. If one shard is in `HotShards` and `HotKeyCandidate` points at one hash → likely hot key (mitigation is KL-1502+).
-3. If `HotLanes` names a lane across shards → tune lane policy or adaptive quota before resharding.
+1. If `PressureSummary.ScaleRelevant` → consider capacity (see [autoscaling-signals.md](autoscaling-signals.md)).
+2. If `PressureSummary.MitigationRelevant` → inspect `HotKeyCandidates` and enable per-key admission.
+3. If `DominantLane` is set → tune lane policy before resharding.
 
-`RecordHotKeyReject` increments `RejectedApprox` only for keys already in the bounded tracker (e.g. admission/overload reject after prior submits). Rejects before routing (invalid lane) are not attributed.
+## Not in scope (KL-1503)
 
-## Planned (KL-1503)
+- Automatic key migration or shard splitting
+- Dynamic shard count changes
+- Cross-replica coordination
 
-Shard pressure balancing will build on KL-1501 candidates and existing hot shard / hot lane signals to suggest or apply cross-shard balancing. Until then:
+## Related
 
+- [pressure-diagnostics.md](pressure-diagnostics.md) — KL-1503 guide
 - [hot-key-tuning.md](hot-key-tuning.md) — detection tuning
-- [autoscaling-signals.md](autoscaling-signals.md) — when scale-out helps vs per-key mitigation (KL-1504 stub)
+- [autoscaling-signals.md](autoscaling-signals.md) — scale vs mitigate (KL-1504 stub)
 - [debugging.md](debugging.md) — symptom tables
-- [admission-control.md](admission-control.md) — reject paths that feed hot key reject counters when enabled
+- [v0.5-runtime-signals.md](v0.5-runtime-signals.md) — milestone overview

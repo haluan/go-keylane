@@ -6,7 +6,7 @@ package core
 import "time"
 
 // DebugSnapshotVersion is the schema version of DebugSnapshot.
-const DebugSnapshotVersion = "1"
+const DebugSnapshotVersion = "2"
 
 // HotShard identifies a shard with high queue depth relative to others.
 type HotShard struct {
@@ -45,6 +45,8 @@ type ShardSnapshot struct {
 
 	HotKeyCandidate  *HotKeyCandidate
 	HotKeyCandidates []HotKeyCandidate
+
+	ShardPressure ShardPressureSnapshot
 }
 
 // LaneSnapshot reports aggregated queue state for one lane across all shards.
@@ -87,6 +89,8 @@ type DebugSnapshot struct {
 	TotalInFlight uint64
 
 	Pressure Pressure
+
+	PressureSummary PressureSummarySnapshot
 
 	HotShards []HotShard
 	HotLanes  []HotLane
@@ -194,6 +198,26 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 
 	perKeySnaps := s.PerKeyAdmissionSnapshots()
 
+	cfg := s.shardPressureCfg
+	normalizeShardPressureConfig(&cfg)
+	var pressureSummary PressureSummarySnapshot
+	if shardPressureEnabled(cfg) {
+		bundle := s.collectPressureView(cfg, time.Now())
+		pressureSummary = s.buildPressureSummary(bundle, cfg, time.Now())
+		for i := range shards {
+			if i < len(bundle.summaries) {
+				shards[i].ShardPressure = bundle.summaries[i]
+			}
+		}
+	} else {
+		pressureSummary = PressureSummarySnapshot{DiagnosticsEnabled: false, UpdatedAt: time.Now()}
+	}
+
+	legacyHotShards := rankHotShards(view.shards, topHotShards)
+	if shardPressureEnabled(cfg) && len(pressureSummary.HotShards) > 0 {
+		legacyHotShards = legacyHotShardsFromPressure(pressureSummary.HotShards, topHotShards)
+	}
+
 	return DebugSnapshot{
 		Version:                  DebugSnapshotVersion,
 		GeneratedAt:              time.Now(),
@@ -206,7 +230,8 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		TotalCapacity:            totalCapacity,
 		TotalInFlight:            totalInFlight,
 		Pressure:                 classifyPressure(totalDepth, totalCapacity, totalInFlight),
-		HotShards:                rankHotShards(view.shards, topHotShards),
+		PressureSummary:          pressureSummary,
+		HotShards:                legacyHotShards,
 		HotLanes:                 rankHotLanes(view.lanes, topHotLanes),
 		Shards:                   shards,
 		Lanes:                    lanes,

@@ -43,6 +43,7 @@ type Scheduler struct {
 	hotKeyCfg          HotKeyConfig
 	hotKeyTrackers     []*hotKeyTracker
 	perKeyAdmissionCfg PerKeyAdmissionConfig
+	shardPressureCfg   ShardPressureConfig
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -95,6 +96,12 @@ func (s *Scheduler) hotKeyTrackerForShard(shardID int) *hotKeyTracker {
 		return nil
 	}
 	return s.hotKeyTrackers[shardID]
+}
+
+// ConfigureShardPressure applies shard pressure diagnostics configuration.
+func (s *Scheduler) ConfigureShardPressure(cfg ShardPressureConfig) {
+	normalizeShardPressureConfig(&cfg)
+	s.shardPressureCfg = cfg
 }
 
 // ConfigurePerKeyAdmission applies per-key mitigation policy (requires hot key tracking when enabled).

@@ -6,7 +6,7 @@ package keylane
 import "time"
 
 // DebugSnapshotVersion is the schema version of DebugSnapshot.
-const DebugSnapshotVersion = "1"
+const DebugSnapshotVersion = "2"
 
 // TopHotShards is the maximum number of hot shards returned in a debug snapshot.
 const TopHotShards = 5
@@ -37,6 +37,9 @@ type DebugSnapshot struct {
 
 	Pressure Pressure
 
+	// PressureSummary provides KL-1503 shard pressure diagnostics.
+	PressureSummary PressureSummarySnapshot
+
 	HotShards []HotShard
 	HotLanes  []HotLane
 
@@ -60,6 +63,9 @@ type ShardSnapshot struct {
 
 	HotKeyCandidate  *HotKeyCandidate
 	HotKeyCandidates []HotKeyCandidate
+
+	// ShardPressure provides KL-1503 per-shard pressure diagnostics.
+	ShardPressure ShardPressureSnapshot
 }
 
 // LaneSnapshot reports aggregated queue state for one lane across all shards.

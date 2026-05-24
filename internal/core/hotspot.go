@@ -80,3 +80,23 @@ func rankHotLanes(lanes []laneDebugView, limit int) []HotLane {
 	}
 	return candidates
 }
+
+func legacyHotShardsFromPressure(pressures []ShardPressureSnapshot, limit int) []HotShard {
+	if limit <= 0 || len(pressures) == 0 {
+		return nil
+	}
+	out := make([]HotShard, 0, limit)
+	for _, p := range pressures {
+		if len(out) >= limit {
+			break
+		}
+		out = append(out, HotShard{
+			ShardID:    uint32(p.ShardID),
+			Depth:      uint64(p.QueueDepth),
+			Capacity:   uint64(p.QueueCapacity),
+			InFlight:   uint64(p.InflightJobs),
+			DepthRatio: p.QueueDepthRatio,
+		})
+	}
+	return out
+}

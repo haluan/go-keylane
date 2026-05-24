@@ -26,7 +26,7 @@ Hot key detection adds:
 | Hot shard (many keys) | One shard hot | Many keys share load |
 | Distributed backlog | Many shards pressured | No single dominant key |
 
-Use `DebugSnapshot().Shards[].HotKeyCandidate` together with `HotShards` and `HotLanes`.
+Use `DebugSnapshot().Shards[].HotKeyCandidate` together with `PressureSummary`, `HotShards`, and `HotLanes`.
 
 ## Why tracking must be bounded
 
@@ -90,5 +90,6 @@ Set `HotKey: HotKeyConfig{}` or `HotKey.Enabled: false`. No tracker memory is us
 ## Related docs
 
 - [hot-key-tuning.md](hot-key-tuning.md) — ratio and capacity tuning
-- [shard-pressure-balancing.md](shard-pressure-balancing.md) — hot key vs hot shard vs hot lane (KL-1501 diagnostics)
+- [shard-pressure-balancing.md](shard-pressure-balancing.md) — hot key vs hot shard vs hot lane
+- [pressure-diagnostics.md](pressure-diagnostics.md) — KL-1503 pressure classes and API
 - [debugging.md](debugging.md) — symptom table
