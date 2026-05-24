@@ -16,10 +16,13 @@ Use [per-key-admission.md](per-key-admission.md) for targeted mitigation and [sh
 
 From `Queue.DebugSnapshot()` (poll on your metrics interval):
 
-- `Pressure.TotalDepthRatio` — global queue pressure
-- `HotShards`, `HotLanes` — concentration at shard/lane level
+- `Pressure.TotalDepthRatio` — global queue pressure (coarse)
+- `PressureSummary.Class` — KL-1503 pressure classification
+- `PressureSummary.ScaleRelevant` / `MitigationRelevant` — recommended action class
+- `HotShards`, `HotLanes` — concentration at shard/lane level (legacy depth ranking)
 - `Shards[].HotKeyCandidate` — KL-1501 detection (ratios, `RejectedApprox`)
-- `PerKeyAdmissionSnapshots` — active per-key throttle/reject/shed (bounded; see `MaxSnapshotsTotal`)
+- `Shards[].ShardPressure` — KL-1503 per-shard diagnostics
+- `PerKeyAdmissionSnapshots` — active per-key throttle/reject/shed
 
 From `StatsGCPressure()`:
 

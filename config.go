@@ -30,6 +30,9 @@ type Config struct {
 
 	// PerKeyAdmission applies targeted mitigation for hot keys (zero value disables).
 	PerKeyAdmission PerKeyAdmissionConfig
+
+	// ShardPressure enables KL-1503 shard pressure diagnostics (zero value disables rich snapshots).
+	ShardPressure ShardPressureConfig
 }
 
 type ObservabilityConfig struct {
@@ -89,5 +92,10 @@ func (c Config) Validate() error {
 	}
 	pk := c.PerKeyAdmission
 	NormalizePerKeyAdmissionConfig(&pk)
-	return ValidatePerKeyAdmissionConfig(pk, hk)
+	if err := ValidatePerKeyAdmissionConfig(pk, hk); err != nil {
+		return err
+	}
+	sp := c.ShardPressure
+	NormalizeShardPressureConfig(&sp)
+	return ValidateShardPressureConfig(sp)
 }

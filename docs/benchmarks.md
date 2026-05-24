@@ -89,24 +89,31 @@ go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 go test -bench='BenchmarkEvaluateOverload|BenchmarkCheckOverload' -benchmem ./internal/core .
 ```
 
+### Shard pressure diagnostics (KL-1503)
+
+```bash
+go test -bench=Pressure -benchmem .
+go test -bench=Pressure -benchmem ./internal/core
+```
+
+| Benchmark | Scenario |
+|-----------|----------|
+| `BenchmarkPressureSnapshotIdle` | Empty queue pressure summary |
+| `BenchmarkPressureSnapshotManyShards` | 16 shards |
+| `BenchmarkPressureSnapshotHotShard` | One hot shard after warm-up |
+| `BenchmarkPressureSummaryWithHotKeys` | Hot key candidates populated |
+| `BenchmarkPressureSummaryDiagnosticsEnabled` | Snapshot path with diagnostics on |
+| `BenchmarkPressureSummaryDiagnosticsDisabled` | Snapshot sentinel when diagnostics off |
+| `BenchmarkSubmitWithPressureSummaryPoll` | Submit + `PressureSummary()` per iteration (snapshot cost) |
+
+Submit path is **unaffected** by `ShardPressure.Enabled`; snapshot polling cost is measured separately via the pressure benchmarks above.
+
 ### Per-key admission guardrails
 
 ```bash
 go test -bench='PerKey|per_key' -benchmem .
 go test -bench='PerKey|per_key' -benchmem ./internal/core
 ```
-
-| Benchmark | Scenario |
-|-----------|----------|
-| `BenchmarkSubmitPerKeyEnabledColdKeys` | Per-key on; single cold key only |
-| `BenchmarkSubmitPerKeyOneDominantHotKey` | Steady dominant key after warm-up |
-| `BenchmarkSubmitPerKeyManyUniqueBeyondCap` | Unique keys above `MaxTrackedKeysPerShard` |
-| `BenchmarkCheckPerKeyAdmissionThrottle` / `Reject` | Pre-seeded hot key; check path only |
-| `BenchmarkDebugSnapshotPerKeyMitigation` | Snapshot with active mitigation rows |
-
-Core package: `BenchmarkPerKeyEvaluateColdKey`, `DominantHotKey`, `ManyKeysBeyondCap`, `Throttle`, `Reject`.
-
-### Admission Hot-Path Guardrails
 
 Two benchmarks verify that the successful-admit path (pressure below all thresholds, depth zero) allocates nothing:
 

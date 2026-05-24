@@ -215,6 +215,53 @@ func TestRaceConcurrentDebugSnapshotAndPressure(t *testing.T) {
 	wg.Wait()
 }
 
+func TestRaceConcurrentPressureSummaryAndSubmit(t *testing.T) {
+	ctx := testTimeout(t)
+	cfg := Config{
+		ShardCount:       4,
+		WorkerCount:      2,
+		QueueSizePerLane: 32,
+		LaneQuotas:       map[Lane]int{"default": 2},
+		HotKey: HotKeyConfig{
+			Enabled: true, MaxTrackedKeysPerShard: 16,
+			DetectionWindow: time.Minute, HotKeyDepthRatio: 0.3,
+		},
+		ShardPressure: DefaultShardPressureConfig(),
+	}
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = q.Stop(context.Background()) }()
+
+	const count = 40
+	var wg sync.WaitGroup
+	wg.Add(count * 4)
+	for i := 0; i < count; i++ {
+		key := fmt.Sprintf("race-key-%d", i%8)
+		go func() {
+			defer wg.Done()
+			_ = q.Submit(ctx, Job{Key: key, Lane: "default", Run: func(context.Context) error { return nil }})
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.PressureSummary()
+		}()
+		go func() {
+			defer wg.Done()
+			_, _ = q.ShardPressure(i % cfg.ShardCount)
+		}()
+		go func() {
+			defer wg.Done()
+			_ = q.HotShards()
+		}()
+	}
+	wg.Wait()
+}
+
 func TestRaceConcurrentLowAllocationObservability(t *testing.T) {
 	ctx := testTimeout(t)
 	cfg := newTestConfig()

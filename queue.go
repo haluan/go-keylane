@@ -34,6 +34,9 @@ func New(config Config) (*Queue, error) {
 	perKey := config.PerKeyAdmission
 	NormalizePerKeyAdmissionConfig(&perKey)
 	config.PerKeyAdmission = perKey
+	shardPressure := config.ShardPressure
+	NormalizeShardPressureConfig(&shardPressure)
+	config.ShardPressure = shardPressure
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -62,6 +65,7 @@ func New(config Config) (*Queue, error) {
 	if err := sched.ConfigurePerKeyAdmission(toCorePerKeyAdmissionConfig(config.PerKeyAdmission)); err != nil {
 		return nil, err
 	}
+	sched.ConfigureShardPressure(config.ShardPressure)
 
 	q := &Queue{
 		config:                 config,
@@ -267,6 +271,26 @@ func (q *Queue) DebugSnapshot() DebugSnapshot {
 	return copyDebugSnapshot(q.sched.DebugSnapshot())
 }
 
+// PressureSummary returns KL-1503 global shard pressure diagnostics.
+func (q *Queue) PressureSummary() PressureSummarySnapshot {
+	return q.sched.PressureSummarySnapshot()
+}
+
+// ShardPressure returns KL-1503 diagnostics for one shard.
+func (q *Queue) ShardPressure(shardID int) (ShardPressureSnapshot, bool) {
+	return q.sched.ShardPressureSnapshot(shardID)
+}
+
+// HotShards returns bounded KL-1503 hot shard pressure snapshots.
+func (q *Queue) HotShards() []ShardPressureSnapshot {
+	return q.sched.HotShardPressureSnapshots()
+}
+
+// AppendHotShards appends hot shard pressure snapshots to dst.
+func (q *Queue) AppendHotShards(dst []ShardPressureSnapshot) []ShardPressureSnapshot {
+	return q.sched.AppendHotShardPressureSnapshots(dst)
+}
+
 func copyPressure(in core.Pressure) Pressure {
 	return Pressure{
 		TotalDepth:      in.TotalDepth,
@@ -329,6 +353,7 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 				ss.HotKeyCandidates[j] = copyHotKeyCandidate(hc)
 			}
 		}
+		ss.ShardPressure = sh.ShardPressure
 		shards[i] = ss
 	}
 	lanes := make([]LaneSnapshot, len(in.Lanes))
@@ -366,6 +391,7 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 		TotalCapacity:            in.TotalCapacity,
 		TotalInFlight:            in.TotalInFlight,
 		Pressure:                 copyPressure(in.Pressure),
+		PressureSummary:          in.PressureSummary,
 		HotShards:                hotShards,
 		HotLanes:                 hotLanes,
 		Shards:                   shards,

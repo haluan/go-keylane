@@ -6,6 +6,8 @@ package keylane
 import (
 	"fmt"
 	"time"
+
+	"github.com/haluan/go-keylane/internal/core"
 )
 
 // HotKeyConfig controls bounded per-shard hot key accounting and detection.
@@ -93,12 +95,12 @@ func NormalizeHotKeyConfig(cfg *HotKeyConfig) {
 }
 
 // HotKeyStatus classifies hot key detection strength.
-type HotKeyStatus string
+type HotKeyStatus = core.HotKeyStatus
 
 const (
-	HotKeyStatusNone      HotKeyStatus = "none"
-	HotKeyStatusCandidate HotKeyStatus = "candidate"
-	HotKeyStatusDominant  HotKeyStatus = "dominant"
+	HotKeyStatusNone      = core.HotKeyStatusNone
+	HotKeyStatusCandidate = core.HotKeyStatusCandidate
+	HotKeyStatusDominant  = core.HotKeyStatusDominant
 )
 
 // HotKeyCandidate is a bounded, approximate view of key pressure on a shard.
