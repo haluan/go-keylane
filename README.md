@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.5 — hot key mitigation, shard pressure diagnostics, and autoscaling signals on top of v0.4 adaptive quota and v0.3 request runtime. Public APIs may still evolve before a stable v1.0.
+> Status: v0.6 (in progress) — failure classification and deadline budget on top of v0.5 hot key / autoscaling signals. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -257,6 +257,11 @@ cd tracing/otel && go test ./...
 ---
 
 ## Documentation
+
+### v0.6 failure classification & deadline budget
+
+- [Failure Policy](docs/failure-policy.md)
+- [Deadline Budget](docs/deadline-budget.md)
 
 ### v0.5 hot key, shard pressure & autoscaling
 

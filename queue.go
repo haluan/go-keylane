@@ -24,6 +24,7 @@ type Queue struct {
 	hotKeyExposeRawKey     bool
 	perKeyAdmissionEnabled bool
 	perKeyAdmissionCore    core.PerKeyAdmissionConfig
+	failurePolicy          FailurePolicy
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -78,6 +79,7 @@ func New(config Config) (*Queue, error) {
 		hotKeyExposeRawKey:     config.HotKey.Enabled && config.HotKey.ExposeRawKey,
 		perKeyAdmissionEnabled: config.PerKeyAdmission.Enabled,
 		perKeyAdmissionCore:    toCorePerKeyAdmissionConfig(config.PerKeyAdmission),
+		failurePolicy:          config.FailurePolicy,
 	}
 	q.initAdaptiveController()
 	return q, nil

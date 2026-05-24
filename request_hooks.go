@@ -69,6 +69,28 @@ func (q *Queue) emitRequestRejected(obs RequestObservation) {
 	callRequestHook(func() { fn(obs) })
 }
 
+func (q *Queue) emitFailureEvent(obs RequestObservation, err error) {
+	if !q.requestHooksEnabled() || err == nil {
+		return
+	}
+	fn := q.config.Observability.Hooks.Request.OnFailure
+	if fn == nil {
+		return
+	}
+	kind := obs.FailureKind
+	if kind == "" || kind == FailureNone {
+		kind = q.classifyFailure(err).Kind
+	}
+	callRequestHook(func() {
+		fn(FailureEvent{
+			Lane:    obs.Lane,
+			ShardID: obs.ShardID,
+			Kind:    kind,
+			Err:     err,
+		})
+	})
+}
+
 func callRequestHook(fn func()) {
 	callHook(fn)
 }
