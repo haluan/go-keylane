@@ -1,8 +1,8 @@
 # Deadline Budget
 
-A **deadline budget** tracks how much caller deadline remains after queue wait and runtime. It supports admission decisions and future bounded retry.
+A **deadline budget** tracks how much caller deadline remains after queue wait and runtime. It supports admission decisions and bounded retry (KL-1602).
 
-go-keylane does **not** sleep, retry, or extend deadlines automatically.
+go-keylane does **not** extend deadlines automatically. Optional retry sleeps between attempts only when `RetryPolicy.Enabled` is true and enough budget remains.
 
 ---
 
@@ -18,7 +18,7 @@ handler completes    → WithRuntime(runDur)                   [AtCompletion]
 
 `SubmitRequest` records all five phases in a `DeadlineBudgetTrace`. `SubmitValue` records submit, handler start, and completion (admission and queue-wait phases are N/A for the value-job path).
 
-Later retry logic can ask: *Is there enough budget left to retry?*
+Before each retry, Keylane checks `remaining >= backoff_delay + MinRemainingBudget`. When there is no deadline, budget does not block retry.
 
 ---
 

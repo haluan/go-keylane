@@ -95,6 +95,37 @@ See [deadline-budget.md](deadline-budget.md).
 
 ---
 
+## Retry (KL-1602)
+
+Retry is **opt-in** via `Config.Retry`, or per-request / per-job overrides (`Request.Retry`, `ValueJob.Retry`).
+
+- `MaxAttempts` includes the first attempt (`3` = one initial try + up to two retries).
+- By default only `retryable` failures (or `Failure.Retryable` from a custom classifier) are retried.
+- Permanent, cancelled, timeout, deadline-exhausted, overload, rejected, panic, and unknown failures are **not** retried unless `RetryableKinds` explicitly allows them.
+- Retries run inside the worker with cancellable backoff; they respect the caller context and deadline budget (`remaining >= delay + MinRemainingBudget`).
+- Jitter spreads backoff to reduce synchronized retries. Set `Jitter: false` to disable jitter (keep a non-zero `JitterFraction` if you use normalization defaults).
+- Pre-enqueue validation and admission failures are never retried.
+- Side-effect handlers need care; idempotency guidance is planned for KL-1603.
+
+```go
+cfg := keylane.Config{
+    Retry: keylane.RetryPolicy{
+        Enabled:            true,
+        MaxAttempts:        3,
+        InitialBackoff:     10 * time.Millisecond,
+        MaxBackoff:         100 * time.Millisecond,
+        Multiplier:         2.0,
+        Jitter:             true,
+        JitterFraction:     0.2,
+        MinRemainingBudget: 20 * time.Millisecond,
+    },
+}
+```
+
+Return `keylane.RetryableFailure(err)` from handlers to signal a transient failure.
+
+---
+
 ## Request runtime integration
 
 `SubmitRequest` attaches classified failures to the internal future. Use:

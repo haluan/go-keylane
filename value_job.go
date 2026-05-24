@@ -1,12 +1,16 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import "context"
 
 // ValueJob is a job that returns a value of type T and an error.
 type ValueJob[T any] struct {
-	Key  string
-	Lane Lane
-	Run  func(context.Context) (T, error)
+	Key   string
+	Lane  Lane
+	Retry RetryPolicy
+	Run   func(context.Context) (T, error)
 }
 
 func validateValueJob[T any](job ValueJob[T]) error {
