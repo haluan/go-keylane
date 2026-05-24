@@ -42,6 +42,9 @@ type Config struct {
 
 	// Retry configures optional bounded in-worker retry (zero value disables).
 	Retry RetryPolicy
+
+	// Idempotency configures duplicate-safety checks when retry is enabled.
+	Idempotency IdempotencyPolicy
 }
 
 type ObservabilityConfig struct {
@@ -114,11 +117,20 @@ func (c Config) Validate() error {
 	if err := ValidateAutoscalingSignalConfig(as); err != nil {
 		return err
 	}
-	return validateConfigRetry(c)
+	if err := validateConfigRetry(c); err != nil {
+		return err
+	}
+	return validateConfigIdempotency(c)
 }
 
 func validateConfigRetry(c Config) error {
 	retry := c.Retry
 	NormalizeRetryPolicy(&retry)
 	return ValidateRetryPolicy(retry)
+}
+
+func validateConfigIdempotency(c Config) error {
+	idem := c.Idempotency
+	NormalizeIdempotencyPolicy(&idem)
+	return ValidateIdempotencyPolicy(idem)
 }

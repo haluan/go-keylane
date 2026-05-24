@@ -26,6 +26,7 @@ type Queue struct {
 	perKeyAdmissionCore    core.PerKeyAdmissionConfig
 	failurePolicy          FailurePolicy
 	retryPolicy            RetryPolicy
+	idempotencyPolicy      IdempotencyPolicy
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -45,6 +46,9 @@ func New(config Config) (*Queue, error) {
 	retry := config.Retry
 	NormalizeRetryPolicy(&retry)
 	config.Retry = retry
+	idempotency := config.Idempotency
+	NormalizeIdempotencyPolicy(&idempotency)
+	config.Idempotency = idempotency
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -85,6 +89,7 @@ func New(config Config) (*Queue, error) {
 		perKeyAdmissionCore:    toCorePerKeyAdmissionConfig(config.PerKeyAdmission),
 		failurePolicy:          config.FailurePolicy,
 		retryPolicy:            config.Retry,
+		idempotencyPolicy:      config.Idempotency,
 	}
 	q.initAdaptiveController()
 	return q, nil

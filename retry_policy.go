@@ -80,6 +80,39 @@ type RetryAttempt struct {
 	Delay   time.Duration
 	Failure Failure
 	Reason  RetryDecisionReason
+
+	// IdempotencyKey is for internal events only; must not be used as a Prometheus label (KL-1605).
+	IdempotencyKey string
+	// IdempotencyScope is low-cardinality domain metadata suitable for metrics when bounded.
+	IdempotencyScope string
+	// IdempotencyOperation is side-effect operation name from job metadata (low cardinality when bounded).
+	IdempotencyOperation string
+	RetrySafety          RetrySafety
+	SafetyReason         RetrySafetyDecisionReason
+}
+
+// RetryTrace records retry scheduling decisions attached to a completed result future.
+type RetryTrace struct {
+	Attempts []RetryAttempt
+}
+
+// HadExplicitUnsafeRetry reports whether any recorded attempt used AllowUnsafeRetry override.
+func (t RetryTrace) HadExplicitUnsafeRetry() bool {
+	for _, a := range t.Attempts {
+		if a.SafetyReason == RetrySafetyDecisionExplicitOverride {
+			return true
+		}
+	}
+	return false
+}
+
+// runWithRetryOpts carries routing and idempotency context for runWithRetry.
+type runWithRetryOpts struct {
+	Key               string
+	Lane              Lane
+	ShardID           int
+	Idempotency       Idempotency
+	IdempotencyPolicy IdempotencyPolicy
 }
 
 type retryClock interface {
@@ -315,6 +348,7 @@ type runWithRetryResult[T any] struct {
 	err           error
 	budget        DeadlineBudget
 	beforeHandler bool
+	retryAttempts []RetryAttempt
 }
 
 // runWithRetry executes run with bounded retry. retryPolicy must have Enabled set.
@@ -323,6 +357,7 @@ func runWithRetry[T any](
 	ctx context.Context,
 	failurePolicy FailurePolicy,
 	retryPolicy RetryPolicy,
+	opts runWithRetryOpts,
 	startBudget DeadlineBudget,
 	clock retryClock,
 	jitter retryJitterSource,
@@ -338,6 +373,7 @@ func runWithRetry[T any](
 	var lastFailure Failure
 	var lastErr error
 	budget := startBudget
+	var retryAttempts []RetryAttempt
 
 	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
 		now := clock.Now()
@@ -348,6 +384,7 @@ func runWithRetry[T any](
 				err:           err,
 				budget:        budget,
 				beforeHandler: true,
+				retryAttempts: retryAttempts,
 			}
 		}
 
@@ -358,13 +395,13 @@ func runWithRetry[T any](
 		budget = budget.WithRuntimeAt(totalRuntime, clock.Now())
 
 		if err == nil {
-			return runWithRetryResult[T]{val: val, budget: budget, beforeHandler: false}
+			return runWithRetryResult[T]{val: val, budget: budget, beforeHandler: false, retryAttempts: retryAttempts}
 		}
 
 		lastErr = err
 		lastFailure = classifyFailureWithPolicy(err, failurePolicy)
 		if lastFailure.Kind == FailureNone {
-			return runWithRetryResult[T]{val: val, err: err, budget: budget, beforeHandler: false}
+			return runWithRetryResult[T]{val: val, err: err, budget: budget, beforeHandler: false, retryAttempts: retryAttempts}
 		}
 
 		decision := DecideRetry(policy, RetryState{
@@ -379,6 +416,40 @@ func runWithRetry[T any](
 				err:           failureAsError(lastFailure),
 				budget:        budget,
 				beforeHandler: false,
+				retryAttempts: retryAttempts,
+			}
+		}
+
+		safety := DecideRetrySafety(ctx, RetrySafetyCheck{
+			Key:         opts.Key,
+			Lane:        opts.Lane,
+			ShardID:     opts.ShardID,
+			Attempt:     attempt,
+			Failure:     lastFailure,
+			Retry:       policy,
+			Idempotency: opts.Idempotency,
+			Budget:      budget,
+		}, opts.IdempotencyPolicy)
+		retryAttempts = append(retryAttempts, RetryAttempt{
+			Lane:                 opts.Lane,
+			Key:                  opts.Key,
+			ShardID:              opts.ShardID,
+			Attempt:              attempt,
+			Delay:                decision.Delay,
+			Failure:              lastFailure,
+			Reason:               decision.Reason,
+			IdempotencyKey:       opts.Idempotency.Key,
+			IdempotencyScope:     opts.Idempotency.Scope,
+			IdempotencyOperation: opts.Idempotency.Operation,
+			RetrySafety:          opts.Idempotency.Safety,
+			SafetyReason:         safety.Reason,
+		})
+		if !safety.Allow {
+			return runWithRetryResult[T]{
+				err:           failureAsError(lastFailure),
+				budget:        budget,
+				beforeHandler: false,
+				retryAttempts: retryAttempts,
 			}
 		}
 
@@ -387,6 +458,7 @@ func runWithRetry[T any](
 				err:           sleepErr,
 				budget:        budget,
 				beforeHandler: true,
+				retryAttempts: retryAttempts,
 			}
 		}
 	}
@@ -396,9 +468,39 @@ func runWithRetry[T any](
 			err:           failureAsError(lastFailure),
 			budget:        budget.refreshAt(clock.Now()),
 			beforeHandler: false,
+			retryAttempts: retryAttempts,
 		}
 	}
-	return runWithRetryResult[T]{val: zero, err: lastErr, beforeHandler: false}
+	return runWithRetryResult[T]{val: zero, err: lastErr, beforeHandler: false, retryAttempts: retryAttempts}
+}
+
+// runSubmitRequestHandlerWithRetry runs a typed request handler with bounded retry.
+func runSubmitRequestHandlerWithRetry[I, O any](
+	reqCtx context.Context,
+	policy FailurePolicy,
+	retryPolicy RetryPolicy,
+	opts runWithRetryOpts,
+	budget DeadlineBudget,
+	handle func(context.Context, I) (O, error),
+	input I,
+) runWithRetryResult[O] {
+	return runWithRetry(reqCtx, policy, retryPolicy, opts, budget, nil, nil, func(int) (O, error) {
+		return handle(reqCtx, input)
+	})
+}
+
+// runValueJobWithRetry runs a ValueJob handler with bounded retry.
+func runValueJobWithRetry[T any](
+	ctx context.Context,
+	policy FailurePolicy,
+	retryPolicy RetryPolicy,
+	opts runWithRetryOpts,
+	budget DeadlineBudget,
+	run func(context.Context) (T, error),
+) runWithRetryResult[T] {
+	return runWithRetry(ctx, policy, retryPolicy, opts, budget, nil, nil, func(int) (T, error) {
+		return run(ctx)
+	})
 }
 
 func failureAsError(f Failure) error {

@@ -308,7 +308,7 @@ func TestRunWithRetrySucceedsOnSecondAttempt(t *testing.T) {
 	clock := &testRetryClock{now: time.Now()}
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false}
 	attempts := 0
-	res := runWithRetry(context.Background(), FailurePolicy{}, p, NewDeadlineBudget(context.Background(), clock.Now()), clock, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), clock.Now()), clock, fixedJitterSource(0.5), func(int) (int, error) {
 		attempts++
 		if attempts < 2 {
 			return 0, RetryableFailure(errors.New("transient"))
@@ -335,7 +335,7 @@ func TestRunWithRetryDeadlineExhaustedDuringSleep(t *testing.T) {
 	}
 	budget := NewDeadlineBudget(ctx, now)
 	clock := &deadlineOnSleepClock{testRetryClock: testRetryClock{now: now}}
-	res := runWithRetry(ctx, FailurePolicy{}, p, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(ctx, FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
 		return 0, RetryableFailure(errors.New("transient"))
 	})
 	if !errors.Is(res.err, context.DeadlineExceeded) {
@@ -350,7 +350,7 @@ func TestRunWithRetryStopsAtMaxAttempts(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false}
 	attempts := 0
 	now := time.Now()
-	res := runWithRetry(context.Background(), FailurePolicy{}, p, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
 		attempts++
 		return 0, RetryableFailure(errors.New("transient"))
 	})

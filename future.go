@@ -24,15 +24,20 @@ type failureMetadataFuture interface {
 	failureMetadata() (Failure, DeadlineBudget, DeadlineBudgetTrace, bool)
 }
 
+type retryTraceFuture interface {
+	retryTrace() (RetryTrace, bool)
+}
+
 type resultFuture[T any] struct {
-	done        chan struct{}
-	once        sync.Once
-	mu          sync.Mutex
-	val         T
-	err         error
-	failure     Failure
-	budget      DeadlineBudget
-	budgetTrace DeadlineBudgetTrace
+	done          chan struct{}
+	once          sync.Once
+	mu            sync.Mutex
+	val           T
+	err           error
+	failure       Failure
+	budget        DeadlineBudget
+	budgetTrace   DeadlineBudgetTrace
+	retryAttempts []RetryAttempt
 }
 
 func newResultFuture[T any]() *resultFuture[T] {
@@ -45,6 +50,26 @@ func (f *resultFuture[T]) failureMetadata() (Failure, DeadlineBudget, DeadlineBu
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.failure, f.budget, f.budgetTrace, true
+}
+
+func (f *resultFuture[T]) appendRetryAttempts(attempts []RetryAttempt) {
+	if len(attempts) == 0 {
+		return
+	}
+	f.mu.Lock()
+	f.retryAttempts = append(f.retryAttempts, attempts...)
+	f.mu.Unlock()
+}
+
+func (f *resultFuture[T]) retryTrace() (RetryTrace, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.retryAttempts) == 0 {
+		return RetryTrace{}, false
+	}
+	out := make([]RetryAttempt, len(f.retryAttempts))
+	copy(out, f.retryAttempts)
+	return RetryTrace{Attempts: out}, true
 }
 
 func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) {
@@ -155,4 +180,21 @@ func BudgetTraceFromFutureAny(f any) (DeadlineBudgetTrace, bool) {
 		return trace, ok
 	}
 	return DeadlineBudgetTrace{}, false
+}
+
+// RetryTraceFromFuture returns retry scheduling records when f is a keylane result future.
+func RetryTraceFromFuture[T any](f Future[T]) (RetryTrace, bool) {
+	rf, ok := f.(*resultFuture[T])
+	if !ok {
+		return RetryTrace{}, false
+	}
+	return rf.retryTrace()
+}
+
+// RetryTraceFromFutureAny returns retry scheduling records from any result future.
+func RetryTraceFromFutureAny(f any) (RetryTrace, bool) {
+	if rt, ok := f.(retryTraceFuture); ok {
+		return rt.retryTrace()
+	}
+	return RetryTrace{}, false
 }
