@@ -37,6 +37,9 @@ func New(config Config) (*Queue, error) {
 	shardPressure := config.ShardPressure
 	NormalizeShardPressureConfig(&shardPressure)
 	config.ShardPressure = shardPressure
+	autoscaling := config.AutoscalingSignal
+	NormalizeAutoscalingSignalConfig(&autoscaling)
+	config.AutoscalingSignal = autoscaling
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -66,6 +69,7 @@ func New(config Config) (*Queue, error) {
 		return nil, err
 	}
 	sched.ConfigureShardPressure(config.ShardPressure)
+	sched.ConfigureAutoscalingSignal(config.AutoscalingSignal)
 
 	q := &Queue{
 		config:                 config,
@@ -276,6 +280,21 @@ func (q *Queue) PressureSummary() PressureSummarySnapshot {
 	return q.sched.PressureSummarySnapshot()
 }
 
+// ScaleSignal returns KL-1504 autoscaling signal diagnostics.
+func (q *Queue) ScaleSignal() ScaleSignal {
+	return q.sched.ScaleSignalSnapshot()
+}
+
+// ScaleAdmissionTotals returns cumulative admission counters aggregated across lanes.
+func (q *Queue) ScaleAdmissionTotals() ScaleAdmissionTotals {
+	rejected, shed, throttled := q.sched.ScaleAdmissionTotals()
+	return ScaleAdmissionTotals{
+		Rejected:  rejected,
+		Shed:      shed,
+		Throttled: throttled,
+	}
+}
+
 // ShardPressure returns KL-1503 diagnostics for one shard.
 func (q *Queue) ShardPressure(shardID int) (ShardPressureSnapshot, bool) {
 	return q.sched.ShardPressureSnapshot(shardID)
@@ -392,6 +411,7 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 		TotalInFlight:            in.TotalInFlight,
 		Pressure:                 copyPressure(in.Pressure),
 		PressureSummary:          in.PressureSummary,
+		ScaleSignal:              in.ScaleSignal,
 		HotShards:                hotShards,
 		HotLanes:                 hotLanes,
 		Shards:                   shards,

@@ -33,6 +33,9 @@ type Config struct {
 
 	// ShardPressure enables KL-1503 shard pressure diagnostics (zero value disables rich snapshots).
 	ShardPressure ShardPressureConfig
+
+	// AutoscalingSignal enables KL-1504 scale signal calculation (zero value disables).
+	AutoscalingSignal AutoscalingSignalConfig
 }
 
 type ObservabilityConfig struct {
@@ -97,5 +100,10 @@ func (c Config) Validate() error {
 	}
 	sp := c.ShardPressure
 	NormalizeShardPressureConfig(&sp)
-	return ValidateShardPressureConfig(sp)
+	if err := ValidateShardPressureConfig(sp); err != nil {
+		return err
+	}
+	as := c.AutoscalingSignal
+	NormalizeAutoscalingSignalConfig(&as)
+	return ValidateAutoscalingSignalConfig(as)
 }

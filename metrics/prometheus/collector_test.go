@@ -69,6 +69,11 @@ func TestNewCollectorRegistersAndCollects(t *testing.T) {
 		"keylane_pressure_ratio",
 		"keylane_queue_wait_seconds",
 		"keylane_run_duration_seconds",
+		"keylane_scale_pressure_ratio",
+		"keylane_scale_recommended",
+		"keylane_queue_depth_ratio",
+		"keylane_queue_wait_max_seconds",
+		"keylane_admission_rejected_total",
 	} {
 		if _, ok := names[want]; !ok {
 			t.Errorf("missing metric family %q", want)
@@ -207,5 +212,84 @@ func TestCollectorDescribeCount(t *testing.T) {
 	}
 	if n != len(allDescriptors()) {
 		t.Errorf("Describe emitted %d descriptors, want %d", n, len(allDescriptors()))
+	}
+}
+
+func TestCollectorScaleSignalAvoidsRawKeys(t *testing.T) {
+	cfg := keylane.Config{
+		ShardCount:       2,
+		WorkerCount:      2,
+		QueueSizePerLane: 100,
+		LaneQuotas:       map[keylane.Lane]int{"default": 2},
+		HotKey: keylane.HotKeyConfig{
+			Enabled: true, MaxTrackedKeysPerShard: 16,
+		},
+		PerKeyAdmission:   keylane.DefaultPerKeyAdmissionConfig(),
+		ShardPressure:     keylane.DefaultShardPressureConfig(),
+		AutoscalingSignal: keylane.DefaultAutoscalingSignalConfig(),
+	}
+	q, err := keylane.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	rawKey := "tenant-secret-key-12345"
+	_ = q.Submit(context.Background(), keylane.Job{
+		Key: rawKey, Lane: "default",
+		Run: func(context.Context) error { return nil },
+	})
+
+	c := NewCollector(q, CollectorOptions{SchedulerName: "scale-test"})
+	reg := prom.NewRegistry()
+	if err := reg.Register(c); err != nil {
+		t.Fatal(err)
+	}
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range mfs {
+		if !strings.HasPrefix(mf.GetName(), "keylane_scale_") &&
+			mf.GetName() != "keylane_queue_depth_ratio" &&
+			mf.GetName() != "keylane_queue_wait_max_seconds" &&
+			mf.GetName() != "keylane_worker_busy_ratio" &&
+			mf.GetName() != "keylane_hot_shard_count" &&
+			mf.GetName() != "keylane_hot_key_candidate_count" &&
+			mf.GetName() != "keylane_localized_hot_key_ratio" &&
+			mf.GetName() != "keylane_admission_rejected_total" &&
+			mf.GetName() != "keylane_admission_shed_total" &&
+			mf.GetName() != "keylane_admission_throttled_total" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			for _, lp := range m.GetLabel() {
+				if lp.GetValue() == rawKey {
+					t.Fatalf("metric %q exposes raw key label %q=%q", mf.GetName(), lp.GetName(), lp.GetValue())
+				}
+			}
+		}
+		if mf.GetName() == "keylane_scale_recommended" {
+			for _, m := range mf.GetMetric() {
+				labels := map[string]string{}
+				for _, lp := range m.GetLabel() {
+					labels[lp.GetName()] = lp.GetValue()
+				}
+				if _, ok := labels["reason"]; !ok {
+					t.Fatal("scale_recommended missing reason label")
+				}
+				if _, ok := labels["scope"]; !ok {
+					t.Fatal("scale_recommended missing scope label")
+				}
+				for name := range labels {
+					if name != "scheduler" && name != "reason" && name != "scope" {
+						t.Fatalf("scale_recommended has unexpected label %q", name)
+					}
+				}
+			}
+		}
 	}
 }

@@ -61,6 +61,7 @@ func (c *Collector) Collect(ch chan<- prom.Metric) {
 		ch <- prom.MustNewConstMetric(descJobsFailed, prom.CounterValue, float64(counters.Failed), labels...)
 		ch <- prom.MustNewConstMetric(descQueueFull, prom.CounterValue, float64(counters.QueueFull), labels...)
 		ch <- prom.MustNewConstMetric(descAdmissionRejected, prom.CounterValue, float64(counters.AdmissionRejected), labels...)
+		ch <- prom.MustNewConstMetric(descAdmissionShed, prom.CounterValue, float64(counters.OverloadShed), labels...)
 		ch <- prom.MustNewConstMetric(descLaneDepth, prom.GaugeValue, float64(lane.Queued), labels...)
 		ch <- prom.MustNewConstMetric(descInflight, prom.GaugeValue, float64(lane.InFlight),
 			c.name, "", lane.Name,
@@ -83,6 +84,35 @@ func (c *Collector) Collect(ch chan<- prom.Metric) {
 
 	emitQueueWaitSummary(ch, c.name, "", snap.QueueWait)
 	emitRunSummary(ch, c.name, "", snap.Run)
+	emitScaleSignal(ch, c.name, c.q.ScaleSignal(), c.q.ScaleAdmissionTotals())
+}
+
+const aggregateLaneLabel = "_all"
+
+func emitScaleSignal(ch chan<- prom.Metric, scheduler string, sig keylane.ScaleSignal, totals keylane.ScaleAdmissionTotals) {
+	rec := 0.0
+	if sig.Recommended {
+		rec = 1
+	}
+	reason := string(sig.Reason)
+	if reason == "" {
+		reason = "none"
+	}
+	scope := string(sig.Scope)
+	if scope == "" {
+		scope = "none"
+	}
+	ch <- prom.MustNewConstMetric(descScalePressureRatio, prom.GaugeValue, sig.PressureRatio, scheduler)
+	ch <- prom.MustNewConstMetric(descScaleRecommended, prom.GaugeValue, rec, scheduler, reason, scope)
+	ch <- prom.MustNewConstMetric(descSignalQueueDepthRatio, prom.GaugeValue, sig.QueueDepthRatio, scheduler)
+	ch <- prom.MustNewConstMetric(descSignalQueueWaitMaxSeconds, prom.GaugeValue, sig.QueueWaitMax.Seconds(), scheduler)
+	ch <- prom.MustNewConstMetric(descAdmissionRejected, prom.CounterValue, float64(totals.Rejected), scheduler, aggregateLaneLabel)
+	ch <- prom.MustNewConstMetric(descAdmissionShed, prom.CounterValue, float64(totals.Shed), scheduler, aggregateLaneLabel)
+	ch <- prom.MustNewConstMetric(descSignalAdmissionThrottledTotal, prom.CounterValue, float64(totals.Throttled), scheduler)
+	ch <- prom.MustNewConstMetric(descSignalWorkerBusyRatio, prom.GaugeValue, sig.WorkerBusyRatio, scheduler)
+	ch <- prom.MustNewConstMetric(descSignalHotShardCount, prom.GaugeValue, float64(sig.HotShardCount), scheduler)
+	ch <- prom.MustNewConstMetric(descSignalHotKeyCandidateCount, prom.GaugeValue, float64(sig.HotKeyCandidateCount), scheduler)
+	ch <- prom.MustNewConstMetric(descSignalLocalizedHotKeyRatio, prom.GaugeValue, sig.LocalizedHotKeyRatio, scheduler)
 }
 
 func emitQueueWaitSummary(ch chan<- prom.Metric, scheduler, lane string, stats keylane.QueueWaitStatsGCPressure) {

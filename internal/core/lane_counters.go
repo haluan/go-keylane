@@ -229,3 +229,12 @@ func (c *laneCounters) recordPressureAdmissionRejected() {
 	c.rejected.Add(1)
 	c.pressureAdmissionRejected.Add(1)
 }
+
+func (c *laneCounters) admissionSampleFragment() (submitted, rejected, shed uint64) {
+	counters := c.snapshotGCPressure()
+	return counters.Submitted, counters.AdmissionRejected + counters.OverloadRejected, counters.OverloadShed
+}
+
+func (c *laneCounters) queueWaitMaxNanos() uint64 {
+	return c.gcQueueWaitMaxNanos.Load()
+}
