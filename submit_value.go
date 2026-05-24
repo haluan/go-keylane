@@ -39,6 +39,14 @@ func SubmitValue[T any](
 		return future, err
 	}
 
+	var retryOpts runWithRetryOpts
+	if retryPolicy.Enabled {
+		retryOpts = runWithRetryOpts{
+			Key: job.Key, Lane: job.Lane,
+			Idempotency: job.Idempotency, IdempotencyPolicy: q.idempotencyPolicy,
+		}
+	}
+
 	wrapped := Job{
 		Key:  job.Key,
 		Lane: job.Lane,
@@ -58,9 +66,10 @@ func SubmitValue[T any](
 			var beforeHandler bool
 
 			if retryPolicy.Enabled {
-				res := runWithRetry(ctx, policy, retryPolicy, handlerStartBudget, nil, nil, func(int) (T, error) {
-					return job.Run(ctx)
-				})
+				res := runValueJobWithRetry(
+					ctx, policy, retryPolicy, retryOpts, handlerStartBudget, job.Run,
+				)
+				future.appendRetryAttempts(res.retryAttempts)
 				val, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
 				val, err = job.Run(ctx)

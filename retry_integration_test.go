@@ -32,6 +32,10 @@ func retryTestQueue(t *testing.T, retry RetryPolicy) (*Queue, context.Context) {
 	return q, ctx
 }
 
+func retrySafeIdempotency() Idempotency {
+	return Idempotency{Safety: RetrySafetySafe}
+}
+
 func TestIntegrationSubmitValueRetrySuccessOnSecondAttempt(t *testing.T) {
 	q, ctx := retryTestQueue(t, RetryPolicy{
 		Enabled: true, MaxAttempts: 3, InitialBackoff: 1 * time.Millisecond,
@@ -39,7 +43,7 @@ func TestIntegrationSubmitValueRetrySuccessOnSecondAttempt(t *testing.T) {
 	})
 	var attempts atomic.Int32
 	future, err := SubmitValue(ctx, q, ValueJob[int]{
-		Key: "k", Lane: "default",
+		Key: "k", Lane: "default", Idempotency: retrySafeIdempotency(),
 		Run: func(context.Context) (int, error) {
 			if attempts.Add(1) < 2 {
 				return 0, RetryableFailure(errors.New("transient"))
@@ -66,7 +70,7 @@ func TestIntegrationSubmitValueRetryStopsAtMaxAttempts(t *testing.T) {
 	})
 	var attempts atomic.Int32
 	future, err := SubmitValue(ctx, q, ValueJob[int]{
-		Key: "k", Lane: "default",
+		Key: "k", Lane: "default", Idempotency: retrySafeIdempotency(),
 		Run: func(context.Context) (int, error) {
 			attempts.Add(1)
 			return 0, RetryableFailure(errors.New("transient"))
@@ -114,7 +118,7 @@ func TestIntegrationSubmitValueDeadlineExhaustedDuringBackoff(t *testing.T) {
 	reqCtx, cancel := context.WithTimeout(ctx, 35*time.Millisecond)
 	defer cancel()
 	future, err := SubmitValue(reqCtx, q, ValueJob[int]{
-		Key: "k", Lane: "default",
+		Key: "k", Lane: "default", Idempotency: retrySafeIdempotency(),
 		Run: func(context.Context) (int, error) {
 			return 0, RetryableFailure(errors.New("transient"))
 		},
@@ -134,7 +138,7 @@ func TestIntegrationSubmitValueCancelDuringBackoff(t *testing.T) {
 	})
 	reqCtx, cancel := context.WithCancel(ctx)
 	future, err := SubmitValue(reqCtx, q, ValueJob[int]{
-		Key: "k", Lane: "default",
+		Key: "k", Lane: "default", Idempotency: retrySafeIdempotency(),
 		Run: func(context.Context) (int, error) {
 			return 0, RetryableFailure(errors.New("transient"))
 		},
@@ -179,8 +183,8 @@ func TestIntegrationSubmitRequestCancelDuringBackoff(t *testing.T) {
 	})
 	reqCtx, cancel := context.WithCancel(ctx)
 	future, err := SubmitRequest(reqCtx, q, Request[struct{}, struct{}]{
-		Meta:  RequestMeta{Key: "k", Lane: "default"},
-		Input: struct{}{},
+		Meta: RequestMeta{Key: "k", Lane: "default"}, Input: struct{}{},
+		Idempotency: retrySafeIdempotency(),
 		Handle: func(context.Context, struct{}) (struct{}, error) {
 			return struct{}{}, RetryableFailure(errors.New("transient"))
 		},
@@ -202,8 +206,8 @@ func TestIntegrationSubmitRequestFinalFailureMetadata(t *testing.T) {
 		Enabled: true, MaxAttempts: 2, InitialBackoff: 1 * time.Millisecond, Jitter: false,
 	})
 	future, err := SubmitRequest(ctx, q, Request[struct{}, struct{}]{
-		Meta:  RequestMeta{Key: "k", Lane: "default"},
-		Input: struct{}{},
+		Meta: RequestMeta{Key: "k", Lane: "default"}, Input: struct{}{},
+		Idempotency: retrySafeIdempotency(),
 		Handle: func(context.Context, struct{}) (struct{}, error) {
 			return struct{}{}, RetryableFailure(errors.New("transient"))
 		},
@@ -235,8 +239,8 @@ func TestIntegrationSubmitRequestHandlerRetrySuccess(t *testing.T) {
 	})
 	var attempts atomic.Int32
 	future, err := SubmitRequest(ctx, q, Request[struct{}, int]{
-		Meta:  RequestMeta{Key: "k", Lane: "default"},
-		Input: struct{}{},
+		Meta: RequestMeta{Key: "k", Lane: "default"}, Input: struct{}{},
+		Idempotency: retrySafeIdempotency(),
 		Handle: func(context.Context, struct{}) (int, error) {
 			if attempts.Add(1) < 2 {
 				return 0, RetryableFailure(errors.New("transient"))
@@ -358,8 +362,8 @@ func TestIntegrationSubmitRequestOnCompletedOnceWithRetry(t *testing.T) {
 	}
 	var attempts atomic.Int32
 	future, err := SubmitRequest(ctx, q, Request[struct{}, struct{}]{
-		Meta:  RequestMeta{Key: "k", Lane: "default"},
-		Input: struct{}{},
+		Meta: RequestMeta{Key: "k", Lane: "default"}, Input: struct{}{},
+		Idempotency: retrySafeIdempotency(),
 		Handle: func(context.Context, struct{}) (struct{}, error) {
 			if attempts.Add(1) < 2 {
 				return struct{}{}, RetryableFailure(errors.New("transient"))

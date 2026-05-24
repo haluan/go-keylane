@@ -7,10 +7,11 @@ import "context"
 
 // ValueJob is a job that returns a value of type T and an error.
 type ValueJob[T any] struct {
-	Key   string
-	Lane  Lane
-	Retry RetryPolicy
-	Run   func(context.Context) (T, error)
+	Key         string
+	Lane        Lane
+	Retry       RetryPolicy
+	Idempotency Idempotency
+	Run         func(context.Context) (T, error)
 }
 
 func validateValueJob[T any](job ValueJob[T]) error {

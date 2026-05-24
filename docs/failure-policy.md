@@ -97,6 +97,8 @@ See [deadline-budget.md](deadline-budget.md).
 
 ## Retry (KL-1602)
 
+See also: [retry-policy.md](retry-policy.md) (overview and links to duplicate-safety).
+
 Retry is **opt-in** via `Config.Retry`, or per-request / per-job overrides (`Request.Retry`, `ValueJob.Retry`).
 
 - `MaxAttempts` includes the first attempt (`3` = one initial try + up to two retries).
@@ -105,7 +107,8 @@ Retry is **opt-in** via `Config.Retry`, or per-request / per-job overrides (`Req
 - Retries run inside the worker with cancellable backoff; they respect the caller context and deadline budget (`remaining >= delay + MinRemainingBudget`).
 - Jitter spreads backoff to reduce synchronized retries. Set `Jitter: false` to disable jitter (keep a non-zero `JitterFraction` if you use normalization defaults).
 - Pre-enqueue validation and admission failures are never retried.
-- Side-effect handlers need care; idempotency guidance is planned for KL-1603.
+- Retries require **both** a retryable failure and duplicate safety. See [idempotency.md](idempotency.md).
+- Unspecified `Idempotency.Safety` is treated as **unsafe** when retry is enabled (no silent retries).
 
 ```go
 cfg := keylane.Config{
@@ -160,3 +163,5 @@ Use low-cardinality `failure_kind` only — never raw keys or tenant IDs.
 - [cancellation-timeout.md](cancellation-timeout.md)
 - [admission-control.md](admission-control.md)
 - [overload-policy.md](overload-policy.md)
+- [retry-policy.md](retry-policy.md)
+- [idempotency.md](idempotency.md)
