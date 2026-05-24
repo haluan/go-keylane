@@ -19,6 +19,8 @@ type RequestHooks struct {
 	OnStarted   func(RequestObservation)
 	OnCompleted func(RequestObservation)
 	OnRejected  func(RequestObservation)
+	// OnFailure fires when a request completes or is rejected with a classified failure.
+	OnFailure func(FailureEvent)
 }
 
 // Hooks contains user-definable callbacks for observability events.

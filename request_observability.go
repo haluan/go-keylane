@@ -38,7 +38,9 @@ type RequestObservation struct {
 	Run       time.Duration
 
 	Outcome RequestOutcome
-	Err     error
+	// FailureKind is the classification for err (none when successful).
+	FailureKind FailureKind
+	Err         error
 }
 
 // classifyRequestOutcome maps an error to a request outcome.
@@ -86,17 +88,29 @@ func newRequestObservation(
 	queueWait, run time.Duration,
 	err error,
 ) RequestObservation {
+	return newRequestObservationWithPolicy(meta, shardID, queueWait, run, err, FailurePolicy{})
+}
+
+func newRequestObservationWithPolicy(
+	meta RequestMeta,
+	shardID int,
+	queueWait, run time.Duration,
+	err error,
+	policy FailurePolicy,
+) RequestObservation {
+	failure := classifyFailureWithPolicy(err, policy)
 	return RequestObservation{
-		RequestID: meta.RequestID,
-		Key:       meta.Key,
-		Lane:      meta.Lane,
-		ShardID:   shardID,
-		Transport: meta.Transport,
-		Operation: meta.Operation,
-		QueueWait: queueWait,
-		Run:       run,
-		Outcome:   classifyRequestOutcome(err),
-		Err:       err,
+		RequestID:   meta.RequestID,
+		Key:         meta.Key,
+		Lane:        meta.Lane,
+		ShardID:     shardID,
+		Transport:   meta.Transport,
+		Operation:   meta.Operation,
+		QueueWait:   queueWait,
+		Run:         run,
+		Outcome:     classifyRequestOutcome(err),
+		FailureKind: failure.Kind,
+		Err:         err,
 	}
 }
 
@@ -106,5 +120,8 @@ func (q *Queue) newRequestObservation(
 	queueWait, run time.Duration,
 	err error,
 ) RequestObservation {
-	return newRequestObservation(meta, shardID, queueWait, run, err)
+	if q == nil {
+		return newRequestObservation(meta, shardID, queueWait, run, err)
+	}
+	return newRequestObservationWithPolicy(meta, shardID, queueWait, run, err, q.failurePolicy)
 }

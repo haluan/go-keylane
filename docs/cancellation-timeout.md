@@ -128,3 +128,23 @@ A handler that ignores `r.Context().Done()` will continue running until it retur
 - A handler that ignores `ctx.Done()` may continue until it returns naturally.
 - `Await` timeout does not cancel the underlying request execution.
 - Keylane does not replace application-level timeout design. If a handler must complete within a deadline, the handler itself must enforce that deadline.
+
+---
+
+## Failure classification
+
+v0.6 maps context and scheduler errors to `FailureKind` for structured handling:
+
+| Situation | `FailureKind` |
+|-----------|---------------|
+| `context.Canceled` on request context | `cancelled` |
+| `context.DeadlineExceeded` while handler runs | `timeout` |
+| Deadline expired before handler (queued) | `deadline_exhausted` |
+| `Await` context timeout (caller wait only) | Classify via `ClassifyFailure(awaitErr)` — typically `cancelled` or `timeout` on await ctx |
+
+```go
+failure := keylane.ClassifyFailure(awaitErr)
+_ = failure.Kind
+```
+
+See [failure-policy.md](failure-policy.md) and [deadline-budget.md](deadline-budget.md).

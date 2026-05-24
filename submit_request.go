@@ -18,14 +18,24 @@ func SubmitRequest[I any, O any](
 ) (Future[O], error) {
 	future := newResultFuture[O]()
 	var zero O
+	policy := FailurePolicy{}
+	if q != nil {
+		policy = q.failurePolicy
+	}
+	budget := NewDeadlineBudget(ctx, time.Now())
+	future.budgetTrace.AtSubmit = budget
+
+	completeReject := func(err error) {
+		future.complete(zero, err, policy, budget, true)
+	}
 
 	if q == nil {
-		future.complete(zero, ErrNilQueue)
+		completeReject(ErrNilQueue)
 		return future, ErrNilQueue
 	}
 
 	if err := validateRequest(req); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		return future, err
 	}
 
@@ -35,22 +45,23 @@ func SubmitRequest[I any, O any](
 	reject := func(err error) {
 		obs := q.newRequestObservation(meta, shardID, 0, 0, err)
 		q.emitRequestRejected(obs)
+		q.emitFailureEvent(obs, err)
 	}
 
 	if err := ctx.Err(); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		reject(err)
 		return future, err
 	}
 
 	if err := CheckOverload(q, req.Overload, meta); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		reject(err)
 		return future, err
 	}
 
 	if err := CheckAdmission(q, req.Admission, meta); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		reject(err)
 		return future, err
 	}
@@ -60,10 +71,13 @@ func SubmitRequest[I any, O any](
 		perKeyCfg = req.PerKeyAdmission
 	}
 	if err := CheckPerKeyAdmission(q, perKeyCfg, meta); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		reject(err)
 		return future, err
 	}
+
+	budget = budget.refreshAt(time.Now())
+	future.budgetTrace.AtAdmission = budget
 
 	reqCtx := ctx
 	input := req.Input
@@ -81,15 +95,25 @@ func SubmitRequest[I any, O any](
 				queueWait = wt.QueueWaitDuration()
 				startedAt = wt.StartedAt
 			}
+			queueNow := time.Now()
+			jobBudget := budget.WithQueueWaitAt(queueWait, queueNow)
+			future.budgetTrace.AfterQueueWait = jobBudget
+
+			handlerStartNow := time.Now()
+			handlerStartBudget := jobBudget.refreshAt(handlerStartNow)
+			future.budgetTrace.AtHandlerStart = handlerStartBudget
+
 			q.emitRequestStarted(q.newRequestObservation(meta, shardID, queueWait, 0, nil))
 
 			if err := reqCtx.Err(); err != nil {
-				future.complete(zero, err)
+				future.complete(zero, err, policy, handlerStartBudget, true)
 				runDur := time.Duration(0)
 				if !startedAt.IsZero() {
 					runDur = time.Since(startedAt)
 				}
-				q.emitRequestCompleted(q.newRequestObservation(meta, shardID, queueWait, runDur, err))
+				obs := q.newRequestObservation(meta, shardID, queueWait, runDur, err)
+				q.emitRequestCompleted(obs)
+				q.emitFailureEvent(obs, err)
 				return err
 			}
 
@@ -98,18 +122,23 @@ func SubmitRequest[I any, O any](
 			if !startedAt.IsZero() {
 				runDur = time.Since(startedAt)
 			}
+			finalBudget := handlerStartBudget.WithRuntimeAt(runDur, time.Now())
 			if err != nil {
-				future.complete(zero, err)
+				future.complete(zero, err, policy, finalBudget, false)
 			} else {
-				future.complete(out, nil)
+				future.complete(out, nil, policy, finalBudget, false)
 			}
-			q.emitRequestCompleted(q.newRequestObservation(meta, shardID, queueWait, runDur, err))
+			obs := q.newRequestObservation(meta, shardID, queueWait, runDur, err)
+			q.emitRequestCompleted(obs)
+			if err != nil {
+				q.emitFailureEvent(obs, err)
+			}
 			return nil
 		},
 	}
 
 	if err := q.Submit(ctx, wrapped); err != nil {
-		future.complete(zero, err)
+		completeReject(err)
 		reject(err)
 		return future, err
 	}

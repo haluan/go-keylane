@@ -116,6 +116,24 @@ v0.5 metric contract tests (cardinality, required families) live in `metrics/pro
 
 See [observability.md](observability.md) for v0.5 diagnostics, hooks, and privacy defaults.
 
+### v0.6 failure classification
+
+```bash
+go test . -bench='Failure|DeadlineBudget' -benchmem -count=5
+```
+
+| Benchmark | Purpose |
+|-----------|---------|
+| `BenchmarkClassifyFailureNil` | Hot-path nil classification |
+| `BenchmarkClassifyFailureCanceled` | Context cancel |
+| `BenchmarkClassifyFailureDeadlineExceeded` | Context deadline |
+| `BenchmarkClassifyFailurePlainError` | Unknown plain error |
+| `BenchmarkNewDeadlineBudget` | Budget from context |
+| `BenchmarkDeadlineBudgetHasRemaining` | Remaining check |
+| `BenchmarkResultFutureComplete` | Classified future completion |
+
+See [failure-policy.md](failure-policy.md) and [deadline-budget.md](deadline-budget.md).
+
 ### Shard pressure diagnostics
 
 ```bash

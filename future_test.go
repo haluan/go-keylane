@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
@@ -11,7 +14,7 @@ import (
 func TestFutureAwaitSuccess(t *testing.T) {
 	f := newResultFuture[int]()
 	go func() {
-		f.complete(42, nil)
+		f.completeValue(42, nil)
 	}()
 
 	val, err := f.Await(context.Background())
@@ -27,7 +30,7 @@ func TestFutureAwaitError(t *testing.T) {
 	f := newResultFuture[int]()
 	errExpected := errors.New("test error")
 	go func() {
-		f.complete(0, errExpected)
+		f.completeValue(0, errExpected)
 	}()
 
 	_, err := f.Await(context.Background())
@@ -57,7 +60,7 @@ func TestFutureDoneClosesOnComplete(t *testing.T) {
 	default:
 	}
 
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 
 	select {
 	case <-done:
@@ -69,7 +72,7 @@ func TestFutureDoneClosesOnComplete(t *testing.T) {
 
 func TestFutureMultipleAwaitReturnsSameResult(t *testing.T) {
 	f := newResultFuture[int]()
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 
 	for i := 0; i < 3; i++ {
 		val, err := f.Await(context.Background())
@@ -81,7 +84,7 @@ func TestFutureMultipleAwaitReturnsSameResult(t *testing.T) {
 
 func TestFutureAwaitAfterCompletion(t *testing.T) {
 	f := newResultFuture[int]()
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 
 	val, err := f.Await(context.Background())
 	if err != nil || val != 42 {
@@ -91,8 +94,8 @@ func TestFutureAwaitAfterCompletion(t *testing.T) {
 
 func TestResultFutureCompleteOnlyOnce(t *testing.T) {
 	f := newResultFuture[int]()
-	f.complete(42, nil)
-	f.complete(99, errors.New("ignored"))
+	f.completeValue(42, nil)
+	f.completeValue(99, errors.New("ignored"))
 
 	val, err := f.Await(context.Background())
 	if err != nil || val != 42 {
@@ -121,7 +124,7 @@ func TestResultFutureConcurrentAwait(t *testing.T) {
 	}
 
 	startWg.Wait()
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 	wg.Wait()
 }
 
@@ -146,14 +149,14 @@ func TestResultFutureConcurrentDoneSelect(t *testing.T) {
 		}()
 	}
 
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 	wg.Wait()
 }
 
 func TestResultFutureFirstCompletionWins(t *testing.T) {
 	f := newResultFuture[int]()
-	f.complete(1, nil)
-	f.complete(2, errors.New("second"))
+	f.completeValue(1, nil)
+	f.completeValue(2, errors.New("second"))
 
 	val, err := f.Await(context.Background())
 	if val != 1 || err != nil {
@@ -172,7 +175,7 @@ func TestResultFutureConcurrentComplete(t *testing.T) {
 		val := i
 		go func() {
 			defer wg.Done()
-			f.complete(val, nil)
+			f.completeValue(val, nil)
 			res, _ := f.Await(context.Background())
 			results[val] = res
 		}()
@@ -237,7 +240,7 @@ func TestAwaitCanSucceedAfterEarlierTimeout(t *testing.T) {
 	}
 
 	// Now complete the future
-	f.complete(42, nil)
+	f.completeValue(42, nil)
 
 	// Await with fresh background context should succeed
 	val, err := f.Await(context.Background())

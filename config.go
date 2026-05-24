@@ -36,6 +36,9 @@ type Config struct {
 
 	// AutoscalingSignal enables scale signal calculation (zero value disables).
 	AutoscalingSignal AutoscalingSignalConfig
+
+	// FailurePolicy configures optional custom failure classification.
+	FailurePolicy FailurePolicy
 }
 
 type ObservabilityConfig struct {
