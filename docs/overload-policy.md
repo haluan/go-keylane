@@ -2,7 +2,7 @@
 
 ## Overview
 
-KL-1403 adds an overload policy engine that evaluates runtime pressure, lane class, and queue state **before enqueue**. It returns a structured decision (`keep`, `reject`, `shed`, `degrade`) and optional backoff hints.
+v0.5.0 adds an overload policy engine that evaluates runtime pressure, lane class, and queue state **before enqueue**. It returns a structured decision (`keep`, `reject`, `shed`, `degrade`) and optional backoff hints.
 
 Overload policy only applies to **new** submissions. It does not drop queued work or cancel running jobs.
 

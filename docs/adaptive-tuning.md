@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers practical tuning for the KL-1404 adaptive quota controller. For API reference, snapshots, and lifecycle, see [adaptive-quota.md](adaptive-quota.md).
+This guide covers practical tuning for the adaptive quota controller. For API reference, snapshots, and lifecycle, see [adaptive-quota.md](adaptive-quota.md).
 
 > **Adaptive quota is not magic auto-tuning.** It is a bounded policy controller that can help shape pressure when configured correctly. Keylane helps shape concurrency and pressure; actual latency impact depends on workload, configuration, and downstream bottlenecks.
 

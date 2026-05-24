@@ -472,7 +472,7 @@ func (s *Scheduler) ConfigureAutoscalingSignal(cfg AutoscalingSignalConfig) {
 	calc.mu.Unlock()
 }
 
-// ScaleSignalSnapshot returns the latest autoscaling signal (KL-1504).
+// ScaleSignalSnapshot returns the latest autoscaling signal.
 func (s *Scheduler) ScaleSignalSnapshot() ScaleSignal {
 	now := time.Now()
 	calc := s.scaleCalc

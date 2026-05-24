@@ -30,7 +30,7 @@ type Hooks struct {
 	// Request holds optional SubmitRequest lifecycle hooks.
 	Request RequestHooks
 	// OnAdaptiveQuotaDecision fires after adaptive quota evaluation produces a decision.
-	// The callback receives AdaptiveQuotaDecisionEvent (KL-1405 spec name); AdaptiveQuotaEvent is the same type.
+	// The callback receives AdaptiveQuotaDecisionEvent (spec name); AdaptiveQuotaEvent is the same type.
 	// Successful quota changes and apply failures always invoke this hook when enabled.
 	// Hold decisions invoke it only when ObservabilityConfig.EnableAdaptiveDecisionTracing is true.
 	OnAdaptiveQuotaDecision func(AdaptiveQuotaDecisionEvent)
@@ -40,11 +40,11 @@ type Hooks struct {
 	OnOverloadPolicyDecision func(OverloadPolicyEvent)
 	// OnPerKeyAdmissionDecision fires when per-key admission throttles, rejects, or sheds a request.
 	OnPerKeyAdmissionDecision func(PerKeyAdmissionDecisionEvent)
-	// OnHotKeyCandidate fires when a hot key candidate is observed in DebugSnapshot (KL-1505).
+	// OnHotKeyCandidate fires when a hot key candidate is observed in DebugSnapshot.
 	OnHotKeyCandidate func(HotKeyCandidateEvent)
-	// OnShardPressureSummary fires after PressureSummary is computed (KL-1505).
+	// OnShardPressureSummary fires after PressureSummary is computed.
 	OnShardPressureSummary func(ShardPressureSummaryEvent)
-	// OnScaleSignal fires after ScaleSignal is computed when diagnostics are enabled (KL-1505).
+	// OnScaleSignal fires after ScaleSignal is computed when diagnostics are enabled.
 	OnScaleSignal func(ScaleSignalEvent)
 }
 
@@ -54,13 +54,13 @@ type HotKeyCandidateEvent struct {
 	Candidate HotKeyCandidate
 }
 
-// ShardPressureSummaryEvent carries global shard pressure summary (KL-1505).
+// ShardPressureSummaryEvent carries global shard pressure summary.
 type ShardPressureSummaryEvent struct {
 	Time    time.Time
 	Summary PressureSummarySnapshot
 }
 
-// ScaleSignalEvent carries autoscaling signal snapshot (KL-1505).
+// ScaleSignalEvent carries autoscaling signal snapshot.
 type ScaleSignalEvent struct {
 	Time   time.Time
 	Signal ScaleSignal

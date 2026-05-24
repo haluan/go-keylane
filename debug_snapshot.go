@@ -37,10 +37,10 @@ type DebugSnapshot struct {
 
 	Pressure Pressure
 
-	// PressureSummary provides KL-1503 shard pressure diagnostics.
+	// PressureSummary provides shard pressure diagnostics.
 	PressureSummary PressureSummarySnapshot
 
-	// ScaleSignal provides KL-1504 autoscaling signal diagnostics.
+	// ScaleSignal provides autoscaling signal diagnostics.
 	ScaleSignal ScaleSignalSnapshot
 
 	HotShards []HotShard
@@ -51,7 +51,7 @@ type DebugSnapshot struct {
 
 	PerKeyAdmissionSnapshots []PerKeyAdmissionSnapshot
 
-	// KL-1505 spec-aligned top-level views (flattened from Shards / per-key state).
+	// v0.5.0 spec-aligned top-level views (flattened from Shards / per-key state).
 	HotKeys       []HotKeyCandidateSnapshot
 	Mitigations   []PerKeyMitigationSnapshot
 	ShardPressure []ShardPressureSnapshot
@@ -72,7 +72,7 @@ type ShardSnapshot struct {
 	HotKeyCandidate  *HotKeyCandidate
 	HotKeyCandidates []HotKeyCandidate
 
-	// ShardPressure provides KL-1503 per-shard pressure diagnostics.
+	// ShardPressure provides per-shard pressure diagnostics.
 	ShardPressure ShardPressureSnapshot
 }
 

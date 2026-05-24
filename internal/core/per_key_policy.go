@@ -28,7 +28,7 @@ const (
 	PerKeyAdmissionReasonShardOverloaded   PerKeyAdmissionReason = "shard_overloaded"
 )
 
-// PerKeyAdmissionConfig controls targeted hot key mitigation (KL-1502).
+// PerKeyAdmissionConfig controls targeted hot key mitigation.
 type PerKeyAdmissionConfig struct {
 	Enabled bool
 

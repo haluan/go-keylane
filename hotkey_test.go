@@ -14,7 +14,7 @@ import (
 func TestDefaultHotKeyConfigEnabled(t *testing.T) {
 	t.Parallel()
 	if !DefaultHotKeyConfig().Enabled {
-		t.Fatal("DefaultHotKeyConfig().Enabled should be true per KL-1501 spec")
+		t.Fatal("DefaultHotKeyConfig().Enabled should be true per v0.5.0 spec")
 	}
 }
 

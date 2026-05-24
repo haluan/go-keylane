@@ -158,7 +158,7 @@ Also see [adaptive-quota.md](adaptive-quota.md), [overload-policy.md](overload-p
 
 ## v0.5 diagnostics (hot key, shard pressure, autoscaling)
 
-When KL-1501–1504 features are enabled, `DebugSnapshot()` (version `"4"`) adds bounded v0.5 fields:
+When v0.5.0 features are enabled, `DebugSnapshot()` (version `"4"`) adds bounded v0.5.0 fields:
 
 | Field | API | Purpose |
 |-------|-----|---------|
@@ -170,7 +170,7 @@ When KL-1501–1504 features are enabled, `DebugSnapshot()` (version `"4"`) adds
 | `Mitigations` | `DebugSnapshot().Mitigations` | Spec-aligned `PerKeyMitigationSnapshot` list |
 | `ShardPressure` | `DebugSnapshot().ShardPressure` | Per-shard pressure snapshots (flat slice) |
 
-**Spec name mapping (KL-1505)**
+**Spec name mapping**
 
 | Spec | Implementation |
 |------|----------------|
@@ -195,11 +195,11 @@ When KL-1501–1504 features are enabled, `DebugSnapshot()` (version `"4"`) adds
 | `OnHotKeyCandidate` | After `DebugSnapshot()` observes a hot key candidate |
 | `OnShardPressureSummary` | After `PressureSummary()` completes |
 | `OnScaleSignal` | After `ScaleSignal()` with `DiagnosticsEnabled=true` |
-| `OnPerKeyAdmissionDecision` | Per-key throttle/reject/shed at admission (existing KL-1502) |
+| `OnPerKeyAdmissionDecision` | Per-key throttle/reject/shed at admission (existing v0.5.0) |
 
 Hooks fire outside scheduler locks with panic recovery. Nil callbacks are no-ops.
 
-**Why CPU/memory can stay flat during backpressure:** keylane shapes concurrency and queue depth; high queue wait with low CPU often means worker saturation or localized hot keys, not necessarily high host CPU. Use `WorkerBusyRatio`, `PressureSummary.Class`, and queue-wait metrics together — see [pressure-diagnostics.md](pressure-diagnostics.md) and [hot-key-mitigation.md](hot-key-mitigation.md).
+**Why CPU/memory can stay flat during backpressure:** keylane shapes concurrency and queue depth; high queue wait with low CPU often means worker saturation or localized hot keys, not necessarily high host CPU. Use `WorkerBusyRatio`, `PressureSummary.Class`, and queue-wait metrics together — see [pressure-diagnostics.md](pressure-diagnostics.md) and [hot-key-detection.md](hot-key-detection.md).
 
 **v0.5 tests and benchmarks:**
 
@@ -209,7 +209,7 @@ go test ./... -bench 'HotKey|PerKey|ShardPressure|ScaleSignal|Snapshot|V05|Basel
 cd metrics/prometheus && go test ./...
 ```
 
-See [v0.5-runtime-signals.md](v0.5-runtime-signals.md), [shard-pressure-diagnostics.md](shard-pressure-diagnostics.md), [autoscaling-signals.md](autoscaling-signals.md), and [benchmarks.md](benchmarks.md).
+See [v0.5-hot-key-autoscaling-signals.md](v0.5-hot-key-autoscaling-signals.md), [shard-pressure-diagnostics.md](shard-pressure-diagnostics.md), [autoscaling-signals.md](autoscaling-signals.md), [debug-snapshot.md](debug-snapshot.md), and [benchmarks.md](benchmarks.md).
 
 ---
 

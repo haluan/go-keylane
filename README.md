@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.4 — adaptive quota and overload policy on top of v0.3 request runtime. Public APIs may still evolve before a stable v1.0.
+> Status: v0.5 — hot key mitigation, shard pressure diagnostics, and autoscaling signals on top of v0.4 adaptive quota and v0.3 request runtime. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -258,6 +258,19 @@ cd tracing/otel && go test ./...
 
 ## Documentation
 
+### v0.5 hot key, shard pressure & autoscaling
+
+- [v0.5 Overview](docs/v0.5-hot-key-autoscaling-signals.md)
+- [Hot Key Detection](docs/hot-key-detection.md)
+- [Per-Key Admission Policy](docs/per-key-admission-policy.md)
+- [Shard Pressure Diagnostics](docs/shard-pressure-diagnostics.md)
+- [Autoscaling Signals](docs/autoscaling-signals.md)
+- [DebugSnapshot](docs/debug-snapshot.md)
+- [Configuration](docs/configuration.md)
+- [Metrics](docs/metrics.md)
+- [Hot Key & Scale Pressure Runbook](docs/runbooks/hot-key-and-scale-pressure.md)
+- [v0.5.0 Release Notes](docs/releases/v0.5.0.md)
+
 ### v0.4 adaptive quota and overload
 
 - [Adaptive Quota](docs/adaptive-quota.md)
@@ -287,7 +300,7 @@ cd tracing/otel && go test ./...
 - [Benchmarks](docs/benchmarks.md)
 - [Prometheus adapter](docs/metrics-prometheus.md)
 - [OpenTelemetry adapter](docs/tracing-opentelemetry.md)
-- [Release notes](RELEASE_NOTES.md)
+- [Release notes](docs/releases/README.md)
 
 ### Architecture and operations
 

@@ -1,4 +1,4 @@
-# Autoscaling Signals (KL-1504)
+# Autoscaling Signals
 
 Backpressure protects the process from overload, but it can also keep CPU and memory flat while requests are waiting, throttled, or rejected. Use Keylane **scale signals** to detect demand that is being held back by the scheduler.
 
@@ -55,8 +55,8 @@ Zero value disables scale signal calculation. `Queue.Pressure()` and admission c
 | `AdmissionShedRate` | Sheds / submitted over window |
 | `AdmissionThrottledRate` | Per-key throttle events / submitted over window |
 | `WorkerBusyRatio` | In-flight jobs / worker count |
-| `HotShardCount`, `HotShardRatio` | From KL-1503 aggregates when enabled |
-| `HotKeyCandidateCount`, `LocalizedHotKeyRatio` | From KL-1501/KL-1503 |
+| `HotShardCount`, `HotShardRatio` | From aggregates when enabled |
+| `HotKeyCandidateCount`, `LocalizedHotKeyRatio` | From v0.5.0|
 
 ## ScaleReason values
 
@@ -69,7 +69,7 @@ Zero value disables scale signal calculation. `Queue.Pressure()` and admission c
 | `admission_shed_high` | Shed rate above threshold |
 | `worker_saturated` | Workers busy above threshold |
 | `many_hot_shards` | Many shards hot simultaneously |
-| `distributed_pressure` | KL-1503 global `distributed` or `worker_bound` class |
+| `distributed_pressure` | global `distributed` or `worker_bound` class |
 | `localized_hot_key` | One key dominates — **not** a global scale signal |
 | `insufficient_data` | Zero capacity or no submissions yet |
 
@@ -96,7 +96,7 @@ Reason      = localized_hot_key
 Scope       = hot_key
 ```
 
-The consecutive-unhealthy window counter is **not** reset when localized pressure is detected alongside distributed pressure. Do **not** scale the whole service on a single-key storm. Use [per-key-admission.md](per-key-admission.md) first.
+The consecutive-unhealthy window counter is **not** reset when localized pressure is detected alongside distributed pressure. Do **not** scale the whole service on a single-key storm. Use [per-key-admission-policy.md](per-key-admission-policy.md) first.
 
 ## Three backlog shapes
 
@@ -110,32 +110,11 @@ See [shard-pressure-balancing.md](shard-pressure-balancing.md) and [pressure-dia
 
 ## Prometheus metrics
 
-The optional [metrics/prometheus](../metrics/prometheus/) collector exposes low-cardinality metrics. Scale-specific outputs keep the `keylane_scale_*` prefix; runtime components use the flat namespace per KL-1504 spec.
+See [metrics.md](metrics.md) for the full v0.5 metric reference, safe labels, and alert examples. Prometheus adapter wiring: [metrics-prometheus.md](metrics-prometheus.md).
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `keylane_scale_pressure_ratio` | Gauge | Composite pressure ratio |
-| `keylane_scale_recommended{reason,scope}` | Gauge | 0/1 recommendation |
-| `keylane_queue_depth_ratio` | Gauge | Depth component |
-| `keylane_queue_wait_max_seconds` | Gauge | Max observed wait (scheduler aggregate) |
-| `keylane_admission_rejected_total{lane="_all"}` | Counter | Cumulative rejects (scheduler aggregate) |
-| `keylane_admission_shed_total{lane="_all"}` | Counter | Cumulative sheds (scheduler aggregate) |
-| `keylane_admission_throttled_total` | Counter | Cumulative per-key throttle decisions |
-| `keylane_worker_busy_ratio` | Gauge | Worker saturation |
-| `keylane_hot_shard_count` | Gauge | Hot shard count |
-| `keylane_hot_key_candidate_count` | Gauge | Bounded hot key count |
-| `keylane_hot_key_pressure_ratio` | Gauge | Max localized hot key depth ratio at scrape |
-| `keylane_hot_key_rejected_total` | Counter | Hot key admission rejections |
-| `keylane_localized_hot_key_ratio` | Gauge | Localized key ratio |
-| `keylane_per_key_admission_decisions_total{action,reason}` | Counter | Per-key throttle/reject/shed decisions |
-| `keylane_per_key_mitigation_actions_total{action,reason}` | Counter | Alias for per-key mitigation totals |
-| `keylane_shard_pressure_ratio` | Gauge | Global shard pressure composite ratio |
-| `keylane_shard_depth` | Gauge | Per-shard queued depth (`shard_id` label) |
-| `keylane_shard_queue_depth` | Gauge | Spec alias of `keylane_shard_depth` (same value) |
+Key scale metrics: `keylane_scale_recommended{reason,scope}`, `keylane_scale_pressure_ratio`, `keylane_queue_depth_ratio`, `keylane_worker_busy_ratio`.
 
-Per-lane breakdowns for `admission_rejected_total` and `admission_shed_total` use real lane names. Scheduler aggregates use the bounded sentinel label `lane="_all"`.
-
-**Never** use raw keys, tenant IDs, or unbounded route labels on autoscaling metrics. Allowed labels on `keylane_scale_recommended` are `scheduler`, `reason`, and `scope` only.
+**Never** use raw keys, tenant IDs, or unbounded route labels on autoscaling metrics.
 
 ## OpenTelemetry naming (reference)
 
@@ -168,7 +147,7 @@ ALERT KeylaneScaleRecommended
 
 ## Related
 
-- [pressure-diagnostics.md](pressure-diagnostics.md) — KL-1503 shard pressure
-- [per-key-admission.md](per-key-admission.md) — KL-1502 mitigation
-- [v0.5-runtime-signals.md](v0.5-runtime-signals.md) — milestone overview
+- [pressure-diagnostics.md](pressure-diagnostics.md) — shard pressure
+- [per-key-admission-policy.md](per-key-admission-policy.md) — v0.5.0 mitigation
+- [v0.5-hot-key-autoscaling-signals.md](v0.5-hot-key-autoscaling-signals.md) — milestone overview
 - [production-tuning.md](production-tuning.md) — worker and queue sizing

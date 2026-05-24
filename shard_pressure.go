@@ -11,7 +11,7 @@ import (
 	"github.com/haluan/go-keylane/internal/core"
 )
 
-// ShardPressureClass classifies shard or global pressure patterns (KL-1503).
+// ShardPressureClass classifies shard or global pressure patterns.
 type ShardPressureClass = core.ShardPressureClass
 
 const (
@@ -24,7 +24,7 @@ const (
 	ShardPressureUnknown      = core.ShardPressureUnknown
 )
 
-// ShardPressureConfig controls shard pressure diagnostics (KL-1503).
+// ShardPressureConfig controls shard pressure diagnostics.
 // Zero value disables rich diagnostics; coarse Queue.Pressure() remains available.
 type ShardPressureConfig = core.ShardPressureConfig
 

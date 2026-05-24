@@ -2,7 +2,7 @@
 
 ## Overview
 
-`LaneClass` is a priority classification shared across **admission**, **overload**, and **adaptive quota** (KL-1402–KL-1404). It does not reorder FIFO work inside a lane queue; it changes **thresholds** and **default policies** so important traffic is protected under pressure.
+`LaneClass` is a priority classification shared across **admission**, **overload**, and **adaptive quota**. It does not reorder FIFO work inside a lane queue; it changes **thresholds** and **default policies** so important traffic is protected under pressure.
 
 Classify lanes by **business value**, not by team name. A small static set of lanes (`payment`, `webhook`, `report`) keeps observability and policy manageable.
 
@@ -32,7 +32,7 @@ Classify lanes by **business value**, not by team name. A small static set of la
 
 ---
 
-## Admission (KL-1401 / KL-1402)
+## Admission
 
 Admission evaluates per-lane depth and global pressure **before enqueue**. Class sets default `RejectAboveRatio` and `MaxQueueDepth`; per-lane overrides use `LanePolicy` in `AdmissionPolicy`.
 
@@ -62,7 +62,7 @@ See [admission-control.md](admission-control.md).
 
 ---
 
-## Overload (KL-1403)
+## Overload
 
 Overload runs **before** admission when both are enabled. Class influences reject/shed/degrade thresholds. Per-lane counters feed observability and adaptive signals.
 
@@ -94,7 +94,7 @@ See [overload-policy.md](overload-policy.md).
 
 ---
 
-## Adaptive quota (KL-1404)
+## Adaptive quota
 
 Adaptive quota uses class for default `AllowIncrease` / `AllowDecrease`, decrease priority (best-effort before background), and localized overload decrease eligibility.
 

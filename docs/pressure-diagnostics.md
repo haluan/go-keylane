@@ -1,6 +1,6 @@
-# Pressure Diagnostics (KL-1503)
+# Pressure Diagnostics
 
-KL-1503 adds **shard pressure balancing diagnostics**: bounded snapshots that explain whether pressure is localized to one key, concentrated in one lane, skewed to one shard, distributed globally, or worker-bound.
+Adds **shard pressure balancing diagnostics**: bounded snapshots that explain whether pressure is localized to one key, concentrated in one lane, skewed to one shard, distributed globally, or worker-bound.
 
 Diagnostics are **read-only**. They do not move jobs, change hashing, or rebalance shards.
 
@@ -24,7 +24,7 @@ Coarse depth signal for admission remains on `Queue.Pressure()` and `DebugSnapsh
 ShardPressure: keylane.DefaultShardPressureConfig(),
 ```
 
-Zero value disables rich KL-1503 snapshots (`DiagnosticsEnabled: false`; no pressure class). `Queue.Pressure()` still works.
+Zero value disables rich snapshots (`DiagnosticsEnabled: false`; no pressure class). `Queue.Pressure()` still works.
 
 | Field | Role |
 |-------|------|
@@ -57,7 +57,7 @@ Per-shard `ShardPressure(shardID)` uses the same contract: when diagnostics are 
 
 ## Source file layout
 
-The KL-1503 spec uses generic `pressure_*` names; this repo uses `shard_pressure_*`:
+The spec uses generic `pressure_*` names; this repo uses `shard_pressure_*`:
 
 | Spec name | Actual file |
 |-----------|-------------|
@@ -88,23 +88,23 @@ Documented and deterministic; conservative by design for v0.5.
 - **`ScaleRelevant`** — many hot shards, high global depth/wait, or worker saturation (scale-out may help)
 - **`MitigationRelevant`** — localized hot-key pressure (per-key admission / key splitting may help)
 
-See [autoscaling-signals.md](autoscaling-signals.md) for KL-1504 interpretation.
+See [autoscaling-signals.md](autoscaling-signals.md) for interpretation.
 
 ## Privacy
 
 Hot key rows use **`key_hash` only** in pressure snapshots. Raw keys are never included even when `HotKey.ExposeRawKey` is enabled for detection snapshots.
 
-## Integration with KL-1501 / KL-1502
+## Integration with v0.5.0
 
-- **KL-1501** — `HotKeyCandidates` in shard pressure; depth/wait/submit ratios
-- **KL-1502** — `ActiveMitigation` and `MitigationReason` on hot key rows (from tracker + per-key snapshots)
+— `HotKeyCandidates` in shard pressure; depth/wait/submit ratios
+— `ActiveMitigation` and `MitigationReason` on hot key rows (from tracker + per-key snapshots)
 
 ## Related
 
 - [shard-pressure-balancing.md](shard-pressure-balancing.md) — pattern table
-- [hot-key-mitigation.md](hot-key-mitigation.md) — detection
-- [per-key-admission.md](per-key-admission.md) — mitigation
-- [v0.5-runtime-signals.md](v0.5-runtime-signals.md) — milestone overview
+- [hot-key-detection.md](hot-key-detection.md) — detection
+- [per-key-admission-policy.md](per-key-admission-policy.md) — mitigation
+- [v0.5-hot-key-autoscaling-signals.md](v0.5-hot-key-autoscaling-signals.md) — milestone overview
 - [debugging.md](debugging.md) — symptom tables
 
 ## Benchmarks

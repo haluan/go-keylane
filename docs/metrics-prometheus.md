@@ -37,13 +37,15 @@ See [examples/prometheus](../examples/prometheus/) for a minimal runnable sample
 | `keylane_run_duration_seconds` | Summary | `scheduler`, `lane` |
 | `keylane_pressure_ratio` | Gauge | `scheduler` |
 
+v0.5 scale, shard pressure, and hot key metrics are documented in [metrics.md](metrics.md). The collector exports them when v0.5 config is enabled on the queue.
+
 Data is read from `Queue.StatsGCPressure()` and `Queue.Pressure()` on each scrape. Timing metrics are Prometheus **summaries** built from cumulative scheduler stats (`sample_count`, `sample_sum`, and snapshot quantiles at 0.5 mean and 1.0 max). They are not native per-observation histogram buckets; rate/increase across scrapes reflects scheduler totals, not individual job samples.
 
 ## Label guidance
 
 Allowed: `scheduler` (your deployment name), static `lane` names, `shard_id`.
 
-Avoid: job `Key`, request IDs, tenant IDs, or dynamic label maps — they cause high cardinality and memory pressure.
+Avoid: job `Key`, request IDs, tenant IDs, or dynamic label maps — they cause high cardinality and memory pressure. See [metrics.md](metrics.md) for the full forbidden-label list.
 
 ## Low-allocation mode
 

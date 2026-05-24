@@ -11,7 +11,7 @@ import (
 	"github.com/haluan/go-keylane/internal/core"
 )
 
-// ScaleReason explains why a scale signal was emitted (KL-1504).
+// ScaleReason explains why a scale signal was emitted.
 type ScaleReason = core.ScaleReason
 
 const (
@@ -27,7 +27,7 @@ const (
 	ScaleReasonInsufficientData    = core.ScaleReasonInsufficientData
 )
 
-// ScaleScope identifies where pressure is concentrated (KL-1504).
+// ScaleScope identifies where pressure is concentrated.
 type ScaleScope = core.ScaleScope
 
 const (
@@ -39,10 +39,10 @@ const (
 	ScaleScopeUnknown = core.ScaleScopeUnknown
 )
 
-// AutoscalingSignalConfig controls scale signal calculation (KL-1504).
+// AutoscalingSignalConfig controls scale signal calculation.
 type AutoscalingSignalConfig = core.AutoscalingSignalConfig
 
-// ScaleSignal is an immutable autoscaling signal snapshot (KL-1504).
+// ScaleSignal is an immutable autoscaling signal snapshot.
 type ScaleSignal = core.ScaleSignal
 
 // ScaleSignalSnapshot is a debug-friendly view of ScaleSignal.

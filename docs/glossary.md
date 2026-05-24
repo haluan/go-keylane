@@ -36,6 +36,24 @@ Pre-enqueue decision: `keep`, `reject`, `shed`, or `degrade`. May include adviso
 ### Adaptive quota
 Optional periodic controller that adjusts lane drain quotas within configured min/max bounds using pressure and queue-wait signals. Disabled by default. See [adaptive-quota.md](adaptive-quota.md) and [adaptive-tuning.md](adaptive-tuning.md).
 
+### Hot key
+A logical job key that concentrates submissions on one shard. v0.5 detection reports **hot key candidates** using bounded per-shard tracking and `KeyHash` diagnostics. See [hot-key-detection.md](hot-key-detection.md).
+
+### Hot key candidate
+An approximate detection signal from v0.5.0 — not confirmed root cause. Candidates may false-positive during bursts or tracker eviction.
+
+### Localized pressure
+Overload concentrated on one hot key or one shard, as opposed to many shards simultaneously. Per-key mitigation often helps more than scale-out.
+
+### Distributed backlog
+Many shards pressured at once with no single dominant key. Scale-out may help. See [shard-pressure-diagnostics.md](shard-pressure-diagnostics.md).
+
+### Scale signal
+Advisory output from `Queue.ScaleSignal()` — not an autoscaler. Reports `Recommended`, `Reason`, and `Scope` for external platforms. See [autoscaling-signals.md](autoscaling-signals.md).
+
+### Mitigation action
+Per-key admission outcome: `allow`, `throttle`, `reject`, or `shed`. See [per-key-admission-policy.md](per-key-admission-policy.md).
+
 ### InternalJob
 The scheduler's internal wrapper around a user-submitted `Job`. It records management timestamps (such as submission time) to calculate precise queue wait latency.
 
