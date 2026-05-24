@@ -11,6 +11,7 @@ This directory contains runnable, fully-contained examples demonstrating the cor
 - **[business_service](business_service/)**: A realistic simulated enterprise billing payment service incorporating high-priority billing lanes, background webhooks, audit log aggregation, context cancellation check handling, and graceful drain procedures under load.
 - **[prometheus](prometheus/)**: Registers the optional Prometheus collector and prints one text scrape.
 - **[otel_hooks](otel_hooks/)**: Wires the optional OpenTelemetry hook adapter and records spans to an in-memory exporter.
+- **[v0.5-hot-key-autoscaling](v0.5-hot-key-autoscaling/)**: Enables v0.5 hot key detection (observe mode), prints `DebugSnapshot` hot keys and `ScaleSignal`.
 
 ---
 
@@ -33,4 +34,7 @@ go run ./examples/prometheus
 
 # Run OpenTelemetry hooks example
 go run ./examples/otel_hooks
+
+# Run v0.5 hot key & autoscaling example
+go run ./examples/v0.5-hot-key-autoscaling
 ```

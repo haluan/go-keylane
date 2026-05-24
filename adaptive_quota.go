@@ -118,7 +118,7 @@ type QuotaAdjustmentDecision struct {
 	QuotaVersion  uint64
 }
 
-// AdaptiveQuotaDecisionEvent is the KL-1405 spec name for adaptive quota decision payloads.
+// AdaptiveQuotaDecisionEvent is the spec name for adaptive quota decision payloads.
 type AdaptiveQuotaDecisionEvent struct {
 	Time time.Time
 
@@ -188,7 +188,7 @@ type AdaptiveDebugSnapshot struct {
 // AdaptiveControllerSnapshot is a read-only view of controller state.
 //
 // Deprecated: use AdaptiveDebugSnapshot for operator diagnostics; this type is
-// retained for KL-1404 compatibility and omits per-lane stats.
+// retained for compatibility and omits per-lane stats.
 type AdaptiveControllerSnapshot struct {
 	Enabled bool
 	Running bool

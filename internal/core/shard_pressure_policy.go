@@ -5,7 +5,7 @@ package core
 
 import "time"
 
-// ShardPressureClass classifies shard or global pressure patterns (KL-1503).
+// ShardPressureClass classifies shard or global pressure patterns.
 type ShardPressureClass string
 
 const (
@@ -18,7 +18,7 @@ const (
 	ShardPressureUnknown      ShardPressureClass = "unknown"
 )
 
-// ShardPressureConfig controls shard pressure diagnostics (KL-1503).
+// ShardPressureConfig controls shard pressure diagnostics.
 type ShardPressureConfig struct {
 	Enabled bool
 

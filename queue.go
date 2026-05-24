@@ -277,14 +277,14 @@ func (q *Queue) DebugSnapshot() DebugSnapshot {
 	return snap
 }
 
-// PressureSummary returns KL-1503 global shard pressure diagnostics.
+// PressureSummary returns global shard pressure diagnostics.
 func (q *Queue) PressureSummary() PressureSummarySnapshot {
 	summary := q.sched.PressureSummarySnapshot()
 	q.emitShardPressureSummary(summary)
 	return summary
 }
 
-// ScaleSignal returns KL-1504 autoscaling signal diagnostics.
+// ScaleSignal returns autoscaling signal diagnostics.
 func (q *Queue) ScaleSignal() ScaleSignal {
 	sig := q.sched.ScaleSignalSnapshot()
 	q.emitScaleSignal(sig)
@@ -319,12 +319,12 @@ func (q *Queue) PerKeyAdmissionDecisionTotals() []PerKeyAdmissionDecisionTotal {
 // PerKeyAdmissionDecisionTotal is a cumulative per-key decision counter bucket.
 type PerKeyAdmissionDecisionTotal = core.PerKeyAdmissionDecisionTotal
 
-// ShardPressure returns KL-1503 diagnostics for one shard.
+// ShardPressure returns diagnostics for one shard.
 func (q *Queue) ShardPressure(shardID int) (ShardPressureSnapshot, bool) {
 	return q.sched.ShardPressureSnapshot(shardID)
 }
 
-// HotShards returns bounded KL-1503 hot shard pressure snapshots.
+// HotShards returns bounded hot shard pressure snapshots.
 func (q *Queue) HotShards() []ShardPressureSnapshot {
 	return q.sched.HotShardPressureSnapshots()
 }

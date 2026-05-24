@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-// BenchmarkSubmitAdaptiveDisabled is the KL-1405 spec name for BenchmarkSubmitWithAdaptiveQuotaDisabled.
+// BenchmarkSubmitAdaptiveDisabled is the spec name for BenchmarkSubmitWithAdaptiveQuotaDisabled.
 func BenchmarkSubmitAdaptiveDisabled(b *testing.B) {
 	BenchmarkSubmitWithAdaptiveQuotaDisabled(b)
 }
 
-// BenchmarkSubmitAdaptiveEnabled is the KL-1405 spec name for BenchmarkSubmitWithAdaptiveQuotaEnabled.
+// BenchmarkSubmitAdaptiveEnabled is the spec name for BenchmarkSubmitWithAdaptiveQuotaEnabled.
 func BenchmarkSubmitAdaptiveEnabled(b *testing.B) {
 	BenchmarkSubmitWithAdaptiveQuotaEnabled(b)
 }

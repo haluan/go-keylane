@@ -89,7 +89,7 @@ go test -bench='BenchmarkDebugSnapshot|BenchmarkPressure' -benchmem .
 go test -bench='BenchmarkEvaluateOverload|BenchmarkCheckOverload' -benchmem ./internal/core .
 ```
 
-### v0.5 observability (KL-1505)
+### v0.5 observability
 
 Focused test and benchmark commands for hot key, per-key admission, shard pressure, scale signal, and scenario coverage:
 
@@ -116,7 +116,7 @@ v0.5 metric contract tests (cardinality, required families) live in `metrics/pro
 
 See [observability.md](observability.md) for v0.5 diagnostics, hooks, and privacy defaults.
 
-### Shard pressure diagnostics (KL-1503)
+### Shard pressure diagnostics
 
 ```bash
 go test -bench=Pressure -benchmem .
@@ -135,7 +135,7 @@ go test -bench=Pressure -benchmem ./internal/core
 
 Submit path is **unaffected** by `ShardPressure.Enabled`; snapshot polling cost is measured separately via the pressure benchmarks above.
 
-### Autoscaling signals (KL-1504)
+### Autoscaling signals
 
 ```bash
 go test -bench=ScaleSignal -benchmem .
@@ -146,7 +146,7 @@ go test -bench=ScaleSignal -benchmem ./internal/core
 |-----------|----------|
 | `BenchmarkScaleSignalHealthy` | Idle queue scale signal |
 | `BenchmarkScaleSignalHighQueueDepth` | Backlog after warm-up |
-| `BenchmarkScaleSignalWithHotShardDiagnostics` | Single-key hot shard backlog with KL-1503 enabled |
+| `BenchmarkScaleSignalWithHotShardDiagnostics` | Single-key hot shard backlog with enabled |
 | `BenchmarkScaleSignalConcurrentRead` | Parallel `ScaleSignal()` reads |
 | `BenchmarkScaleSignalDisabled` | Near-zero cost when disabled |
 
@@ -203,7 +203,7 @@ go test -bench='BenchmarkAdaptiveQuotaDecisionTick|BenchmarkAdaptiveQuotaWithOve
 |-----------|---------|
 | `BenchmarkSubmitWithAdaptiveQuotaDisabled` | Submit with controller off |
 | `BenchmarkSubmitWithAdaptiveQuotaEnabled` | Submit with controller on (long eval interval) |
-| `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` | KL-1405 spec aliases (delegate to the `WithAdaptiveQuota` names) |
+| `BenchmarkSubmitAdaptiveDisabled` / `BenchmarkSubmitAdaptiveEnabled` | spec aliases (delegate to the `WithAdaptiveQuota` names) |
 | `BenchmarkFixedQuotaCriticalAndBackground` | Alternating critical/background submit, adaptive off |
 | `BenchmarkAdaptiveQuotaCriticalAndBackground` | Same workload, adaptive on |
 | `BenchmarkAdaptiveQuotaSnapshot` | `AdaptiveQuotaSnapshot()` read cost |

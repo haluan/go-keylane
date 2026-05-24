@@ -67,7 +67,7 @@ Manual updates emit one event per lane that changed. Adaptive updates emit throu
 
 ## Adaptive quota decision events
 
-`AdaptiveQuotaDecisionEvent` is the KL-1405 spec name; `AdaptiveQuotaEvent` is a type alias for the same struct.
+`AdaptiveQuotaDecisionEvent` is the spec name; `AdaptiveQuotaEvent` is a type alias for the same struct.
 
 The hook fires when:
 

@@ -1,6 +1,6 @@
 # Shard Pressure Balancing
 
-KL-1503 provides **diagnostic-first** shard pressure balancing: explain whether pressure is localized, lane-dominated, shard-skewed, distributed, or worker-bound—without automatic rebalancing.
+Provides **diagnostic-first** shard pressure balancing: explain whether pressure is localized, lane-dominated, shard-skewed, distributed, or worker-bound—without automatic rebalancing.
 
 See [pressure-diagnostics.md](pressure-diagnostics.md) for API and configuration.
 
@@ -8,7 +8,7 @@ See [pressure-diagnostics.md](pressure-diagnostics.md) for API and configuration
 
 | Pattern | Pressure class | Signals | Typical response |
 |---------|----------------|---------|------------------|
-| **Hot key** | `localized_key` | `HotKeyCandidates`, high contribution ratio | Per-key admission (KL-1502) |
+| **Hot key** | `localized_key` | `HotKeyCandidates`, high contribution ratio | Per-key admission |
 | **Hot lane** | `lane_dominant` | `DominantLane`, `LaneBreakdown` | Lane quota / admission tuning |
 | **Hot shard** | `shard_hot` | High `SkewRatio`, one shard in `HotShards` | Resharding or key spread |
 | **Distributed backlog** | `distributed` | Many shards hot, `ScaleRelevant` | Scale workers / global admission |
@@ -38,7 +38,7 @@ Legacy depth rankings remain on `snap.HotShards` and `snap.HotLanes` for backwar
 ```go
 snap := q.DebugSnapshot()
 // Coarse depth: snap.Pressure
-// KL-1503: snap.PressureSummary
+// v0.5.0: snap.PressureSummary
 // Per shard: snap.Shards[i].ShardPressure, HotKeyCandidate
 // Per-key mitigation: snap.PerKeyAdmissionSnapshots
 ```
@@ -47,7 +47,7 @@ snap := q.DebugSnapshot()
 2. If `PressureSummary.MitigationRelevant` → inspect `HotKeyCandidates` and enable per-key admission.
 3. If `DominantLane` is set → tune lane policy before resharding.
 
-## Not in scope (KL-1503)
+## Not in scope
 
 - Automatic key migration or shard splitting
 - Dynamic shard count changes
@@ -55,8 +55,8 @@ snap := q.DebugSnapshot()
 
 ## Related
 
-- [pressure-diagnostics.md](pressure-diagnostics.md) — KL-1503 guide
+- [pressure-diagnostics.md](pressure-diagnostics.md) — guide
 - [hot-key-tuning.md](hot-key-tuning.md) — detection tuning
-- [autoscaling-signals.md](autoscaling-signals.md) — scale vs mitigate (KL-1504 stub)
+- [autoscaling-signals.md](autoscaling-signals.md) — scale vs mitigate (stub)
 - [debugging.md](debugging.md) — symptom tables
-- [v0.5-runtime-signals.md](v0.5-runtime-signals.md) — milestone overview
+- [v0.5-hot-key-autoscaling-signals.md](v0.5-hot-key-autoscaling-signals.md) — milestone overview

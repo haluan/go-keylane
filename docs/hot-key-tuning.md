@@ -1,6 +1,6 @@
 # Hot Key Tuning
 
-Tuning guide for KL-1501 bounded hot key detection. See [hot-key-mitigation.md](hot-key-mitigation.md) for concepts.
+Tuning guide for v0.5.0 bounded hot key detection. See [hot-key-detection.md](hot-key-detection.md) for concepts.
 
 ## Recommended starting point
 

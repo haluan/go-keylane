@@ -34,7 +34,7 @@ go test -bench='BenchmarkAdaptiveQuota' -benchmem ./internal/core
 # Quota policy snapshot
 go test -bench='BenchmarkQuotaSnapshot' -benchmem .
 
-# Full suite filter from KL-1405
+# Full suite filter from v0.5.0
 go test ./... -bench='Benchmark(Adaptive|Fixed|Overload|Submit)' -benchmem
 ```
 

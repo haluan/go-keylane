@@ -34,7 +34,7 @@ const (
 	PerKeyAdmissionReasonShardOverloaded   = core.PerKeyAdmissionReasonShardOverloaded
 )
 
-// PerKeyAdmissionConfig controls targeted hot key mitigation (KL-1502).
+// PerKeyAdmissionConfig controls targeted hot key mitigation.
 // Zero value disables per-key admission. Requires HotKey tracking when enabled.
 type PerKeyAdmissionConfig struct {
 	Enabled bool
@@ -89,7 +89,7 @@ type PerKeyAdmissionDecision struct {
 	CooldownRemaining time.Duration
 }
 
-// PerKeyMitigationSnapshot is the spec-aligned per-key mitigation debug view (KL-1505).
+// PerKeyMitigationSnapshot is the spec-aligned per-key mitigation debug view.
 // Cumulative per-action breakdown for a single key is approximate; use Prometheus
 // per_key_admission_decisions_total for global action/reason totals.
 type PerKeyMitigationSnapshot struct {

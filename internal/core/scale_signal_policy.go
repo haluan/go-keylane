@@ -33,7 +33,7 @@ const (
 	ScaleScopeUnknown ScaleScope = "unknown"
 )
 
-// AutoscalingSignalConfig controls scale signal calculation (KL-1504).
+// AutoscalingSignalConfig controls scale signal calculation.
 type AutoscalingSignalConfig struct {
 	Enabled bool
 
@@ -54,7 +54,7 @@ type AutoscalingSignalConfig struct {
 	LocalizedHotKeyRatioThreshold float64
 }
 
-// ScaleSignal is an immutable autoscaling signal snapshot (KL-1504).
+// ScaleSignal is an immutable autoscaling signal snapshot.
 type ScaleSignal struct {
 	DiagnosticsEnabled bool
 

@@ -14,7 +14,7 @@ This document provides a comprehensive troubleshooting guide for resolving perfo
 | Queue full | `Counters.QueueFull`, `Pressure()` | Capacity limit or admission policy; shed load earlier |
 | One lane dominates | `DebugSnapshot().HotLanes` | Lane quota or workload class imbalance |
 | One shard dominates | `DebugSnapshot().HotShards` | Shard key skew (hot tenant/customer on one key) |
-| Localized hot key | `PressureSummary.MitigationRelevant`, `ShardPressure.Class == localized_key` | Single key dominates; scale-out may not help |
+| Localized hot key | `PressureSummary.MitigationRelevant`, `ShardPressure.Class == localized_key` | Single key dominates; scale-out may not help — see [runbooks/hot-key-and-scale-pressure.md](runbooks/hot-key-and-scale-pressure.md) |
 | Distributed overload | `PressureSummary.ScaleRelevant`, `Class == distributed` | Many shards hot; capacity or admission tuning |
 | Worker saturation | `PressureSummary.WorkerBusyRatio`, `Class == worker_bound` | Workers busy while depth looks moderate |
 | `Await()` timeout | Queue wait + run duration + `Pressure()` | Caller deadline shorter than queue/run behavior; job may still run |
@@ -34,9 +34,9 @@ Follow these 10 steps to isolate scheduler performance problems:
 1. **Verify if the queue scheduler is started:** Check if `q.Start(ctx)` was executed and returned nil.
 2. **Review configuration settings:** Check `ShardCount`, `WorkerCount`, and `QueueSizePerLane` for capacity mismatches.
 3. **Inspect queue-full rejections:** `StatsGCPressure().Lanes[].Counters.QueueFull` (cumulative) or v1 `Stats()` lane `QueueFullTotal`.
-3b. **Inspect scheduler pressure and lane history:** Use `Pressure()` for a quick overload signal (`IsPressured`, `IsOverloaded`). Use `PressureSummary()` for KL-1503 pressure class and scale/mitigation flags. Use `DebugSnapshot()` for hot shard/lane rankings (`HotShards`, `HotLanes`). Use `StatsGCPressure()` for cumulative counters and queue-wait/run timing. High average or max queue wait usually means lane pressure, hot shards, or too few workers.
+3b. **Inspect scheduler pressure and lane history:** Use `Pressure()` for a quick overload signal (`IsPressured`, `IsOverloaded`). Use `PressureSummary()` for pressure class and scale/mitigation flags. Use `DebugSnapshot()` for hot shard/lane rankings (`HotShards`, `HotLanes`). Use `StatsGCPressure()` for cumulative counters and queue-wait/run timing. High average or max queue wait usually means lane pressure, hot shards, or too few workers.
 4. **Identify hot shards and lanes:** `DebugSnapshot().HotShards` and `HotLanes` list the top backlog by depth. Use job **keys** (not lane names) for per-tenant routing; lanes should stay a small static set.
-5. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard. With hot key tracking enabled, inspect `DebugSnapshot().Shards[].HotKeyCandidate` — see [hot-key-mitigation.md](hot-key-mitigation.md).
+5. **Identify the hot key:** Check if a single noisy key is routing heavy traffic to a single shard. With hot key tracking enabled, inspect `DebugSnapshot().HotKeys` or `Shards[].HotKeyCandidate` — see [hot-key-detection.md](hot-key-detection.md).
 6. **Run the Go race detector:** Execute `go test -race ./...` to verify there are no active data races.
 7. **Analyze active workers stack traces:** Collect a pprof goroutine dump (`go tool pprof`) to verify if worker goroutines are blocked.
 8. **Examine queue wait times:** `StatsGCPressure().QueueWait` or per-lane `lane.QueueWait.AverageDuration()` (requires `EnableQueueWaitTiming`).

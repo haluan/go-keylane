@@ -31,10 +31,10 @@ type Config struct {
 	// PerKeyAdmission applies targeted mitigation for hot keys (zero value disables).
 	PerKeyAdmission PerKeyAdmissionConfig
 
-	// ShardPressure enables KL-1503 shard pressure diagnostics (zero value disables rich snapshots).
+	// ShardPressure enables shard pressure diagnostics (zero value disables rich snapshots).
 	ShardPressure ShardPressureConfig
 
-	// AutoscalingSignal enables KL-1504 scale signal calculation (zero value disables).
+	// AutoscalingSignal enables scale signal calculation (zero value disables).
 	AutoscalingSignal AutoscalingSignalConfig
 }
 

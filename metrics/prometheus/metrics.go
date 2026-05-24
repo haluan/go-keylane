@@ -58,7 +58,7 @@ var (
 	)
 	descShardQueueDepth = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "shard_queue_depth"),
-		"Queued jobs per shard (KL-1505 spec alias of shard_depth).",
+		"Queued jobs per shard.",
 		labelShard, nil,
 	)
 	descInflight = prom.NewDesc(
@@ -87,72 +87,72 @@ var (
 
 	descScalePressureRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "scale_pressure_ratio"),
-		"KL-1504 composite pressure ratio for autoscaling signals.",
+		"Composite pressure ratio for autoscaling signals.",
 		labelScheduler, nil,
 	)
 	descScaleRecommended = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "scale_recommended"),
-		"KL-1504 scale-out recommendation (1=recommended, 0=not).",
+		"Scale-out recommendation (1=recommended, 0=not).",
 		labelScaleRecommended, nil,
 	)
 	descSignalQueueDepthRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "queue_depth_ratio"),
-		"KL-1504 queue depth ratio component (scheduler aggregate).",
+		"Queue depth ratio component (scheduler aggregate).",
 		labelScheduler, nil,
 	)
 	descSignalQueueWaitMaxSeconds = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "queue_wait_max_seconds"),
-		"KL-1504 max observed queue wait in seconds (scheduler aggregate).",
+		"Max observed queue wait in seconds (scheduler aggregate).",
 		labelScheduler, nil,
 	)
 	descSignalAdmissionThrottledTotal = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "admission_throttled_total"),
-		"KL-1504 cumulative per-key throttle decisions since queue start.",
+		"Cumulative per-key throttle decisions since queue start.",
 		labelScheduler, nil,
 	)
 	descSignalWorkerBusyRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "worker_busy_ratio"),
-		"KL-1504 worker busy ratio (in-flight / workers).",
+		"Worker busy ratio (in-flight / workers).",
 		labelScheduler, nil,
 	)
 	descSignalHotShardCount = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "hot_shard_count"),
-		"KL-1504 count of hot shards.",
+		"Count of hot shards.",
 		labelScheduler, nil,
 	)
 	descSignalHotKeyCandidateCount = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "hot_key_candidate_count"),
-		"KL-1504 bounded hot key candidate count across hot shards.",
+		"Bounded hot key candidate count across hot shards.",
 		labelScheduler, nil,
 	)
 	descSignalLocalizedHotKeyRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "localized_hot_key_ratio"),
-		"KL-1504 localized hot key pressure ratio.",
+		"Localized hot key pressure ratio.",
 		labelScheduler, nil,
 	)
 	descHotKeyPressureRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "hot_key_pressure_ratio"),
-		"KL-1505 max localized hot key pressure ratio from scale signal.",
+		"Max localized hot key pressure ratio from scale signal.",
 		labelScheduler, nil,
 	)
 	descHotKeyRejectedTotal = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "hot_key_rejected_total"),
-		"KL-1505 cumulative hot key reject observations since queue start.",
+		"Cumulative hot key reject observations since queue start.",
 		labelScheduler, nil,
 	)
 	descPerKeyAdmissionDecisionsTotal = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "per_key_admission_decisions_total"),
-		"KL-1505 cumulative per-key admission decisions by action and reason.",
+		"Cumulative per-key admission decisions by action and reason.",
 		labelPerKeyDecision, nil,
 	)
 	descPerKeyMitigationActionsTotal = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "per_key_mitigation_actions_total"),
-		"KL-1505 cumulative per-key mitigation actions (alias of per_key_admission_decisions_total).",
+		"Cumulative per-key mitigation actions (alias of per_key_admission_decisions_total).",
 		labelPerKeyDecision, nil,
 	)
 	descShardPressureRatio = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "shard_pressure_ratio"),
-		"KL-1505 global queue depth ratio from shard pressure summary.",
+		"Global queue depth ratio from shard pressure summary.",
 		labelScheduler, nil,
 	)
 )

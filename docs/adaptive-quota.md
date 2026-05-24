@@ -2,7 +2,7 @@
 
 ## Overview
 
-Keylane v0.4 adds optional **adaptive quota**: a bounded controller that periodically evaluates runtime pressure and per-lane signals, then adjusts **lane drain quotas** through the same safe publish path as manual updates (KL-1401 + KL-1404).
+Keylane v0.4 adds optional **adaptive quota**: a bounded controller that periodically evaluates runtime pressure and per-lane signals, then adjusts **lane drain quotas** through the same safe publish path as manual updates.
 
 Adaptive quota is **disabled by default** (`DefaultAdaptiveQuotaConfig().Enabled == false`). It:
 
