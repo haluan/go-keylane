@@ -32,6 +32,13 @@ type Hooks struct {
 	OnQuotaChange func(QuotaChangeEvent)
 	// OnOverloadPolicyDecision fires when overload policy rejects, sheds, or degrades a request.
 	OnOverloadPolicyDecision func(OverloadPolicyEvent)
+	// OnPerKeyAdmissionDecision fires when per-key admission throttles, rejects, or sheds a request.
+	OnPerKeyAdmissionDecision func(PerKeyAdmissionDecisionEvent)
+}
+
+// PerKeyAdmissionDecisionEvent carries per-key admission decision metadata (key_hash only).
+type PerKeyAdmissionDecisionEvent struct {
+	Decision PerKeyAdmissionDecision
 }
 
 // JobTimingEvent contains queue wait and run duration for a completed job.

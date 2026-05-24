@@ -34,11 +34,12 @@ type RequestMeta struct {
 
 // Request is a typed unit of business work with input and output.
 type Request[I any, O any] struct {
-	Meta      RequestMeta
-	Admission AdmissionConfig
-	Overload  OverloadConfig
-	Input     I
-	Handle    func(context.Context, I) (O, error)
+	Meta            RequestMeta
+	Admission       AdmissionConfig
+	Overload        OverloadConfig
+	PerKeyAdmission PerKeyAdmissionConfig
+	Input           I
+	Handle          func(context.Context, I) (O, error)
 }
 
 func validateRequest[I any, O any](req Request[I, O]) error {

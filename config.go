@@ -19,11 +19,17 @@ type Config struct {
 	// OverloadEnabled applies overload policy evaluation on Job.Submit before enqueue.
 	OverloadEnabled bool
 
+	// AdmissionEnabled applies lane admission policy on Job.Submit before per-key admission and enqueue.
+	AdmissionEnabled bool
+
 	// AdaptiveQuota configures the optional adaptive quota controller (disabled by default).
 	AdaptiveQuota AdaptiveQuotaPolicy
 
 	// HotKey configures bounded per-shard hot key accounting and detection (zero value disables).
 	HotKey HotKeyConfig
+
+	// PerKeyAdmission applies targeted mitigation for hot keys (zero value disables).
+	PerKeyAdmission PerKeyAdmissionConfig
 }
 
 type ObservabilityConfig struct {
@@ -78,5 +84,10 @@ func (c Config) Validate() error {
 	}
 	hk := c.HotKey
 	NormalizeHotKeyConfig(&hk)
-	return ValidateHotKeyConfig(hk)
+	if err := ValidateHotKeyConfig(hk); err != nil {
+		return err
+	}
+	pk := c.PerKeyAdmission
+	NormalizePerKeyAdmissionConfig(&pk)
+	return ValidatePerKeyAdmissionConfig(pk, hk)
 }

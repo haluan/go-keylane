@@ -21,7 +21,9 @@ type Queue struct {
 	start    sync.Once
 	started  bool
 
-	hotKeyExposeRawKey bool
+	hotKeyExposeRawKey     bool
+	perKeyAdmissionEnabled bool
+	perKeyAdmissionCore    core.PerKeyAdmissionConfig
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -29,6 +31,9 @@ func New(config Config) (*Queue, error) {
 	hotKey := config.HotKey
 	NormalizeHotKeyConfig(&hotKey)
 	config.HotKey = hotKey
+	perKey := config.PerKeyAdmission
+	NormalizePerKeyAdmissionConfig(&perKey)
+	config.PerKeyAdmission = perKey
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -54,12 +59,17 @@ func New(config Config) (*Queue, error) {
 	wireSchedulerObservability(sched, obs)
 
 	sched.ConfigureHotKey(toCoreHotKeyConfig(config.HotKey))
+	if err := sched.ConfigurePerKeyAdmission(toCorePerKeyAdmissionConfig(config.PerKeyAdmission)); err != nil {
+		return nil, err
+	}
 
 	q := &Queue{
-		config:             config,
-		sched:              sched,
-		reg:                reg,
-		hotKeyExposeRawKey: config.HotKey.Enabled && config.HotKey.ExposeRawKey,
+		config:                 config,
+		sched:                  sched,
+		reg:                    reg,
+		hotKeyExposeRawKey:     config.HotKey.Enabled && config.HotKey.ExposeRawKey,
+		perKeyAdmissionEnabled: config.PerKeyAdmission.Enabled,
+		perKeyAdmissionCore:    toCorePerKeyAdmissionConfig(config.PerKeyAdmission),
 	}
 	q.initAdaptiveController()
 	return q, nil
@@ -340,21 +350,26 @@ func copyDebugSnapshot(in core.DebugSnapshot) DebugSnapshot {
 			RunNanosMax:         ln.RunNanosMax,
 		}
 	}
+	perKeySnaps := make([]PerKeyAdmissionSnapshot, len(in.PerKeyAdmissionSnapshots))
+	for i, ps := range in.PerKeyAdmissionSnapshots {
+		perKeySnaps[i] = copyPerKeyAdmissionSnapshot(ps)
+	}
 	return DebugSnapshot{
-		Version:                in.Version,
-		GeneratedAt:            in.GeneratedAt,
-		AdmissionPolicyVersion: in.AdmissionPolicyVersion,
-		OverloadPolicyVersion:  in.OverloadPolicyVersion,
-		ShardCount:             in.ShardCount,
-		LaneCount:              in.LaneCount,
-		WorkerCount:            in.WorkerCount,
-		TotalDepth:             in.TotalDepth,
-		TotalCapacity:          in.TotalCapacity,
-		TotalInFlight:          in.TotalInFlight,
-		Pressure:               copyPressure(in.Pressure),
-		HotShards:              hotShards,
-		HotLanes:               hotLanes,
-		Shards:                 shards,
-		Lanes:                  lanes,
+		Version:                  in.Version,
+		GeneratedAt:              in.GeneratedAt,
+		AdmissionPolicyVersion:   in.AdmissionPolicyVersion,
+		OverloadPolicyVersion:    in.OverloadPolicyVersion,
+		ShardCount:               in.ShardCount,
+		LaneCount:                in.LaneCount,
+		WorkerCount:              in.WorkerCount,
+		TotalDepth:               in.TotalDepth,
+		TotalCapacity:            in.TotalCapacity,
+		TotalInFlight:            in.TotalInFlight,
+		Pressure:                 copyPressure(in.Pressure),
+		HotShards:                hotShards,
+		HotLanes:                 hotLanes,
+		Shards:                   shards,
+		Lanes:                    lanes,
+		PerKeyAdmissionSnapshots: perKeySnaps,
 	}
 }

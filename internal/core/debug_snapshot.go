@@ -93,6 +93,8 @@ type DebugSnapshot struct {
 
 	Shards []ShardSnapshot
 	Lanes  []LaneSnapshot
+
+	PerKeyAdmissionSnapshots []PerKeyAdmissionSnapshot
 }
 
 // DebugSnapshot returns a near-time diagnostic snapshot of scheduler queue state.
@@ -190,21 +192,24 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		overloadVersion = snap.version
 	}
 
+	perKeySnaps := s.PerKeyAdmissionSnapshots()
+
 	return DebugSnapshot{
-		Version:                DebugSnapshotVersion,
-		GeneratedAt:            time.Now(),
-		AdmissionPolicyVersion: admissionVersion,
-		OverloadPolicyVersion:  overloadVersion,
-		ShardCount:             view.shardCount,
-		LaneCount:              view.laneCount,
-		WorkerCount:            view.workerCount,
-		TotalDepth:             totalDepth,
-		TotalCapacity:          totalCapacity,
-		TotalInFlight:          totalInFlight,
-		Pressure:               classifyPressure(totalDepth, totalCapacity, totalInFlight),
-		HotShards:              rankHotShards(view.shards, topHotShards),
-		HotLanes:               rankHotLanes(view.lanes, topHotLanes),
-		Shards:                 shards,
-		Lanes:                  lanes,
+		Version:                  DebugSnapshotVersion,
+		GeneratedAt:              time.Now(),
+		AdmissionPolicyVersion:   admissionVersion,
+		OverloadPolicyVersion:    overloadVersion,
+		ShardCount:               view.shardCount,
+		LaneCount:                view.laneCount,
+		WorkerCount:              view.workerCount,
+		TotalDepth:               totalDepth,
+		TotalCapacity:            totalCapacity,
+		TotalInFlight:            totalInFlight,
+		Pressure:                 classifyPressure(totalDepth, totalCapacity, totalInFlight),
+		HotShards:                rankHotShards(view.shards, topHotShards),
+		HotLanes:                 rankHotLanes(view.lanes, topHotLanes),
+		Shards:                   shards,
+		Lanes:                    lanes,
+		PerKeyAdmissionSnapshots: perKeySnaps,
 	}
 }

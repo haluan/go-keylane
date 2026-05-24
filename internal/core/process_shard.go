@@ -58,6 +58,7 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 		now := time.Now()
 		for _, job := range batch {
 			hk.observeDequeue(job.KeyHash, now)
+			hk.observeInflightStart(job.KeyHash, now)
 		}
 	}
 
@@ -83,6 +84,9 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				s.inflight.Add(-1)
 				s.shardInflight[shardID].Add(-1)
 				s.laneInflight[job.LaneID].Add(-1)
+				if hk := s.hotKeyTrackerForShard(shardID); hk != nil {
+					hk.observeInflightEnd(job.KeyHash, time.Now())
+				}
 			}()
 
 			needQueueWait, needRunDuration := s.jobNeedsWorkerTimestamps(job)

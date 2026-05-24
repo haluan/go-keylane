@@ -1,6 +1,6 @@
 # Hot Key Mitigation (Detection)
 
-KL-1501 adds **bounded hot key accounting and candidate detection**. It does not throttle, reject, or migrate keys — that is planned for later tasks (KL-1502+).
+KL-1501 adds **bounded hot key accounting and candidate detection**. Targeted throttle/reject/shed is implemented in [per-key-admission.md](per-key-admission.md) (KL-1502).
 
 ## What is a hot key?
 
