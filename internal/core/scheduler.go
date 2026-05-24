@@ -12,38 +12,40 @@ import (
 
 // Scheduler manages the processing of jobs across shards and lanes.
 type Scheduler struct {
-	shards             []shard
-	ReadyCh            chan int
-	workerCount        int
-	quotaPolicy        atomic.Pointer[quotaPolicySnapshot]
-	quotaVersion       atomic.Uint64
-	quotaMu            sync.Mutex
-	admissionPolicy    atomic.Pointer[admissionPolicySnapshot]
-	admissionVersion   atomic.Uint64
-	admissionMu        sync.Mutex
-	overloadPolicy     atomic.Pointer[overloadPolicySnapshot]
-	overloadVersion    atomic.Uint64
-	overloadMu         sync.Mutex
-	laneReg            *LaneRegistry
-	queueSizePerLane   int
-	mu                 sync.RWMutex
-	state              lifecycleState
-	stopDone           chan struct{}
-	workerCancel       context.CancelFunc
-	workerWG           sync.WaitGroup
-	inflight           atomic.Int64
-	shardInflight      []atomic.Int64
-	laneInflight       []atomic.Int64
-	Obs                ObservabilityConfig
-	laneCounters       []laneCounters
-	queueWaitGlobal    queueWaitAccum
-	shardQueueWait     []queueWaitAccum
-	runDurationGlobal  runDurationAccum
-	shardRunDuration   []runDurationAccum
-	hotKeyCfg          HotKeyConfig
-	hotKeyTrackers     []*hotKeyTracker
-	perKeyAdmissionCfg PerKeyAdmissionConfig
-	shardPressureCfg   ShardPressureConfig
+	shards               []shard
+	ReadyCh              chan int
+	workerCount          int
+	quotaPolicy          atomic.Pointer[quotaPolicySnapshot]
+	quotaVersion         atomic.Uint64
+	quotaMu              sync.Mutex
+	admissionPolicy      atomic.Pointer[admissionPolicySnapshot]
+	admissionVersion     atomic.Uint64
+	admissionMu          sync.Mutex
+	overloadPolicy       atomic.Pointer[overloadPolicySnapshot]
+	overloadVersion      atomic.Uint64
+	overloadMu           sync.Mutex
+	laneReg              *LaneRegistry
+	queueSizePerLane     int
+	mu                   sync.RWMutex
+	state                lifecycleState
+	stopDone             chan struct{}
+	workerCancel         context.CancelFunc
+	workerWG             sync.WaitGroup
+	inflight             atomic.Int64
+	shardInflight        []atomic.Int64
+	laneInflight         []atomic.Int64
+	Obs                  ObservabilityConfig
+	laneCounters         []laneCounters
+	queueWaitGlobal      queueWaitAccum
+	shardQueueWait       []queueWaitAccum
+	runDurationGlobal    runDurationAccum
+	shardRunDuration     []runDurationAccum
+	hotKeyCfg            HotKeyConfig
+	hotKeyTrackers       []*hotKeyTracker
+	perKeyAdmissionCfg   PerKeyAdmissionConfig
+	shardPressureCfg     ShardPressureConfig
+	scaleCalc            *scaleSignalCalculator
+	perKeyThrottledTotal atomic.Uint64
 }
 
 // NewScheduler creates a new Scheduler with the specified parameters.
@@ -71,6 +73,7 @@ func NewScheduler(shardCount, workerCount, queueSizePerLane int, reg *LaneRegist
 		laneCounters:     make([]laneCounters, laneCount),
 		shardQueueWait:   shardQueueWait,
 		shardRunDuration: shardRunDuration,
+		scaleCalc:        &scaleSignalCalculator{},
 	}
 	s.initQuotaPolicy(reg)
 	s.initAdmissionPolicy(reg, shardCount, queueSizePerLane)
@@ -147,7 +150,11 @@ func (s *Scheduler) EvaluatePerKeyAdmissionWithConfig(shardID int, keyHash uint6
 		waitNanos = s.shardQueueWait[shardID].totalNanos.Load()
 	}
 	pressure := s.Pressure().TotalDepthRatio
-	return hk.evaluatePerKeyAdmission(shardID, keyHash, laneID, shardDepth, waitNanos, pressure, cfg, time.Now())
+	dec := hk.evaluatePerKeyAdmission(shardID, keyHash, laneID, shardDepth, waitNanos, pressure, cfg, time.Now())
+	if dec.Action == PerKeyMitigationThrottle {
+		s.perKeyThrottledTotal.Add(1)
+	}
+	return dec
 }
 
 // PerKeyAdmissionSnapshots returns copy-out per-key mitigation state across shards.

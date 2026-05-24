@@ -108,6 +108,21 @@ go test -bench=Pressure -benchmem ./internal/core
 
 Submit path is **unaffected** by `ShardPressure.Enabled`; snapshot polling cost is measured separately via the pressure benchmarks above.
 
+### Autoscaling signals (KL-1504)
+
+```bash
+go test -bench=ScaleSignal -benchmem .
+go test -bench=ScaleSignal -benchmem ./internal/core
+```
+
+| Benchmark | Scenario |
+|-----------|----------|
+| `BenchmarkScaleSignalHealthy` | Idle queue scale signal |
+| `BenchmarkScaleSignalHighQueueDepth` | Backlog after warm-up |
+| `BenchmarkScaleSignalWithHotShardDiagnostics` | Single-key hot shard backlog with KL-1503 enabled |
+| `BenchmarkScaleSignalConcurrentRead` | Parallel `ScaleSignal()` reads |
+| `BenchmarkScaleSignalDisabled` | Near-zero cost when disabled |
+
 ### Per-key admission guardrails
 
 ```bash

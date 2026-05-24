@@ -6,7 +6,7 @@ package keylane
 import "time"
 
 // DebugSnapshotVersion is the schema version of DebugSnapshot.
-const DebugSnapshotVersion = "2"
+const DebugSnapshotVersion = "4"
 
 // TopHotShards is the maximum number of hot shards returned in a debug snapshot.
 const TopHotShards = 5
@@ -39,6 +39,9 @@ type DebugSnapshot struct {
 
 	// PressureSummary provides KL-1503 shard pressure diagnostics.
 	PressureSummary PressureSummarySnapshot
+
+	// ScaleSignal provides KL-1504 autoscaling signal diagnostics.
+	ScaleSignal ScaleSignalSnapshot
 
 	HotShards []HotShard
 	HotLanes  []HotLane

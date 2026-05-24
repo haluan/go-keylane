@@ -41,6 +41,11 @@ var (
 		"Cumulative pressure-based admission rejections per lane since queue start.",
 		labelLane, nil,
 	)
+	descAdmissionShed = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "admission_shed_total"),
+		"Cumulative overload shed events per lane since queue start.",
+		labelLane, nil,
+	)
 	descLaneDepth = prom.NewDesc(
 		prom.BuildFQName(namespace, "", "lane_depth"),
 		"Queued jobs per lane across all shards.",
@@ -71,6 +76,54 @@ var (
 		"Queued depth ratio (TotalDepth / TotalCapacity).",
 		labelScheduler, nil,
 	)
+
+	labelScaleRecommended = []string{"scheduler", "reason", "scope"}
+
+	descScalePressureRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "scale_pressure_ratio"),
+		"KL-1504 composite pressure ratio for autoscaling signals.",
+		labelScheduler, nil,
+	)
+	descScaleRecommended = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "scale_recommended"),
+		"KL-1504 scale-out recommendation (1=recommended, 0=not).",
+		labelScaleRecommended, nil,
+	)
+	descSignalQueueDepthRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "queue_depth_ratio"),
+		"KL-1504 queue depth ratio component (scheduler aggregate).",
+		labelScheduler, nil,
+	)
+	descSignalQueueWaitMaxSeconds = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "queue_wait_max_seconds"),
+		"KL-1504 max observed queue wait in seconds (scheduler aggregate).",
+		labelScheduler, nil,
+	)
+	descSignalAdmissionThrottledTotal = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "admission_throttled_total"),
+		"KL-1504 cumulative per-key throttle decisions since queue start.",
+		labelScheduler, nil,
+	)
+	descSignalWorkerBusyRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "worker_busy_ratio"),
+		"KL-1504 worker busy ratio (in-flight / workers).",
+		labelScheduler, nil,
+	)
+	descSignalHotShardCount = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "hot_shard_count"),
+		"KL-1504 count of hot shards.",
+		labelScheduler, nil,
+	)
+	descSignalHotKeyCandidateCount = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "hot_key_candidate_count"),
+		"KL-1504 bounded hot key candidate count across hot shards.",
+		labelScheduler, nil,
+	)
+	descSignalLocalizedHotKeyRatio = prom.NewDesc(
+		prom.BuildFQName(namespace, "", "localized_hot_key_ratio"),
+		"KL-1504 localized hot key pressure ratio.",
+		labelScheduler, nil,
+	)
 )
 
 func allDescriptors() []*prom.Desc {
@@ -80,11 +133,21 @@ func allDescriptors() []*prom.Desc {
 		descJobsFailed,
 		descQueueFull,
 		descAdmissionRejected,
+		descAdmissionShed,
 		descLaneDepth,
 		descShardDepth,
 		descInflight,
 		descQueueWait,
 		descRunDuration,
 		descPressureRatio,
+		descScalePressureRatio,
+		descScaleRecommended,
+		descSignalQueueDepthRatio,
+		descSignalQueueWaitMaxSeconds,
+		descSignalAdmissionThrottledTotal,
+		descSignalWorkerBusyRatio,
+		descSignalHotShardCount,
+		descSignalHotKeyCandidateCount,
+		descSignalLocalizedHotKeyRatio,
 	}
 }

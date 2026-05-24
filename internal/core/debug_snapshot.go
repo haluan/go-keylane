@@ -6,7 +6,7 @@ package core
 import "time"
 
 // DebugSnapshotVersion is the schema version of DebugSnapshot.
-const DebugSnapshotVersion = "2"
+const DebugSnapshotVersion = "4"
 
 // HotShard identifies a shard with high queue depth relative to others.
 type HotShard struct {
@@ -91,6 +91,8 @@ type DebugSnapshot struct {
 	Pressure Pressure
 
 	PressureSummary PressureSummarySnapshot
+
+	ScaleSignal ScaleSignalSnapshot
 
 	HotShards []HotShard
 	HotLanes  []HotLane
@@ -218,6 +220,8 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		legacyHotShards = legacyHotShardsFromPressure(pressureSummary.HotShards, topHotShards)
 	}
 
+	scaleSig := s.ScaleSignalSnapshot()
+
 	return DebugSnapshot{
 		Version:                  DebugSnapshotVersion,
 		GeneratedAt:              time.Now(),
@@ -231,6 +235,7 @@ func (s *Scheduler) DebugSnapshot() DebugSnapshot {
 		TotalInFlight:            totalInFlight,
 		Pressure:                 classifyPressure(totalDepth, totalCapacity, totalInFlight),
 		PressureSummary:          pressureSummary,
+		ScaleSignal:              scaleSignalToSnapshot(scaleSig),
 		HotShards:                legacyHotShards,
 		HotLanes:                 rankHotLanes(view.lanes, topHotLanes),
 		Shards:                   shards,
