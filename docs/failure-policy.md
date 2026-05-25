@@ -54,6 +54,19 @@ if errors.As(err, &wrapped) {
 
 Constructors: `RetryableFailure`, `PermanentFailure`, `TimeoutFailure`, `CancelledFailure`, `OverloadedFailure`, `RejectedFailure`, `DeadlineExhaustedFailure`, `UnknownFailure`.
 
+### StageFailure (v0.7 pipelines)
+
+`SubmitPipeline` wraps stage errors in `StageFailure` so callers can attribute failures without changing `FailureKind`:
+
+```go
+if sf, ok := keylane.AsStageFailure(err); ok {
+    _ = sf.Stage.Name // low-cardinality stage id
+}
+fail, _ := keylane.FailureFromFuture(future) // same classification as SubmitRequest
+```
+
+`FailureFromFuture` classifies the underlying error via `Unwrap`. Stage names are not substituted into `Failure.Error()` text.
+
 ### Custom classifier
 
 ```go

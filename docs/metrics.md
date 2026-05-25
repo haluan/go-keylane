@@ -25,6 +25,21 @@ go-keylane does **not** implement an autoscaler. Metrics are inputs for Promethe
 
 ---
 
+## v0.7 pipeline stage metrics (adapter hooks)
+
+The library does not register these counters directly; implement them in `OnStageStarted` / `OnStageCompleted` / `OnStageFailed` hooks from [request-observability.md](request-observability.md).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `keylane_pipeline_stage_started_total` | Counter | `transport`, `operation`, `lane`, `stage` | Stage execution started |
+| `keylane_pipeline_stage_completed_total` | Counter | `transport`, `operation`, `lane`, `stage`, `outcome` | Stage finished without error |
+| `keylane_pipeline_stage_failed_total` | Counter | `transport`, `operation`, `lane`, `stage`, `failure_kind` | Stage returned classified error |
+| `keylane_pipeline_stage_duration_seconds` | Histogram | `transport`, `operation`, `lane`, `stage` | `StageObservation.StageDuration` |
+
+Do not add `key`, `request_id`, URL path, tenant id, or raw error strings as labels.
+
+---
+
 ## v0.5 scale and pressure metrics
 
 | Metric | Type | Labels | Description |

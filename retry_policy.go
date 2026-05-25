@@ -521,7 +521,7 @@ func runWithRetry[T any](
 			observeRetryTerminalStop(opts, rec, decision.Reason)
 			final := finalStateFromFailure(lastFailure, retryTerminalExhausted(decision.Reason), decision.Reason, "", "")
 			return runWithRetryResult[T]{
-				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				err: retryHandlerError(lastErr, lastFailure), budget: budget, beforeHandler: false,
 				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
@@ -557,7 +557,7 @@ func runWithRetry[T any](
 			observeRetry(opts, rec)
 			final := finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, "")
 			return runWithRetryResult[T]{
-				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				err: retryHandlerError(lastErr, lastFailure), budget: budget, beforeHandler: false,
 				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
@@ -600,7 +600,7 @@ func runWithRetry[T any](
 			observeRetry(opts, rec)
 			final := finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, suppress.Reason)
 			return runWithRetryResult[T]{
-				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				err: retryHandlerError(lastErr, lastFailure), budget: budget, beforeHandler: false,
 				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
@@ -687,4 +687,15 @@ func failureAsError(f Failure) error {
 		return nil
 	}
 	return f
+}
+
+// retryHandlerError returns the handler error for retry termination.
+// Preserves *StageFailure from pipeline stages; otherwise returns classified Failure as error.
+func retryHandlerError(lastErr error, lastFailure Failure) error {
+	if lastErr != nil {
+		if _, ok := AsStageFailure(lastErr); ok {
+			return lastErr
+		}
+	}
+	return failureAsError(lastFailure)
 }

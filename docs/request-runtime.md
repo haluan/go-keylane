@@ -226,3 +226,9 @@ meta := keylane.RequestMeta{
 - Keylane does not guarantee execution order across different keys.
 - Keylane does not persist requests across process restarts.
 - Keylane does not forcibly cancel running handlers. See [cancellation-timeout.md](cancellation-timeout.md).
+
+---
+
+## Request pipelines (v0.7)
+
+For multi-step handlers with stage-level observability, use [`SubmitPipeline`](request-pipeline.md). Pipelines reuse the same routing, admission, retry, and `Future` semantics as `SubmitRequest`. Stages run sequentially in-worker in KL-1701; non-blocking continuation is planned separately (KL-1703).

@@ -101,7 +101,11 @@ func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budge
 		f.budgetTrace.AtCompletion = budget
 		f.failure = failure
 		if err != nil && failure.Kind != FailureNone {
-			f.err = failure
+			if _, ok := AsStageFailure(err); ok {
+				f.err = err
+			} else {
+				f.err = failure
+			}
 		} else {
 			f.err = err
 		}
