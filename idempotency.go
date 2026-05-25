@@ -94,7 +94,7 @@ type IdempotencyPolicy struct {
 	Hook RetrySafetyHook
 }
 
-// NormalizeIdempotencyPolicy reserves defaults for future policy fields; intentionally empty in KL-1603.
+// NormalizeIdempotencyPolicy reserves defaults for future policy fields; intentionally empty.
 func NormalizeIdempotencyPolicy(cfg *IdempotencyPolicy) {
 	if cfg == nil {
 		return

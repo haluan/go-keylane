@@ -133,7 +133,7 @@ A handler that ignores `r.Context().Done()` will continue running until it retur
 
 ## Failure classification
 
-v0.6 maps context and scheduler errors to `FailureKind` for structured handling:
+v0.6.0 maps context and scheduler errors to `FailureKind` for structured handling:
 
 | Situation | `FailureKind` |
 |-----------|---------------|
@@ -147,4 +147,4 @@ failure := keylane.ClassifyFailure(awaitErr)
 _ = failure.Kind
 ```
 
-See [failure-policy.md](failure-policy.md) and [deadline-budget.md](deadline-budget.md).
+See [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md), [failure-policy.md](failure-policy.md), and [deadline-budget.md](deadline-budget.md).

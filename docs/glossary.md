@@ -71,3 +71,15 @@ A concurrency primitive returned by `SubmitValue`. It represents a pending async
 
 ### Drain
 A shutdown lifecycle option (`WithDrain(true)`). It configures the queue `Stop()` operation to block and allow all currently enqueued jobs to be fully processed by active workers before exiting the program.
+
+### FailureKind (v0.6)
+Structured classification of handler errors (`retryable`, `permanent`, `timeout`, `cancelled`, `overloaded`, `rejected`, `deadline_exhausted`, etc.). See [failure-policy.md](failure-policy.md) and [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md).
+
+### RetrySafety (v0.6)
+Duplicate-safety declaration on `Idempotency` (`safe`, `unsafe`, `requires_check`). See [idempotency.md](idempotency.md).
+
+### Retry suppression (v0.6)
+Runtime-health gate that blocks in-worker retries under pressure, overload, or hot keys. See [retry-suppression.md](retry-suppression.md).
+
+### DeadlineBudget (v0.6)
+Caller deadline visibility after queue wait and runtime. See [deadline-budget.md](deadline-budget.md).

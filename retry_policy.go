@@ -71,7 +71,7 @@ type RetryState struct {
 	Now     time.Time
 }
 
-// RetryAttempt is an internal observability record for a scheduled retry (KL-1605 seam).
+// RetryAttempt is an internal observability record for a scheduled retry.
 type RetryAttempt struct {
 	Lane    Lane
 	Key     string
@@ -81,7 +81,7 @@ type RetryAttempt struct {
 	Failure Failure
 	Reason  RetryDecisionReason
 
-	// IdempotencyKey is for internal events only; must not be used as a Prometheus label (KL-1605).
+	// IdempotencyKey is for internal events only; must not be used as a Prometheus label.
 	IdempotencyKey string
 	// IdempotencyScope is low-cardinality domain metadata suitable for metrics when bounded.
 	IdempotencyScope string

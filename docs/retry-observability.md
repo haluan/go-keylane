@@ -1,4 +1,6 @@
-# Retry observability (KL-1605)
+# Retry observability
+
+Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
 
 Keylane exposes retry scheduling, suppression, and final outcomes through low-cardinality counters, optional hooks, and per-future traces.
 
@@ -59,4 +61,21 @@ Do **not** use as labels:
 
 `RetryEvent.Key` exists for debugging in hooks only.
 
-See also: [failure-observability.md](failure-observability.md), [retry-policy.md](retry-policy.md), [retry-suppression.md](retry-suppression.md).
+## Budget and failure on the same future
+
+```go
+failure, _ := keylane.FailureFromFuture(future)
+budget, _ := keylane.BudgetFromFuture(future)
+trace, _ := keylane.RetryTraceFromFuture(future)
+```
+
+---
+
+## Related
+
+- [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md)
+- [failure-observability.md](failure-observability.md)
+- [retry-policy.md](retry-policy.md)
+- [retry-suppression.md](retry-suppression.md)
+- [idempotency.md](idempotency.md)
+- [benchmarks.md](benchmarks.md)

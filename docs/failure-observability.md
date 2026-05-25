@@ -1,35 +1,102 @@
-# Failure observability (KL-1605)
+# Failure observability
 
-Failure classification counters complement retry traces and hooks.
+Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
 
-## Counters
+Failure classification counters complement [retry traces](retry-observability.md) and hooks.
 
-`Queue.RetryFailureSnapshot()` includes:
+---
 
-- `FailuresTotal` — classified handler failures
-- `TimeoutsTotal` — timeout and deadline-exhausted kinds
-- `CancellationsTotal` — cancellation kind
-- `ByFailureKind` — per-`FailureKind` breakdown
+## RetryFailureSnapshot
 
-Counters increment on:
+```go
+snap := q.RetryFailureSnapshot()
+```
 
-- **`failure_classified` events** inside `runWithRetry` when a handler error is classified (retry-enabled jobs)
-- **`AttemptsTotal`** on each `attempt_started` event before `run()` — includes successful first attempts, not only failures
-- Non-retry `SubmitValue` / `SubmitRequest` completions with a classified error via `completeWithFailureObs`
+Pull API — slice fields (`ByFailureKind`, etc.) are allocated **on pull**, not on every classification. Scrape on an interval; do not call on every request hot path.
+
+| Field | Meaning |
+|-------|---------|
+| `FailuresTotal` | Classified handler failures |
+| `TimeoutsTotal` | `timeout` and `deadline_exhausted` kinds |
+| `CancellationsTotal` | `cancelled` kind |
+| `ByFailureKind` | Per-`FailureKind` breakdown |
+| `AttemptsTotal` | Handler runs (`attempt_started` before `run()`) |
+| `RetriesScheduledTotal` | Retries that passed gates and slept |
+| `RetriesSuppressedTotal` | Retries blocked by safety or suppression |
+
+See [retry-observability.md](retry-observability.md) for retry-specific totals and reason buckets.
+
+---
+
+## When counters increment
+
+- **`failure_classified`** inside `runWithRetry` when a handler error is classified (retry-enabled jobs)
+- **`AttemptsTotal`** on each `attempt_started` immediately before `run()` (not when context already cancelled)
+- Non-retry `SubmitValue` / `SubmitRequest` completions with classified error via `completeWithFailureObs`
+
+---
 
 ## Failure kinds
 
 | Kind | Typical source |
 |------|----------------|
-| `retryable` | Transient handler errors |
-| `permanent` | Non-retryable business errors |
-| `timeout` | Deadline exceeded |
+| `retryable` | `RetryableFailure`, transient errors |
+| `permanent` | `PermanentFailure`, validation |
+| `timeout` | `DeadlineExceeded` during handler |
 | `cancelled` | Context cancellation |
-| `deadline_exhausted` | Budget exhausted before retry |
+| `deadline_exhausted` | Budget exhausted while queued |
 | `overloaded` / `rejected` | Admission and overload paths |
 
-Custom classifiers via `FailurePolicy` are reflected in `ByFailureKind`.
+Custom `FailurePolicy.Classifier` results appear in `ByFailureKind`.
+
+---
+
+## FailureFromFuture and budget
+
+```go
+failure, ok := keylane.FailureFromFuture(future)
+budget, ok := keylane.BudgetFromFuture(future)
+trace, ok := keylane.BudgetTraceFromFuture(future)
+
+failure, ok = keylane.FailureFromFutureAny(future)
+```
+
+See [failure-policy.md](failure-policy.md) and [deadline-budget.md](deadline-budget.md).
+
+---
+
+## Request failure hooks
+
+`SubmitRequest` sets `RequestObservation.FailureKind` on `OnCompleted` using the same classifier as futures. Failed handlers emit `Outcome: failed` with `FailurePermanent`, `FailureRetryable`, etc.
+
+```go
+hooks.OnCompleted = func(obs keylane.RequestObservation) {
+    if obs.Outcome == keylane.RequestOutcomeFailed {
+        _ = obs.FailureKind // classified, not unknown for wrapped failures
+    }
+}
+```
+
+---
 
 ## Safe labels
 
-Same rules as [retry-observability.md](retry-observability.md): use `failure_kind` and bounded `operation` / `lane`; never label metrics with raw keys or idempotency keys.
+Do **not** use as metric labels:
+
+- raw request `key` or tenant id
+- `request_id`
+- `idempotency_key`
+- error message strings
+
+Use bounded labels: `failure_kind`, `lane`, `operation`, `transport`.
+
+---
+
+## Related
+
+- [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md)
+- [retry-observability.md](retry-observability.md)
+- [failure-policy.md](failure-policy.md)
+- [request-observability.md](request-observability.md)
+- [observability.md](observability.md)
+- [benchmarks.md](benchmarks.md)

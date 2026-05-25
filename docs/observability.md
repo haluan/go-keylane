@@ -1,6 +1,16 @@
-# Observability (v0.2)
+# Observability (v0.2+)
 
 The core `keylane` package provides dependency-free observability: depth, counters, queue-wait and run-duration timing, debug snapshots, pressure signals, and optional hooks. Prometheus and OpenTelemetry are **optional adapters** in separate modules.
+
+### v0.6.0 retry and failure observability
+
+See [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md) for the full pipeline. Topic docs:
+
+- [failure-observability.md](failure-observability.md) — `RetryFailureSnapshot`, `ByFailureKind`
+- [retry-observability.md](retry-observability.md) — `RetryTraceFromFuture`, `OnRetryEvent`, suppression/safety reason buckets
+- [request-observability.md](request-observability.md) — `FailureKind` on failed `OnCompleted`
+
+**Cardinality:** never use raw keys, request IDs, or idempotency keys as metric labels. Pull `RetryFailureSnapshot()` on scrape intervals, not per request.
 
 > **Trade-off:** More instrumentation improves diagnosis. [Low-allocation mode](production-tuning.md) reduces hot-path overhead when you do not need per-job timing or hooks.
 
