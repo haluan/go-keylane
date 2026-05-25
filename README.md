@@ -219,6 +219,7 @@ Use `SubmitRequest[I, O]` for transport-agnostic typed request execution, or use
 See:
 
 - [Request Runtime](docs/request-runtime.md) — `SubmitRequest[I,O]`, `RequestMeta`, `Future.Await`, key routing, lane fairness
+- [Request Pipeline](docs/request-pipeline.md) — `SubmitPipeline`, ordered stages, stage observability (v0.7 KL-1701)
 - [HTTP Middleware](docs/http-middleware.md) — `httpkeylane.Middleware`, key and lane helpers, route rules, status codes
 - [Cancellation and Timeout](docs/cancellation-timeout.md) — cooperative cancellation, await semantics, non-guarantees
 - [Admission Control](docs/admission-control.md) — pressure-based request gating, 503/429, process-local scope

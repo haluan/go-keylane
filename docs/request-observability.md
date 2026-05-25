@@ -19,6 +19,10 @@ obs.Hooks.Request = keylane.RequestHooks{
     OnStarted:   func(o keylane.RequestObservation) { /* worker started handler */ },
     OnCompleted: func(o keylane.RequestObservation) { /* handler returned */ },
     OnRejected:  func(o keylane.RequestObservation) { /* request rejected before or after submit */ },
+    // SubmitPipeline only:
+    OnStageStarted:   func(o keylane.StageObservation) { /* stage began */ },
+    OnStageCompleted: func(o keylane.StageObservation) { /* stage succeeded */ },
+    OnStageFailed:    func(o keylane.StageObservation) { /* stage returned error */ },
 }
 cfg.Observability = obs
 ```
@@ -63,6 +67,35 @@ hooks.OnCompleted = func(obs keylane.RequestObservation) {
 ```
 
 Do not use `Key` or `RequestID` as Prometheus labels. Use `operation`, `lane`, `failure_kind`, `transport`.
+
+---
+
+## StageObservation (v0.7 pipelines)
+
+`SubmitPipeline` emits optional stage hooks with `StageObservation`:
+
+```go
+type StageObservation struct {
+    RequestID string
+    Key       string   // debugging only — do not use as a metric label
+    Lane      Lane
+    ShardID   int
+    Transport string
+    Operation string
+    Stage     StageName
+    Outcome     RequestOutcome
+    FailureKind FailureKind
+    QueueWaitDuration time.Duration // pipeline-level queue wait
+    StageDuration     time.Duration
+    DeadlineRemaining time.Duration
+}
+```
+
+- `OnStageStarted` fires before each stage `Run`.
+- `OnStageCompleted` fires after a successful stage.
+- `OnStageFailed` fires when a stage returns an error (later stages are skipped).
+
+Request-level hooks (`OnStarted`, `OnCompleted`) still fire once per pipeline job. See [request-pipeline.md](request-pipeline.md) for naming rules and suggested metric names.
 
 ---
 

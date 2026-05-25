@@ -83,3 +83,9 @@ Runtime-health gate that blocks in-worker retries under pressure, overload, or h
 
 ### DeadlineBudget (v0.6)
 Caller deadline visibility after queue wait and runtime. See [deadline-budget.md](deadline-budget.md).
+
+### Pipeline (v0.7)
+A typed multi-stage request submitted with `SubmitPipeline[S,O]`. Stages share one state type `S` and run sequentially in-worker. See [request-pipeline.md](request-pipeline.md).
+
+### Stage / StageName (v0.7)
+A low-cardinality label for one step in a pipeline (`validate`, `db_read`, custom stable names). Used in `StageObservation` and `StageFailure`, not as metric labels for raw keys or request IDs.

@@ -21,6 +21,10 @@ type RequestHooks struct {
 	OnRejected  func(RequestObservation)
 	// OnFailure fires when a request completes or is rejected with a classified failure.
 	OnFailure func(FailureEvent)
+	// Pipeline stage hooks (SubmitPipeline); optional, low-cardinality stage names only.
+	OnStageStarted   func(StageObservation)
+	OnStageCompleted func(StageObservation)
+	OnStageFailed    func(StageObservation)
 }
 
 // Hooks contains user-definable callbacks for observability events.

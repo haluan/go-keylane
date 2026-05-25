@@ -2,7 +2,9 @@
 
 Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
 
-Bounded in-worker retry for `SubmitValue` and `SubmitRequest`. Retry is **opt-in**: the zero value of `RetryPolicy` disables retry.
+Bounded in-worker retry for `SubmitValue`, `SubmitRequest`, and `SubmitPipeline`. Retry is **opt-in**: the zero value of `RetryPolicy` disables retry.
+
+For pipelines, retry re-runs the **entire** stage list and `Complete` function on each attempt. Per-stage retry is not supported in KL-1701. See [request-pipeline.md](request-pipeline.md).
 
 Before a retry sleeps, Keylane runs three gates: [failure classification](failure-policy.md) → [idempotency safety](idempotency.md) → [retry suppression](retry-suppression.md). See [deadline-budget.md](deadline-budget.md) for budget checks between attempts.
 

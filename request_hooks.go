@@ -22,7 +22,8 @@ func (q *Queue) requestHooksNeedWorkerTiming() bool {
 		return false
 	}
 	h := q.config.Observability.Hooks.Request
-	return h.OnStarted != nil || h.OnCompleted != nil
+	return h.OnStarted != nil || h.OnCompleted != nil ||
+		h.OnStageStarted != nil || h.OnStageCompleted != nil || h.OnStageFailed != nil
 }
 
 func (q *Queue) emitRequestQueued(meta RequestMeta) {
@@ -93,4 +94,37 @@ func (q *Queue) emitFailureEvent(obs RequestObservation, err error) {
 
 func callRequestHook(fn func()) {
 	callHook(fn)
+}
+
+func (q *Queue) emitStageStarted(obs StageObservation) {
+	if !q.requestHooksEnabled() {
+		return
+	}
+	fn := q.config.Observability.Hooks.Request.OnStageStarted
+	if fn == nil {
+		return
+	}
+	callRequestHook(func() { fn(obs) })
+}
+
+func (q *Queue) emitStageCompleted(obs StageObservation) {
+	if !q.requestHooksEnabled() {
+		return
+	}
+	fn := q.config.Observability.Hooks.Request.OnStageCompleted
+	if fn == nil {
+		return
+	}
+	callRequestHook(func() { fn(obs) })
+}
+
+func (q *Queue) emitStageFailed(obs StageObservation) {
+	if !q.requestHooksEnabled() {
+		return
+	}
+	fn := q.config.Observability.Hooks.Request.OnStageFailed
+	if fn == nil {
+		return
+	}
+	callRequestHook(func() { fn(obs) })
 }
