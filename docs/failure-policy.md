@@ -107,7 +107,7 @@ Retry is **opt-in** via `Config.Retry`, or per-request / per-job overrides (`Req
 - Retries run inside the worker with cancellable backoff; they respect the caller context and deadline budget (`remaining >= delay + MinRemainingBudget`).
 - Jitter spreads backoff to reduce synchronized retries. Set `Jitter: false` to disable jitter (keep a non-zero `JitterFraction` if you use normalization defaults).
 - Pre-enqueue validation and admission failures are never retried.
-- Retries require **both** a retryable failure and duplicate safety. See [idempotency.md](idempotency.md).
+- Retries require a retryable failure, duplicate safety, and (when enabled) healthy runtime pressure. See [idempotency.md](idempotency.md) and [retry-suppression.md](retry-suppression.md).
 - Unspecified `Idempotency.Safety` is treated as **unsafe** when retry is enabled (no silent retries).
 
 ```go
@@ -165,3 +165,5 @@ Use low-cardinality `failure_kind` only — never raw keys or tenant IDs.
 - [overload-policy.md](overload-policy.md)
 - [retry-policy.md](retry-policy.md)
 - [idempotency.md](idempotency.md)
+- [retry-suppression.md](retry-suppression.md)
+- [failure-aware-admission.md](failure-aware-admission.md)

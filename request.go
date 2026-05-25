@@ -40,8 +40,10 @@ type Request[I any, O any] struct {
 	PerKeyAdmission PerKeyAdmissionConfig
 	Retry           RetryPolicy
 	Idempotency     Idempotency
-	Input           I
-	Handle          func(context.Context, I) (O, error)
+	// RetrySuppression is an optional per-request override (nil uses queue policy).
+	RetrySuppression *RetrySuppressionPolicy
+	Input            I
+	Handle           func(context.Context, I) (O, error)
 }
 
 func validateRequest[I any, O any](req Request[I, O]) error {

@@ -149,6 +149,51 @@ func entryHotKeyStatus(e *hotKeyEntry, hkCfg HotKeyConfig, shardDepth, shardWait
 	return HotKeyStatusCandidate, useRatio
 }
 
+func plannedPerKeyDecision(
+	dec PerKeyAdmissionDecision,
+	action PerKeyMitigationAction,
+	reason PerKeyAdmissionReason,
+	cfg PerKeyAdmissionConfig,
+) PerKeyAdmissionDecision {
+	dec.Action = action
+	dec.Reason = reason
+	if action == PerKeyMitigationThrottle && cfg.Cooldown > 0 {
+		dec.RetryAfter = cfg.Cooldown
+	}
+	return dec
+}
+
+// hotKeyStatusForKey returns hot-key detection status for one key without admission side effects.
+func (t *hotKeyTracker) hotKeyStatusForKey(shardID int, keyHash uint64, shardDepth, shardWaitNanos uint64) HotKeyStatus {
+	if t == nil || !t.enabled() {
+		return HotKeyStatusNone
+	}
+	now := time.Now()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	e := t.entryForObservationLocked(keyHash, now)
+	if e == nil {
+		return HotKeyStatusNone
+	}
+	totalSubmitted, totalQueued := t.trackerTotalsForObservationLocked(now)
+	status, _ := entryHotKeyStatus(e, t.cfg, shardDepth, shardWaitNanos, totalSubmitted, totalQueued)
+	return status
+}
+
+// planPerKeyAdmission evaluates mitigation without mutating tracker state or scheduler counters.
+func (t *hotKeyTracker) planPerKeyAdmission(
+	shardID int,
+	keyHash uint64,
+	laneID LaneID,
+	shardDepth uint64,
+	shardWaitNanos uint64,
+	shardPressure float64,
+	cfg PerKeyAdmissionConfig,
+	now time.Time,
+) PerKeyAdmissionDecision {
+	return t.evaluatePerKeyAdmissionInner(shardID, keyHash, laneID, shardDepth, shardWaitNanos, shardPressure, cfg, now, false)
+}
+
 func (t *hotKeyTracker) evaluatePerKeyAdmission(
 	shardID int,
 	keyHash uint64,
@@ -158,6 +203,20 @@ func (t *hotKeyTracker) evaluatePerKeyAdmission(
 	shardPressure float64,
 	cfg PerKeyAdmissionConfig,
 	now time.Time,
+) PerKeyAdmissionDecision {
+	return t.evaluatePerKeyAdmissionInner(shardID, keyHash, laneID, shardDepth, shardWaitNanos, shardPressure, cfg, now, true)
+}
+
+func (t *hotKeyTracker) evaluatePerKeyAdmissionInner(
+	shardID int,
+	keyHash uint64,
+	laneID LaneID,
+	shardDepth uint64,
+	shardWaitNanos uint64,
+	shardPressure float64,
+	cfg PerKeyAdmissionConfig,
+	now time.Time,
+	applyMutations bool,
 ) PerKeyAdmissionDecision {
 	allow := PerKeyAdmissionDecision{
 		Action:       PerKeyMitigationAllow,
@@ -174,28 +233,42 @@ func (t *hotKeyTracker) evaluatePerKeyAdmission(
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.expireStaleEntriesLocked(now)
-
-	idx, ok := t.index[keyHash]
-	if !ok {
-		return allow
+	if applyMutations {
+		t.expireStaleEntriesLocked(now)
 	}
-	e := &t.entries[idx]
-	if e.keyHash != keyHash {
-		return allow
+
+	var e *hotKeyEntry
+	if applyMutations {
+		idx, ok := t.index[keyHash]
+		if !ok {
+			return allow
+		}
+		e = &t.entries[idx]
+		if e.keyHash != keyHash {
+			return allow
+		}
+	} else {
+		e = t.entryForObservationLocked(keyHash, now)
+		if e == nil {
+			return allow
+		}
 	}
 
 	var totalSubmitted uint64
 	var totalQueued int64
-	for i := range t.entries {
-		en := &t.entries[i]
-		if en.keyHash == 0 {
-			continue
+	if applyMutations {
+		for i := range t.entries {
+			en := &t.entries[i]
+			if en.keyHash == 0 {
+				continue
+			}
+			totalSubmitted += en.submittedApprox
+			if en.queuedApprox > 0 {
+				totalQueued += en.queuedApprox
+			}
 		}
-		totalSubmitted += en.submittedApprox
-		if en.queuedApprox > 0 {
-			totalQueued += en.queuedApprox
-		}
+	} else {
+		totalSubmitted, totalQueued = t.trackerTotalsForObservationLocked(now)
 	}
 
 	status, pressureRatio := entryHotKeyStatus(e, t.cfg, shardDepth, shardWaitNanos, totalSubmitted, totalQueued)
@@ -214,18 +287,20 @@ func (t *hotKeyTracker) evaluatePerKeyAdmission(
 
 	// Recovery: allow when window elapsed and key no longer hot.
 	if e.recoveryUntilUnixNano > 0 && nowNano >= e.recoveryUntilUnixNano && status == HotKeyStatusNone {
-		e.lastAction = PerKeyMitigationAllow
-		e.lastReason = PerKeyAdmissionReasonNone
-		e.cooldownUntilUnixNano = 0
-		e.recoveryUntilUnixNano = 0
+		if applyMutations {
+			e.lastAction = PerKeyMitigationAllow
+			e.lastReason = PerKeyAdmissionReasonNone
+			e.cooldownUntilUnixNano = 0
+			e.recoveryUntilUnixNano = 0
+		}
 		return allow
 	}
 
 	if cfg.MaxQueuedPerKey > 0 && int(e.queuedApprox) >= cfg.MaxQueuedPerKey {
-		return t.finishPerKeyDecision(e, dec, PerKeyMitigationThrottle, PerKeyAdmissionReasonMaxQueuedPerKey, cfg, now)
+		return t.resolvePerKeyDecision(e, dec, PerKeyMitigationThrottle, PerKeyAdmissionReasonMaxQueuedPerKey, cfg, now, applyMutations)
 	}
 	if cfg.MaxInflightPerKey > 0 && int(e.inflightApprox) >= cfg.MaxInflightPerKey {
-		return t.finishPerKeyDecision(e, dec, PerKeyMitigationThrottle, PerKeyAdmissionReasonMaxInflightPerKey, cfg, now)
+		return t.resolvePerKeyDecision(e, dec, PerKeyMitigationThrottle, PerKeyAdmissionReasonMaxInflightPerKey, cfg, now, applyMutations)
 	}
 
 	if e.submittedApprox > 0 && cfg.RejectRatioThreshold > 0 {
@@ -239,17 +314,17 @@ func (t *hotKeyTracker) evaluatePerKeyAdmission(
 			if status == HotKeyStatusDominant {
 				reason = PerKeyAdmissionReasonDominantHotKey
 			}
-			return t.finishPerKeyDecision(e, dec, action, reason, cfg, now)
+			return t.resolvePerKeyDecision(e, dec, action, reason, cfg, now, applyMutations)
 		}
 	}
 
 	if e.cooldownUntilUnixNano > nowNano && e.lastAction != PerKeyMitigationAllow && e.lastAction != "" {
-		return t.finishPerKeyDecision(e, dec, e.lastAction, PerKeyAdmissionReasonCooldownActive, cfg, now)
+		return t.resolvePerKeyDecision(e, dec, e.lastAction, PerKeyAdmissionReasonCooldownActive, cfg, now, applyMutations)
 	}
 
 	if shardPressure >= 0.95 {
 		if statusMeetsMin(status, cfg.MinStatus) {
-			return t.finishPerKeyDecision(e, dec, cfg.DefaultAction, PerKeyAdmissionReasonShardOverloaded, cfg, now)
+			return t.resolvePerKeyDecision(e, dec, cfg.DefaultAction, PerKeyAdmissionReasonShardOverloaded, cfg, now, applyMutations)
 		}
 	}
 
@@ -272,7 +347,22 @@ func (t *hotKeyTracker) evaluatePerKeyAdmission(
 	if action == PerKeyMitigationAllow {
 		action = PerKeyMitigationThrottle
 	}
-	return t.finishPerKeyDecision(e, dec, action, reason, cfg, now)
+	return t.resolvePerKeyDecision(e, dec, action, reason, cfg, now, applyMutations)
+}
+
+func (t *hotKeyTracker) resolvePerKeyDecision(
+	e *hotKeyEntry,
+	dec PerKeyAdmissionDecision,
+	action PerKeyMitigationAction,
+	reason PerKeyAdmissionReason,
+	cfg PerKeyAdmissionConfig,
+	now time.Time,
+	applyMutations bool,
+) PerKeyAdmissionDecision {
+	if applyMutations {
+		return t.finishPerKeyDecision(e, dec, action, reason, cfg, now)
+	}
+	return plannedPerKeyDecision(dec, action, reason, cfg)
 }
 
 func (t *hotKeyTracker) finishPerKeyDecision(

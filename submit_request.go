@@ -43,13 +43,6 @@ func SubmitRequest[I any, O any](
 
 	meta := req.Meta
 	shardID := q.ShardIDForKey(meta.Key)
-	var retryOpts runWithRetryOpts
-	if retryPolicy.Enabled {
-		retryOpts = runWithRetryOpts{
-			Key: meta.Key, Lane: meta.Lane, ShardID: shardID,
-			Idempotency: req.Idempotency, IdempotencyPolicy: q.idempotencyPolicy,
-		}
-	}
 
 	reject := func(err error) {
 		obs := q.newRequestObservation(meta, shardID, 0, 0, err)
@@ -134,8 +127,9 @@ func SubmitRequest[I any, O any](
 			var beforeHandler bool
 
 			if retryPolicy.Enabled {
+				opts := buildRunWithRetryOpts(q, meta.Key, meta.Lane, shardID, req.Idempotency, req.RetrySuppression)
 				res := runSubmitRequestHandlerWithRetry(
-					reqCtx, policy, retryPolicy, retryOpts, handlerStartBudget, handle, input,
+					reqCtx, policy, retryPolicy, opts, handlerStartBudget, handle, input,
 				)
 				future.appendRetryAttempts(res.retryAttempts)
 				out, err, beforeHandler = res.val, res.err, res.beforeHandler

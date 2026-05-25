@@ -11,7 +11,9 @@ type ValueJob[T any] struct {
 	Lane        Lane
 	Retry       RetryPolicy
 	Idempotency Idempotency
-	Run         func(context.Context) (T, error)
+	// RetrySuppression is an optional per-job override (nil uses queue policy).
+	RetrySuppression *RetrySuppressionPolicy
+	Run              func(context.Context) (T, error)
 }
 
 func validateValueJob[T any](job ValueJob[T]) error {

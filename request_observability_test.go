@@ -516,9 +516,15 @@ func TestLowAllocationSubmitRequestNilRequestHooksAllocs(t *testing.T) {
 		wg.Wait()
 	}
 
+	// Warm up allocator state so AllocsPerRun is stable under -race after other package tests.
+	for i := 0; i < 20; i++ {
+		_ = testing.AllocsPerRun(1, submitJob)
+		_ = testing.AllocsPerRun(1, submitRequest)
+	}
+
 	jobAllocs := testing.AllocsPerRun(20, submitJob)
 	reqAllocs := testing.AllocsPerRun(20, submitRequest)
-	if reqAllocs > jobAllocs+4 {
-		t.Errorf("SubmitRequest allocs = %v, Submit job allocs = %v (expected within 4)", reqAllocs, jobAllocs)
+	if reqAllocs > submitRequestAllocSlack(jobAllocs) {
+		t.Errorf("SubmitRequest allocs = %v, Submit job allocs = %v (expected within %v)", reqAllocs, jobAllocs, submitRequestAllocSlack(jobAllocs)-jobAllocs)
 	}
 }

@@ -103,6 +103,15 @@ func (s *Scheduler) hotKeyTrackerForShard(shardID int) *hotKeyTracker {
 	return s.hotKeyTrackers[shardID]
 }
 
+// HotKeyTrackerLen returns the number of keys indexed on a shard hot-key tracker.
+func (s *Scheduler) HotKeyTrackerLen(shardID int) int {
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk == nil {
+		return 0
+	}
+	return hk.len()
+}
+
 // ConfigureShardPressure applies shard pressure diagnostics configuration.
 func (s *Scheduler) ConfigureShardPressure(cfg ShardPressureConfig) {
 	normalizeShardPressureConfig(&cfg)
@@ -140,17 +149,7 @@ func (s *Scheduler) EvaluatePerKeyAdmissionWithConfig(shardID int, keyHash uint6
 	if hk == nil {
 		return allow
 	}
-	var shardDepth uint64
-	if shardID >= 0 && shardID < len(s.shards) {
-		sh := &s.shards[shardID]
-		sh.mu.Lock()
-		shardDepth = uint64(sh.totalDepthLocked())
-		sh.mu.Unlock()
-	}
-	var waitNanos uint64
-	if shardID >= 0 && shardID < len(s.shardQueueWait) {
-		waitNanos = s.shardQueueWait[shardID].totalNanos.Load()
-	}
+	shardDepth, waitNanos := s.shardDepthAndWaitForHotKey(shardID)
 	pressure := s.Pressure().TotalDepthRatio
 	dec := hk.evaluatePerKeyAdmission(shardID, keyHash, laneID, shardDepth, waitNanos, pressure, cfg, time.Now())
 	if dec.Action == PerKeyMitigationThrottle {
@@ -160,6 +159,51 @@ func (s *Scheduler) EvaluatePerKeyAdmissionWithConfig(shardID int, keyHash uint6
 		s.recordPerKeyAdmissionDecision(dec.Action, dec.Reason)
 	}
 	return dec
+}
+
+func (s *Scheduler) shardDepthAndWaitForHotKey(shardID int) (depth uint64, waitNanos uint64) {
+	if shardID >= 0 && shardID < len(s.shards) {
+		sh := &s.shards[shardID]
+		sh.mu.Lock()
+		depth = uint64(sh.totalDepthLocked())
+		sh.mu.Unlock()
+	}
+	if shardID >= 0 && shardID < len(s.shardQueueWait) {
+		waitNanos = s.shardQueueWait[shardID].totalNanos.Load()
+	}
+	return depth, waitNanos
+}
+
+// HotKeyStatusForKey returns read-only hot-key detection for one key (no admission side effects).
+func (s *Scheduler) HotKeyStatusForKey(shardID int, keyHash uint64) HotKeyStatus {
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk == nil {
+		return HotKeyStatusNone
+	}
+	depth, waitNanos := s.shardDepthAndWaitForHotKey(shardID)
+	return hk.hotKeyStatusForKey(shardID, keyHash, depth, waitNanos)
+}
+
+// ObservePerKeyAdmissionForSuppression plans per-key mitigation without mutating state or counters.
+func (s *Scheduler) ObservePerKeyAdmissionForSuppression(shardID int, keyHash uint64, laneID LaneID, cfg PerKeyAdmissionConfig) PerKeyAdmissionDecision {
+	allow := PerKeyAdmissionDecision{
+		Action:       PerKeyMitigationAllow,
+		Reason:       PerKeyAdmissionReasonNone,
+		ShardID:      shardID,
+		LaneID:       uint16(laneID),
+		KeyHash:      keyHash,
+		HotKeyStatus: HotKeyStatusNone,
+	}
+	if !perKeyAdmissionEnabled(cfg) {
+		return allow
+	}
+	hk := s.hotKeyTrackerForShard(shardID)
+	if hk == nil {
+		return allow
+	}
+	depth, waitNanos := s.shardDepthAndWaitForHotKey(shardID)
+	pressure := s.Pressure().TotalDepthRatio
+	return hk.planPerKeyAdmission(shardID, keyHash, laneID, depth, waitNanos, pressure, cfg, time.Now())
 }
 
 // PerKeyAdmissionSnapshots returns copy-out per-key mitigation state across shards.
