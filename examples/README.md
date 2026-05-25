@@ -12,6 +12,11 @@ This directory contains runnable, fully-contained examples demonstrating the cor
 - **[prometheus](prometheus/)**: Registers the optional Prometheus collector and prints one text scrape.
 - **[otel_hooks](otel_hooks/)**: Wires the optional OpenTelemetry hook adapter and records spans to an in-memory exporter.
 - **[v0.5-hot-key-autoscaling](v0.5-hot-key-autoscaling/)**: Enables v0.5 hot key detection (observe mode), prints `DebugSnapshot` hot keys and `ScaleSignal`.
+- **[retry_policy](retry_policy/)**: Bounded retry with `RetryableFailure` and safe idempotency.
+- **[deadline_budget](deadline_budget/)**: `context.WithTimeout` submit and `BudgetFromFuture`.
+- **[idempotency_retry](idempotency_retry/)**: Safe vs unsafe idempotency under retry.
+- **[retry_suppression](retry_suppression/)**: Retry suppressed when the queue is overloaded.
+- **[failure_observability](failure_observability/)**: `RetryFailureSnapshot` and `RetryTraceFromFuture`.
 
 ---
 
@@ -37,4 +42,11 @@ go run ./examples/otel_hooks
 
 # Run v0.5 hot key & autoscaling example
 go run ./examples/v0.5-hot-key-autoscaling
+
+# v0.6.0 retry, deadline, idempotency, suppression, observability
+go run ./examples/retry_policy
+go run ./examples/deadline_budget
+go run ./examples/idempotency_retry
+go run ./examples/retry_suppression
+go run ./examples/failure_observability
 ```

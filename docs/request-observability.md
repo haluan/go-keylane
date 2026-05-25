@@ -1,5 +1,7 @@
 # Request Observability
 
+Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
+
 The request runtime emits structured metadata at each lifecycle stage: queued, started, completed, and rejected. This data is available through request hooks and an optional HTTP-specific observe callback.
 
 ---
@@ -40,12 +42,27 @@ type RequestObservation struct {
     QueueWait time.Duration  // time from enqueue to worker start (zero for rejected requests)
     Run       time.Duration  // handler execution time (zero for skipped/rejected requests)
 
-    Outcome RequestOutcome   // classification of how the request ended
-    Err     error            // underlying error, if any
+    Outcome     RequestOutcome // classification of how the request ended
+    FailureKind FailureKind    // v0.6: classified failure (none when successful)
+    Err         error          // underlying error, if any
 }
 ```
 
 `QueueWait` and `Run` are populated in `OnStarted` and `OnCompleted`. They are zero for requests rejected before or during enqueue (`OnRejected`).
+
+### FailureKind on completed requests (v0.6)
+
+When the handler returns a classified error (`PermanentFailure`, `RetryableFailure`, etc.), `OnCompleted` receives `Outcome: failed` and `FailureKind` from the same [failure classifier](failure-policy.md) used by `FailureFromFuture`. This works with retry enabled or disabled.
+
+```go
+hooks.OnCompleted = func(obs keylane.RequestObservation) {
+    if obs.Outcome == keylane.RequestOutcomeFailed && obs.FailureKind == keylane.FailurePermanent {
+        // business failure — do not treat as retryable from hooks alone
+    }
+}
+```
+
+Do not use `Key` or `RequestID` as Prometheus labels. Use `operation`, `lane`, `failure_kind`, `transport`.
 
 ---
 

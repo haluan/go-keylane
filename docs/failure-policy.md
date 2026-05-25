@@ -1,8 +1,10 @@
 # Failure Policy
 
-v0.6 adds a first-class **failure classification** model so callers and future retry policy can distinguish retryable errors, permanent failures, timeouts, cancellation, overload, admission rejection, and deadline budget exhaustion.
+Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
 
-This task does **not** implement retries. It defines semantics only.
+v0.6.0 adds a first-class **failure classification** model so callers and [retry policy](retry-policy.md) can distinguish retryable errors, permanent failures, timeouts, cancellation, overload, admission rejection, and deadline budget exhaustion.
+
+Classification runs on every handler error before retry, suppression, and observability counters are updated.
 
 ---
 
@@ -69,6 +71,20 @@ cfg := keylane.Config{
 
 When the classifier returns `FailureUnknown` or zero kind, the default classifier runs.
 
+### Default classifier order
+
+1. Typed `Failure` wrappers (`RetryableFailure`, `PermanentFailure`, etc.)
+2. `context.Canceled` → `cancelled`
+3. `context.DeadlineExceeded` → `timeout` (handler phase) or `deadline_exhausted` (queued phase via budget helpers)
+4. Known sentinel errors (`ErrQueueFull`, admission errors, overload)
+5. Plain errors → `unknown` (not retryable)
+
+### Warnings
+
+- Do **not** classify business validation errors as `retryable`.
+- Do **not** classify unsafe mutation failures as `retryable` unless duplicate safety is solved ([idempotency.md](idempotency.md)).
+- Do **not** use raw error strings as metric labels.
+
 ---
 
 ## Overload vs rejection
@@ -95,49 +111,32 @@ See [deadline-budget.md](deadline-budget.md).
 
 ---
 
-## Retry (KL-1602)
+## Retry integration
 
-See also: [retry-policy.md](retry-policy.md) (overview and links to duplicate-safety).
-
-Retry is **opt-in** via `Config.Retry`, or per-request / per-job overrides (`Request.Retry`, `ValueJob.Retry`).
-
-- `MaxAttempts` includes the first attempt (`3` = one initial try + up to two retries).
-- By default only `retryable` failures (or `Failure.Retryable` from a custom classifier) are retried.
-- Permanent, cancelled, timeout, deadline-exhausted, overload, rejected, panic, and unknown failures are **not** retried unless `RetryableKinds` explicitly allows them.
-- Retries run inside the worker with cancellable backoff; they respect the caller context and deadline budget (`remaining >= delay + MinRemainingBudget`).
-- Jitter spreads backoff to reduce synchronized retries. Set `Jitter: false` to disable jitter (keep a non-zero `JitterFraction` if you use normalization defaults).
-- Pre-enqueue validation and admission failures are never retried.
-- Retries require a retryable failure, duplicate safety, and (when enabled) healthy runtime pressure. See [idempotency.md](idempotency.md) and [retry-suppression.md](retry-suppression.md).
-- Unspecified `Idempotency.Safety` is treated as **unsafe** when retry is enabled (no silent retries).
-
-```go
-cfg := keylane.Config{
-    Retry: keylane.RetryPolicy{
-        Enabled:            true,
-        MaxAttempts:        3,
-        InitialBackoff:     10 * time.Millisecond,
-        MaxBackoff:         100 * time.Millisecond,
-        Multiplier:         2.0,
-        Jitter:             true,
-        JitterFraction:     0.2,
-        MinRemainingBudget: 20 * time.Millisecond,
-    },
-}
-```
-
-Return `keylane.RetryableFailure(err)` from handlers to signal a transient failure.
+Retry is **opt-in** and documented in [retry-policy.md](retry-policy.md). Only `retryable` failures are retried by default. Return `keylane.RetryableFailure(err)` from handlers for transient errors.
 
 ---
 
-## Request runtime integration
+## Inspecting failures on futures
 
-`SubmitRequest` attaches classified failures to the internal future. Use:
+`SubmitValue` and `SubmitRequest` attach classified failures to the result future:
 
 ```go
 failure, ok := keylane.FailureFromFuture(future)
+if ok {
+    switch failure.Kind {
+    case keylane.FailurePermanent:
+        // business error
+    case keylane.FailureRetryable:
+        // transient; may have been retried in-worker
+    }
+}
+
+// When the output type is not known at compile time:
+failure, ok := keylane.FailureFromFutureAny(future)
 ```
 
-`RequestObservation.FailureKind` is set on request hooks. Optional `Hooks.Request.OnFailure` receives `FailureEvent`.
+`RequestObservation.FailureKind` is set on request hooks (`OnCompleted`). Failed handlers emit `Outcome: failed` with the classified kind. See [request-observability.md](request-observability.md) and [failure-observability.md](failure-observability.md).
 
 ---
 
@@ -159,6 +158,7 @@ Use low-cardinality `failure_kind` only — never raw keys or tenant IDs.
 
 ## Related
 
+- [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md)
 - [deadline-budget.md](deadline-budget.md)
 - [cancellation-timeout.md](cancellation-timeout.md)
 - [admission-control.md](admission-control.md)

@@ -1,6 +1,10 @@
-# Idempotency and Duplicate-Safety (KL-1603)
+# Idempotency and Duplicate-Safety
 
-Bounded retry (KL-1602) only retries **retryable** failures. KL-1603 adds a second gate: the job must also be **duplicate-safe** before another attempt runs.
+Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
+
+Bounded [retry](retry-policy.md) only retries **retryable** failures. Idempotency adds a second gate: the job must also be **duplicate-safe** before another attempt runs.
+
+> **Retrying writes is a business decision.** Keylane can enforce duplicate-safety hooks, but it **cannot** make side effects idempotent by itself.
 
 **Retryable ≠ safe to retry.** A transient network error on a payment charge is retryable in classification terms but unsafe without idempotency keys or explicit safety metadata.
 
@@ -102,7 +106,67 @@ Hook panics are recovered; retry is suppressed (`hook_failed`). The handler stil
 
 ---
 
-## Safe vs unsafe examples
+## Idempotency fields
+
+| Field | Purpose |
+|-------|---------|
+| `Key` | Stable caller-defined idempotency key across retries of the same logical operation |
+| `Safety` | `safe`, `unsafe`, `requires_check`, or unspecified (unsafe when retry on) |
+| `Scope` | Low-cardinality domain (e.g. `payment`, `order`) — suitable for bounded metrics |
+| `Operation` | Side-effect name (e.g. `charge`, `send-webhook`) |
+| `AllowUnsafeRetry` | Dangerous override on `unsafe` jobs; recorded as `explicit_override` on trace |
+
+`IdempotencyPolicy.RequireForRetry` suppresses retry when `Key` is empty (any safety value). `IdempotencyPolicy.Hook` runs for `requires_check` only.
+
+---
+
+## Scenario examples
+
+### Read-only profile fetch
+
+```go
+Idempotency: keylane.Idempotency{Safety: keylane.RetrySafetySafe}
+```
+
+### Payment charge (unsafe by default)
+
+```go
+Idempotency: keylane.Idempotency{
+    Safety:    keylane.RetrySafetyUnsafe,
+    Key:       "pay-" + paymentID,
+    Scope:     "payment",
+    Operation: "charge",
+}
+```
+
+Use `requires_check` + hook that consults your idempotency store before allowing retry.
+
+### Webhook send
+
+```go
+Idempotency: keylane.Idempotency{
+    Safety:    keylane.RetrySafetyRequiresCheck,
+    Key:       deliveryID,
+    Scope:     "webhook",
+    Operation: "send",
+}
+```
+
+### Order update with cluster-wide key requirement
+
+```go
+// Config.Idempotency.RequireForRetry: true
+Idempotency: keylane.Idempotency{
+    Safety: keylane.RetrySafetySafe,
+    Key:    "order-" + orderID + "-patch",
+    Scope:  "order",
+    Operation: "update",
+}
+```
+
+---
+
+## Safe vs unsafe summary
 
 | Work | Suggested safety |
 |------|------------------|
@@ -130,7 +194,7 @@ Each `RetryAttempt` includes `SafetyReason` (for example `explicit_override`, `s
 
 ---
 
-## Metrics and cardinality (KL-1605)
+## Metrics and cardinality
 
 Internal `RetryAttempt` records may include `IdempotencyKey` for debugging. **Do not** use raw idempotency keys as Prometheus labels — cardinality explodes. Prefer bounded `IdempotencyScope` / `IdempotencyOperation` or a hashed key when metrics are added.
 
@@ -144,6 +208,7 @@ Keylane retry is **in-worker and in-process**. It does not provide durable exact
 
 ## Related
 
+- [v0.6.0 overview](v0.6-retry-deadline-failure-policy.md)
 - [failure-policy.md](failure-policy.md) — failure kinds and retry policy
 - [retry-policy.md](retry-policy.md) — entry point for retry configuration
 - [retry-suppression.md](retry-suppression.md) — pressure-aware retry gate

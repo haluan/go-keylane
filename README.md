@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.6 (in progress) — failure classification, deadline budget, and bounded retry on top of v0.5 hot key / autoscaling signals. Public APIs may still evolve before a stable v1.0.
+> Status: v0.6.0 (in progress) — failure classification, deadline budget, and bounded retry on top of v0.5 hot key / autoscaling signals. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -152,6 +152,49 @@ The `Config` struct controls how shard isolation, worker pools, and lane-level p
 
 ---
 
+## v0.6.0 — Retry, Deadline & Failure Policy
+
+v0.6.0 makes failure handling explicit: retries are **classified**, **bounded**, **deadline-aware**, **duplicate-safe**, **pressure-aware**, and **observable**. Retry is disabled by default.
+
+Full guide: [v0.6.0 overview](docs/v0.6-retry-deadline-failure-policy.md).
+
+### Minimal retry (safe read)
+
+```go
+future, _ := keylane.SubmitValue(ctx, q, keylane.ValueJob[string]{
+    Key: "user-123", Lane: "read",
+    Retry: keylane.RetryPolicy{Enabled: true, MaxAttempts: 3},
+    Idempotency: keylane.Idempotency{Safety: keylane.RetrySafetySafe},
+    Run: fetchProfile,
+})
+```
+
+### Unsafe mutation (no automatic retry)
+
+```go
+future, _ := keylane.SubmitValue(ctx, q, keylane.ValueJob[string]{
+    Key: "payment-123", Lane: "payment",
+    Retry: keylane.RetryPolicy{Enabled: true, MaxAttempts: 3},
+    Idempotency: keylane.Idempotency{Safety: keylane.RetrySafetyUnsafe},
+    Run: chargePayment,
+})
+```
+
+### Retry trace
+
+```go
+trace, ok := keylane.RetryTraceFromFuture(future)
+if ok {
+    fmt.Println(trace.Final.Succeeded, trace.Final.SuppressionReason)
+}
+```
+
+Key docs: [retry policy](docs/retry-policy.md) · [failure policy](docs/failure-policy.md) · [idempotency](docs/idempotency.md) · [retry suppression](docs/retry-suppression.md) · [observability](docs/retry-observability.md)
+
+Runnable examples: `go run ./examples/retry_policy`, `./examples/deadline_budget`, `./examples/idempotency_retry`, `./examples/retry_suppression`, `./examples/failure_observability`.
+
+---
+
 ## v0.4 Adaptive Quota & Overload Policy
 
 Keylane can optionally react to runtime pressure with bounded quota updates, lane priority classes, per-lane admission policy, overload decisions, and backoff hints.
@@ -258,13 +301,17 @@ cd tracing/otel && go test ./...
 
 ## Documentation
 
-### v0.6 failure classification, deadline budget & retry
+### v0.6.0 failure classification, deadline budget & retry
 
-- [Failure Policy](docs/failure-policy.md) (includes bounded retry)
+- [v0.6.0 Overview](docs/v0.6-retry-deadline-failure-policy.md)
+- [Retry Policy](docs/retry-policy.md)
+- [Failure Policy](docs/failure-policy.md)
+- [Deadline Budget](docs/deadline-budget.md)
 - [Idempotency & Retry Safety](docs/idempotency.md)
 - [Retry Suppression](docs/retry-suppression.md)
 - [Failure-Aware Admission](docs/failure-aware-admission.md)
-- [Deadline Budget](docs/deadline-budget.md)
+- [Failure Observability](docs/failure-observability.md)
+- [Retry Observability](docs/retry-observability.md)
 
 ### v0.5 hot key, shard pressure & autoscaling
 

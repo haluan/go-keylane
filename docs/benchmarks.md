@@ -13,7 +13,7 @@ See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](
 
 > [!WARNING]
 > **Environment-Specific Warning**:
-> Benchmark metrics (`ns/op`, `B/op`, `allocs/op`) are highly environment-sensitive and depend on your machine's CPU architecture, active system workloads, operating system, and Go compiler version. 
+> Benchmark metrics (`ns/op`, `B/op`, `allocs/op`) are highly environment-sensitive and depend on your machine's CPU architecture, active system workloads, operating system, and Go compiler version.
 > These numbers represent localized hardware-specific baseline performance — they are **not product guarantees** and should not be used as hard assertions in CI/CD pipeline pass/fail gates.
 
 ---
@@ -51,14 +51,14 @@ GODEBUG=gctrace=1 go test -bench=GCPressure -benchmem ./benchmarks
 
 Output is environment-specific; use for local investigation only, not as a product guarantee.
 
-### Retry suppression (KL-1604)
+### Retry suppression
 ```bash
 go test -bench='RetrySuppression|DecideRetrySuppression' -benchmem .
 ```
 
 Covers `DecideRetrySuppression` (healthy vs overloaded), `RetrySuppressionSnapshot`, `BenchmarkRunWithRetrySuppressedUnderPressure`, `BenchmarkRunWithRetrySuppressionTrace`, and `runWithRetry` with suppression disabled.
 
-### Retry/failure observability (KL-1605)
+### Retry/failure observability
 ```bash
 go test -bench='RetryObserv|FailureObserv|RetryTrace|RetryFailure|RecordFailure' -benchmem .
 ```
@@ -68,6 +68,34 @@ Covers classification, retry/safety/suppression decisions, `RetryFailureSnapshot
 - `BenchmarkRetryEventHookDisabled` uses `q.retryObserver()` (counter recording on) with `EnableHooks=false`, matching production except hook callbacks. It measures classification + atomic counter updates without `OnRetryEvent` emission.
 - `BenchmarkRetryEventHookEnabled` adds the hook callback on top of the same observer path.
 - `BenchmarkRetryStormSuppressedWithObservability` runs full `runWithRetry` with an overloaded suppression snapshot, recording `RetryEventSuppressed`, counter updates, and trace/attempt state per iteration—not `DecideRetrySuppression` in isolation and not `RetryFailureSnapshot` pull (use `BenchmarkRetryFailureSnapshot` for snapshot allocation on pull).
+
+### v0.6.0 consolidated commands
+
+See [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failure-policy.md).
+
+```bash
+go test ./... -bench=. -benchmem
+```
+
+| Area | Bench regex / names |
+|------|---------------------|
+| Failure classification | `BenchmarkClassifyFailure*` |
+| Deadline budget | `BenchmarkDeadlineBudget*`, `BenchmarkNewDeadlineBudget` |
+| Retry decision | `BenchmarkRetryDecision*` (if present), `runWithRetry` benches |
+| Idempotency safety | `BenchmarkDecideRetrySafety*`, `BenchmarkIdempotency*` |
+| Retry suppression | `BenchmarkRetrySuppression*`, `DecideRetrySuppression` |
+| Observability | `BenchmarkRetryObserv*`, `BenchmarkFailureObserv*`, `BenchmarkRetryFailureSnapshot`, `BenchmarkRetryTraceFromFuture` |
+| Hook overhead | `BenchmarkRetryEventHookDisabled`, `BenchmarkRetryEventHookEnabled` |
+| Storm suppression | `BenchmarkRetryStormSuppressedWithObservability` |
+
+### Low-allocation expectations (v0.6)
+
+- **Hook-disabled** retry path: atomic counter updates + classification; no `OnRetryEvent` callback allocations.
+- **Hook-enabled**: adds per-event callback cost — measure separately.
+- **`RetryFailureSnapshot`**: may allocate slice copies on **pull**; do not call every iteration in hot paths.
+- **Suppression storm bench**: measures `runWithRetry` + observer + trace state only; snapshot pull is isolated in `BenchmarkRetryFailureSnapshot`.
+
+Compare `B/op` and `allocs/op` before/after changes with `benchstat -count=5` on the same machine.
 
 ### Full Benchmark Suite
 To run all benchmarks (including public and internal core packages) showing memory allocation statistics:
@@ -134,7 +162,7 @@ v0.5 metric contract tests (cardinality, required families) live in `metrics/pro
 
 See [observability.md](observability.md) for v0.5 diagnostics, hooks, and privacy defaults.
 
-### v0.6 failure classification
+### v0.6.0 failure classification
 
 ```bash
 go test . -bench='Failure|DeadlineBudget' -benchmem -count=5
