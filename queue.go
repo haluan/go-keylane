@@ -28,6 +28,7 @@ type Queue struct {
 	retryPolicy            RetryPolicy
 	idempotencyPolicy      IdempotencyPolicy
 	retrySuppression       RetrySuppressionPolicy
+	retryObs               retryCounters
 }
 
 // New creates a new Queue instance with the specified configuration.

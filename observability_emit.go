@@ -22,6 +22,15 @@ func (q *Queue) emitQuotaChange(e QuotaChangeEvent) {
 	}
 }
 
+func (q *Queue) emitRetryEvent(e RetryEvent) {
+	if !q.hooksEnabled() {
+		return
+	}
+	if h := q.config.Observability.Hooks.Retry.OnRetryEvent; h != nil {
+		callHook(func() { h(e) })
+	}
+}
+
 func (q *Queue) emitOverloadPolicy(e OverloadPolicyEvent) {
 	if !q.hooksEnabled() {
 		return

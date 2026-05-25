@@ -131,7 +131,7 @@ func SubmitRequest[I any, O any](
 				res := runSubmitRequestHandlerWithRetry(
 					reqCtx, policy, retryPolicy, opts, handlerStartBudget, handle, input,
 				)
-				future.appendRetryAttempts(res.retryAttempts)
+				future.setRetryOutcome(res.retryAttempts, res.retryFinal, res.retryTracked)
 				out, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
 				out, err = handle(reqCtx, input)
@@ -139,8 +139,14 @@ func SubmitRequest[I any, O any](
 			}
 
 			finalBudget := handlerStartBudget.WithRuntimeAt(time.Since(runStart), time.Now())
-			if err != nil {
-				future.complete(zero, err, policy, finalBudget, beforeHandler)
+			if retryPolicy.Enabled {
+				if err != nil {
+					future.complete(zero, err, policy, finalBudget, beforeHandler)
+				} else {
+					future.complete(out, nil, policy, finalBudget, beforeHandler)
+				}
+			} else if err != nil {
+				future.completeWithFailureObs(q, zero, err, policy, finalBudget, beforeHandler)
 			} else {
 				future.complete(out, nil, policy, finalBudget, beforeHandler)
 			}

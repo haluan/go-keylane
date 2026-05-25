@@ -252,6 +252,26 @@ func TestLowAllocationSubmitValueAwait(t *testing.T) {
 	}
 }
 
+func TestLowAllocationRetryRecordsCountersWithoutHooks(t *testing.T) {
+	cfg := lowAllocTestConfig()
+	cfg.Retry = RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := buildRunWithRetryOpts(q, "k", "default", 0, retrySafeIdempotency(), nil)
+	if opts.Observer == nil {
+		t.Fatal("expected observer for counter recording")
+	}
+	now := time.Now()
+	_ = runWithRetry(context.Background(), FailurePolicy{}, cfg.Retry, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+		return 0, PermanentFailure(errors.New("x"))
+	})
+	if q.RetryFailureSnapshot().FailuresTotal == 0 {
+		t.Fatal("expected failure counter without hooks")
+	}
+}
+
 // TestLowAllocationSubmitRequestNilRequestHooksAllocs lives in request_observability_test.go.
 
 func TestLowAllocationFailedJobStillCountsWhenCountersOn(t *testing.T) {
