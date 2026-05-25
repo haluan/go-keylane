@@ -58,6 +58,17 @@ go test -bench='RetrySuppression|DecideRetrySuppression' -benchmem .
 
 Covers `DecideRetrySuppression` (healthy vs overloaded), `RetrySuppressionSnapshot`, `BenchmarkRunWithRetrySuppressedUnderPressure`, `BenchmarkRunWithRetrySuppressionTrace`, and `runWithRetry` with suppression disabled.
 
+### Retry/failure observability (KL-1605)
+```bash
+go test -bench='RetryObserv|FailureObserv|RetryTrace|RetryFailure|RecordFailure' -benchmem .
+```
+
+Covers classification, retry/safety/suppression decisions, `RetryFailureSnapshot`, `RetryTraceFromFuture`, hook-disabled vs hook-enabled `runWithRetry`, and `SubmitValue`/`SubmitRequest` with retry. See [retry-observability.md](retry-observability.md).
+
+- `BenchmarkRetryEventHookDisabled` uses `q.retryObserver()` (counter recording on) with `EnableHooks=false`, matching production except hook callbacks. It measures classification + atomic counter updates without `OnRetryEvent` emission.
+- `BenchmarkRetryEventHookEnabled` adds the hook callback on top of the same observer path.
+- `BenchmarkRetryStormSuppressedWithObservability` runs full `runWithRetry` with an overloaded suppression snapshot, recording `RetryEventSuppressed`, counter updates, and trace/attempt state per iteration—not `DecideRetrySuppression` in isolation and not `RetryFailureSnapshot` pull (use `BenchmarkRetryFailureSnapshot` for snapshot allocation on pull).
+
 ### Full Benchmark Suite
 To run all benchmarks (including public and internal core packages) showing memory allocation statistics:
 ```bash

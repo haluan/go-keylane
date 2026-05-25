@@ -72,7 +72,13 @@ func checkStatsGCPressureSane(cfg keylane.Config, snap keylane.StatsGCPressureSn
 		if terminal > c.Accepted+1 {
 			return errors.New("lane terminal outcomes exceed Accepted")
 		}
-		if lane.Run.Count > terminal+1 {
+		// Run.Count and terminal counters are separate atomics; under concurrency a snapshot
+		// may read a higher run count before terminal catches up (up to in-flight bound).
+		runSlack := maxInFlight
+		if runSlack < uint64(cfg.WorkerCount) {
+			runSlack = uint64(cfg.WorkerCount)
+		}
+		if lane.Run.Count > terminal+runSlack {
 			return errors.New("lane Run.Count exceeds terminal outcomes")
 		}
 	}

@@ -212,19 +212,26 @@ func TestRequestHooksHandlerFailed(t *testing.T) {
 		Meta:  RequestMeta{Key: "k", Lane: "default"},
 		Input: struct{}{},
 		Handle: func(context.Context, struct{}) (struct{}, error) {
-			return struct{}{}, handlerErr
+			return struct{}{}, PermanentFailure(handlerErr)
 		},
 	})
 	if err != nil {
 		t.Fatalf("SubmitRequest: %v", err)
 	}
-	if _, awaitErr := future.Await(ctx); !errors.Is(awaitErr, handlerErr) {
-		t.Fatalf("Await err = %v", awaitErr)
+	if _, awaitErr := future.Await(ctx); awaitErr == nil {
+		t.Fatal("Await err = nil, want permanent failure")
+	}
+	fail, ok := FailureFromFuture(future)
+	if !ok || fail.Kind != FailurePermanent {
+		t.Fatalf("failure = %+v ok=%v", fail, ok)
 	}
 
 	completed := waitRequestObservation(t, spy.completed)
 	if completed.Outcome != RequestOutcomeFailed {
 		t.Errorf("Outcome = %q, want failed", completed.Outcome)
+	}
+	if completed.FailureKind != FailurePermanent {
+		t.Errorf("FailureKind = %q, want permanent", completed.FailureKind)
 	}
 	if !errors.Is(completed.Err, handlerErr) {
 		t.Errorf("Err = %v, want %v", completed.Err, handlerErr)

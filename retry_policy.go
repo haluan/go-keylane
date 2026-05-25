@@ -97,11 +97,6 @@ type RetryAttempt struct {
 	ShardDepthRatioSnap float64
 }
 
-// RetryTrace records retry scheduling decisions attached to a completed result future.
-type RetryTrace struct {
-	Attempts []RetryAttempt
-}
-
 // HadExplicitUnsafeRetry reports whether any recorded attempt used AllowUnsafeRetry override.
 func (t RetryTrace) HadExplicitUnsafeRetry() bool {
 	for _, a := range t.Attempts {
@@ -141,6 +136,64 @@ type runWithRetryOpts struct {
 	IdempotencyPolicy IdempotencyPolicy
 	SuppressionPolicy RetrySuppressionPolicy
 	Snapshot          RetrySuppressionSnapshotFunc
+	Observer          retryObserver
+}
+
+func observeRetry(opts runWithRetryOpts, rec retryObsRecord) {
+	if opts.Observer != nil {
+		opts.Observer(rec)
+	}
+}
+
+func retryObsMeta(opts runWithRetryOpts, attempt int, failure Failure, budget DeadlineBudget) retryObsRecord {
+	return retryObsRecord{
+		Key:                  opts.Key,
+		Lane:                 opts.Lane,
+		ShardID:              opts.ShardID,
+		Attempt:              attempt,
+		Failure:              failure,
+		Budget:               budget,
+		IdempotencyScope:     opts.Idempotency.Scope,
+		IdempotencyOperation: opts.Idempotency.Operation,
+	}
+}
+
+func finalStateFromFailure(failure Failure, exhausted bool, stopped RetryDecisionReason, safety RetrySafetyDecisionReason, suppress RetrySuppressionReason) RetryFinalState {
+	kind := failure.Kind
+	if kind == "" {
+		kind = FailureUnknown
+	}
+	return RetryFinalState{
+		Exhausted:         exhausted,
+		StoppedReason:     stopped,
+		SafetyReason:      safety,
+		SuppressionReason: suppress,
+		FailureKind:       kind,
+	}
+}
+
+func retryTerminalExhausted(reason RetryDecisionReason) bool {
+	return reason == RetryDecisionMaxAttempts
+}
+
+func observeRetryTerminalStop(opts runWithRetryOpts, rec retryObsRecord, reason RetryDecisionReason) {
+	rec.RetryReason = reason
+	switch reason {
+	case RetryDecisionMaxAttempts:
+		rec.Kind = RetryEventMaxAttemptsStopped
+		observeRetry(opts, rec)
+		rec.Kind = RetryEventExhausted
+		observeRetry(opts, rec)
+	case RetryDecisionDeadlineExhausted, RetryDecisionBudgetTooSmall:
+		rec.Kind = RetryEventDeadlineStopped
+		observeRetry(opts, rec)
+	case RetryDecisionContextCancelled:
+		rec.Kind = RetryEventContextCancelled
+		observeRetry(opts, rec)
+	case RetryDecisionPermanentFailure, RetryDecisionDisabled:
+		rec.Kind = RetryEventRetryStopped
+		observeRetry(opts, rec)
+	}
 }
 
 type retryClock interface {
@@ -377,6 +430,8 @@ type runWithRetryResult[T any] struct {
 	budget        DeadlineBudget
 	beforeHandler bool
 	retryAttempts []RetryAttempt
+	retryFinal    RetryFinalState
+	retryTracked  bool
 }
 
 // runWithRetry executes run with bounded retry. retryPolicy must have Enabled set.
@@ -407,14 +462,23 @@ func runWithRetry[T any](
 		now := clock.Now()
 		budget = startBudget.refreshAt(now)
 
+		rec := retryObsMeta(opts, attempt, Failure{}, budget)
+
 		if err := ctx.Err(); err != nil {
+			fail := ClassifyContextError(err, budget, true)
+			rec = retryObsMeta(opts, attempt, fail, budget)
+			rec.Kind = RetryEventFailureClassified
+			observeRetry(opts, rec)
+			observeRetryTerminalStop(opts, rec, RetryDecisionContextCancelled)
+			final := finalStateFromFailure(fail, false, RetryDecisionContextCancelled, "", "")
 			return runWithRetryResult[T]{
-				err:           err,
-				budget:        budget,
-				beforeHandler: true,
-				retryAttempts: retryAttempts,
+				err: err, budget: budget, beforeHandler: true,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
+
+		rec.Kind = RetryEventAttemptStarted
+		observeRetry(opts, rec)
 
 		attemptStart := now
 		val, err := run(attempt)
@@ -423,14 +487,28 @@ func runWithRetry[T any](
 		budget = budget.WithRuntimeAt(totalRuntime, clock.Now())
 
 		if err == nil {
-			return runWithRetryResult[T]{val: val, budget: budget, beforeHandler: false, retryAttempts: retryAttempts}
+			rec := retryObsMeta(opts, attempt, Failure{}, budget)
+			rec.Kind = RetryEventSucceeded
+			observeRetry(opts, rec)
+			final := RetryFinalState{Succeeded: true}
+			return runWithRetryResult[T]{
+				val: val, budget: budget, beforeHandler: false,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
+			}
 		}
 
 		lastErr = err
 		lastFailure = classifyFailureWithPolicy(err, failurePolicy)
 		if lastFailure.Kind == FailureNone {
-			return runWithRetryResult[T]{val: val, err: err, budget: budget, beforeHandler: false, retryAttempts: retryAttempts}
+			return runWithRetryResult[T]{
+				val: val, err: err, budget: budget, beforeHandler: false,
+				retryAttempts: retryAttempts, retryTracked: true,
+			}
 		}
+
+		rec = retryObsMeta(opts, attempt, lastFailure, budget)
+		rec.Kind = RetryEventFailureClassified
+		observeRetry(opts, rec)
 
 		decision := DecideRetry(policy, RetryState{
 			Ctx:     ctx,
@@ -440,11 +518,11 @@ func runWithRetry[T any](
 			Now:     now,
 		}, jitter)
 		if !decision.Retry {
+			observeRetryTerminalStop(opts, rec, decision.Reason)
+			final := finalStateFromFailure(lastFailure, retryTerminalExhausted(decision.Reason), decision.Reason, "", "")
 			return runWithRetryResult[T]{
-				err:           failureAsError(lastFailure),
-				budget:        budget,
-				beforeHandler: false,
-				retryAttempts: retryAttempts,
+				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
 
@@ -473,11 +551,14 @@ func runWithRetry[T any](
 			SafetyReason:         safety.Reason,
 		})
 		if !safety.Allow {
+			rec.Kind = RetryEventSafetySuppressed
+			rec.RetryReason = decision.Reason
+			rec.SafetyReason = safety.Reason
+			observeRetry(opts, rec)
+			final := finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, "")
 			return runWithRetryResult[T]{
-				err:           failureAsError(lastFailure),
-				budget:        budget,
-				beforeHandler: false,
-				retryAttempts: retryAttempts,
+				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
 
@@ -510,33 +591,45 @@ func runWithRetry[T any](
 			last.ShardDepthRatioSnap = snap.ShardDepthRatio
 		}
 		if suppress.Suppress {
+			rec.Kind = RetryEventSuppressed
+			rec.RetryReason = decision.Reason
+			rec.SafetyReason = safety.Reason
+			rec.SuppressionReason = suppress.Reason
+			rec.Pressure = snap.Pressure
+			rec.Delay = decision.Delay
+			observeRetry(opts, rec)
+			final := finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, suppress.Reason)
 			return runWithRetryResult[T]{
-				err:           failureAsError(lastFailure),
-				budget:        budget,
-				beforeHandler: false,
-				retryAttempts: retryAttempts,
+				err: failureAsError(lastFailure), budget: budget, beforeHandler: false,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
+
+		rec.Kind = RetryEventScheduled
+		rec.RetryReason = decision.Reason
+		rec.SafetyReason = safety.Reason
+		rec.Delay = decision.Delay
+		rec.Pressure = snap.Pressure
+		observeRetry(opts, rec)
 
 		if sleepErr := clock.Sleep(ctx, decision.Delay); sleepErr != nil {
+			fail := ClassifyContextError(sleepErr, budget, true)
+			rec = retryObsMeta(opts, attempt, fail, budget)
+			rec.Kind = RetryEventFailureClassified
+			observeRetry(opts, rec)
+			observeRetryTerminalStop(opts, rec, RetryDecisionContextCancelled)
+			final := finalStateFromFailure(fail, false, RetryDecisionContextCancelled, safety.Reason, "")
 			return runWithRetryResult[T]{
-				err:           sleepErr,
-				budget:        budget,
-				beforeHandler: true,
-				retryAttempts: retryAttempts,
+				err: sleepErr, budget: budget, beforeHandler: true,
+				retryAttempts: retryAttempts, retryFinal: final, retryTracked: true,
 			}
 		}
 	}
 
-	if lastErr != nil {
-		return runWithRetryResult[T]{
-			err:           failureAsError(lastFailure),
-			budget:        budget.refreshAt(clock.Now()),
-			beforeHandler: false,
-			retryAttempts: retryAttempts,
-		}
+	return runWithRetryResult[T]{
+		val: zero, err: lastErr, beforeHandler: false,
+		retryAttempts: retryAttempts, retryTracked: true,
 	}
-	return runWithRetryResult[T]{val: zero, err: lastErr, beforeHandler: false, retryAttempts: retryAttempts}
 }
 
 // runSubmitRequestHandlerWithRetry runs a typed request handler with bounded retry.
@@ -585,6 +678,7 @@ func buildRunWithRetryOpts(
 	if suppressionPolicy.Enabled {
 		opts.Snapshot = q.RetrySuppressionSnapshot
 	}
+	opts.Observer = q.retryObserver()
 	return opts
 }
 

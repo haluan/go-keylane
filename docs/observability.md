@@ -26,7 +26,8 @@ Optional adapters     -> Prometheus pull, OpenTelemetry spans
 | Run duration | `RunStatsGCPressure` in snapshot | Time inside `Run` only |
 | Debug | `Queue.DebugSnapshot()` | Hot shard/lane, per-shard/lane depth at call time |
 | Pressure | `Queue.Pressure()` | `IsHealthy`, `IsPressured`, `IsOverloaded`, depth ratios |
-| Hooks | `Hooks.OnJobTiming`, `OnSlowJob`, `OnQuotaChange`, `OnAdaptiveQuotaDecision`, `OnOverloadPolicyDecision` | Custom or adapter integration |
+| Hooks | `Hooks.OnJobTiming`, `OnSlowJob`, `OnQuotaChange`, `OnAdaptiveQuotaDecision`, `OnOverloadPolicyDecision`, `Hooks.Retry.OnRetryEvent` | Custom or adapter integration |
+| Retry/failure | `Queue.RetryFailureSnapshot()`, `RetryTraceFromFuture` | Retry counters and per-future retry outcome — [retry-observability.md](retry-observability.md), [failure-observability.md](failure-observability.md) |
 | Adaptive debug | `Queue.AdaptiveDebugSnapshot()` | Controller state + per-lane adaptive counters |
 | Adapters | separate modules | [Prometheus](metrics-prometheus.md), [OpenTelemetry](tracing-opentelemetry.md) |
 

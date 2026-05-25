@@ -48,6 +48,14 @@ type Hooks struct {
 	OnShardPressureSummary func(ShardPressureSummaryEvent)
 	// OnScaleSignal fires after ScaleSignal is computed when diagnostics are enabled.
 	OnScaleSignal func(ScaleSignalEvent)
+	// Retry holds optional retry/failure observability hooks.
+	Retry RetryHooks
+}
+
+// RetryHooks contains optional callbacks for retry scheduling and suppression.
+type RetryHooks struct {
+	// OnRetryEvent fires for retry lifecycle events when hooks are enabled.
+	OnRetryEvent func(RetryEvent)
 }
 
 // HotKeyCandidateEvent carries hot key candidate metadata (key_hash only by default).

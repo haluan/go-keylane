@@ -60,7 +60,7 @@ func SubmitValue[T any](
 			if retryPolicy.Enabled {
 				opts := buildRunWithRetryOpts(q, job.Key, job.Lane, q.ShardIDForKey(job.Key), job.Idempotency, job.RetrySuppression)
 				res := runValueJobWithRetry(ctx, policy, retryPolicy, opts, handlerStartBudget, job.Run)
-				future.appendRetryAttempts(res.retryAttempts)
+				future.setRetryOutcome(res.retryAttempts, res.retryFinal, res.retryTracked)
 				val, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
 				val, err = job.Run(ctx)
@@ -68,8 +68,14 @@ func SubmitValue[T any](
 			}
 
 			finalBudget := handlerStartBudget.WithRuntimeAt(time.Since(runStart), time.Now())
-			if err != nil {
-				future.complete(zero, err, policy, finalBudget, beforeHandler)
+			if retryPolicy.Enabled {
+				if err != nil {
+					future.complete(zero, err, policy, finalBudget, beforeHandler)
+				} else {
+					future.complete(val, nil, policy, finalBudget, beforeHandler)
+				}
+			} else if err != nil {
+				future.completeWithFailureObs(q, zero, err, policy, finalBudget, beforeHandler)
 			} else {
 				future.complete(val, nil, policy, finalBudget, beforeHandler)
 			}

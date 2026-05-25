@@ -29,15 +29,17 @@ type retryTraceFuture interface {
 }
 
 type resultFuture[T any] struct {
-	done          chan struct{}
-	once          sync.Once
-	mu            sync.Mutex
-	val           T
-	err           error
-	failure       Failure
-	budget        DeadlineBudget
-	budgetTrace   DeadlineBudgetTrace
-	retryAttempts []RetryAttempt
+	done              chan struct{}
+	once              sync.Once
+	mu                sync.Mutex
+	val               T
+	err               error
+	failure           Failure
+	budget            DeadlineBudget
+	budgetTrace       DeadlineBudgetTrace
+	retryAttempts     []RetryAttempt
+	retryFinal        RetryFinalState
+	retryTraceTracked bool
 }
 
 func newResultFuture[T any]() *resultFuture[T] {
@@ -52,24 +54,35 @@ func (f *resultFuture[T]) failureMetadata() (Failure, DeadlineBudget, DeadlineBu
 	return f.failure, f.budget, f.budgetTrace, true
 }
 
-func (f *resultFuture[T]) appendRetryAttempts(attempts []RetryAttempt) {
-	if len(attempts) == 0 {
+func (f *resultFuture[T]) setRetryOutcome(attempts []RetryAttempt, final RetryFinalState, tracked bool) {
+	if !tracked && len(attempts) == 0 {
 		return
 	}
 	f.mu.Lock()
-	f.retryAttempts = append(f.retryAttempts, attempts...)
+	if len(attempts) > 0 {
+		f.retryAttempts = append(f.retryAttempts, attempts...)
+	}
+	f.retryFinal = final
+	f.retryTraceTracked = tracked
 	f.mu.Unlock()
+}
+
+func (f *resultFuture[T]) appendRetryAttempts(attempts []RetryAttempt) {
+	f.setRetryOutcome(attempts, RetryFinalState{}, len(attempts) > 0)
 }
 
 func (f *resultFuture[T]) retryTrace() (RetryTrace, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if len(f.retryAttempts) == 0 {
+	if !f.retryTraceTracked && len(f.retryAttempts) == 0 {
 		return RetryTrace{}, false
 	}
-	out := make([]RetryAttempt, len(f.retryAttempts))
-	copy(out, f.retryAttempts)
-	return RetryTrace{Attempts: out}, true
+	var out []RetryAttempt
+	if len(f.retryAttempts) > 0 {
+		out = make([]RetryAttempt, len(f.retryAttempts))
+		copy(out, f.retryAttempts)
+	}
+	return RetryTrace{Attempts: out, Final: f.retryFinal}, true
 }
 
 func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) {
@@ -95,6 +108,15 @@ func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budge
 		f.mu.Unlock()
 		close(f.done)
 	})
+}
+
+func (f *resultFuture[T]) completeWithFailureObs(q *Queue, val T, err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) {
+	f.complete(val, err, policy, budget, beforeHandler)
+	if q != nil && err != nil {
+		if fail, ok := FailureFromFuture(f); ok && fail.Kind != FailureNone {
+			q.recordFailureKind(fail.Kind)
+		}
+	}
 }
 
 func (f *resultFuture[T]) completeSimple(val T, err error, policy FailurePolicy) {
