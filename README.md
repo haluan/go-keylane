@@ -261,6 +261,9 @@ cd tracing/otel && go test ./...
 ### v0.6 failure classification, deadline budget & retry
 
 - [Failure Policy](docs/failure-policy.md) (includes bounded retry)
+- [Idempotency & Retry Safety](docs/idempotency.md)
+- [Retry Suppression](docs/retry-suppression.md)
+- [Failure-Aware Admission](docs/failure-aware-admission.md)
 - [Deadline Budget](docs/deadline-budget.md)
 
 ### v0.5 hot key, shard pressure & autoscaling

@@ -11,7 +11,7 @@ See also: [retry-policy.md](retry-policy.md) (redirect to failure-policy retry s
 ## When checks run
 
 - Idempotency metadata is evaluated only when `Config.Retry.Enabled` (or a per-job / per-request retry override) is active.
-- `DecideRetry` runs first; `DecideRetrySafety` runs only when a retry would be scheduled, **before** backoff sleep.
+- `DecideRetry` runs first; `DecideRetrySafety` runs only when a retry would be scheduled, **before** backoff sleep; `DecideRetrySuppression` runs after safety when [retry suppression](retry-suppression.md) is enabled.
 - When retry is disabled, idempotency fields are inert (no extra work on the hot path).
 - Safety hooks are **not** invoked when `DecideRetry` already rejects (permanent failure, cancellation, deadline budget exhausted, max attempts).
 
@@ -146,4 +146,6 @@ Keylane retry is **in-worker and in-process**. It does not provide durable exact
 
 - [failure-policy.md](failure-policy.md) — failure kinds and retry policy
 - [retry-policy.md](retry-policy.md) — entry point for retry configuration
+- [retry-suppression.md](retry-suppression.md) — pressure-aware retry gate
+- [failure-aware-admission.md](failure-aware-admission.md) — failure kinds vs retry storms
 - [deadline-budget.md](deadline-budget.md) — budget checks before retry sleep

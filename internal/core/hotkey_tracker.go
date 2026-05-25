@@ -164,17 +164,48 @@ func (t *hotKeyTracker) maybeResetEntry(e *hotKeyEntry, now time.Time) {
 	if e.keyHash == 0 {
 		return
 	}
-	window := t.cfg.DetectionWindow
-	if window <= 0 {
-		return
-	}
-	if e.lastSeenUnixNano == 0 {
-		return
-	}
-	if now.Sub(time.Unix(0, e.lastSeenUnixNano)) > window {
+	if hotKeyEntryStale(e, t.cfg.DetectionWindow, now) {
 		t.clearEntry(e)
 		e.epoch = t.epoch
 	}
+}
+
+// hotKeyEntryStale reports whether a tracker entry is outside the detection window (read-only).
+func hotKeyEntryStale(e *hotKeyEntry, window time.Duration, now time.Time) bool {
+	if e == nil || e.keyHash == 0 || window <= 0 || e.lastSeenUnixNano == 0 {
+		return false
+	}
+	return now.Sub(time.Unix(0, e.lastSeenUnixNano)) > window
+}
+
+// entryForObservationLocked returns a fresh entry for read-only observation without expiring or clearing slots.
+// Caller must hold t.mu.
+func (t *hotKeyTracker) entryForObservationLocked(keyHash uint64, now time.Time) *hotKeyEntry {
+	idx, ok := t.index[keyHash]
+	if !ok {
+		return nil
+	}
+	e := &t.entries[idx]
+	if e.keyHash != keyHash || hotKeyEntryStale(e, t.cfg.DetectionWindow, now) {
+		return nil
+	}
+	return e
+}
+
+// trackerTotalsForObservationLocked aggregates shard totals over non-stale entries only.
+// Caller must hold t.mu.
+func (t *hotKeyTracker) trackerTotalsForObservationLocked(now time.Time) (totalSubmitted uint64, totalQueued int64) {
+	for i := range t.entries {
+		en := &t.entries[i]
+		if en.keyHash == 0 || hotKeyEntryStale(en, t.cfg.DetectionWindow, now) {
+			continue
+		}
+		totalSubmitted += en.submittedApprox
+		if en.queuedApprox > 0 {
+			totalQueued += en.queuedApprox
+		}
+	}
+	return totalSubmitted, totalQueued
 }
 
 func (t *hotKeyTracker) clearEntry(e *hotKeyEntry) {

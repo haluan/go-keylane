@@ -89,6 +89,12 @@ type RetryAttempt struct {
 	IdempotencyOperation string
 	RetrySafety          RetrySafety
 	SafetyReason         RetrySafetyDecisionReason
+
+	Suppressed          bool
+	SuppressionReason   RetrySuppressionReason
+	PressureRatio       float64
+	LaneDepthRatioSnap  float64
+	ShardDepthRatioSnap float64
 }
 
 // RetryTrace records retry scheduling decisions attached to a completed result future.
@@ -106,13 +112,35 @@ func (t RetryTrace) HadExplicitUnsafeRetry() bool {
 	return false
 }
 
-// runWithRetryOpts carries routing and idempotency context for runWithRetry.
+// HadSuppression reports whether any attempt was suppressed for the given reason.
+func (t RetryTrace) HadSuppression(reason RetrySuppressionReason) bool {
+	for _, a := range t.Attempts {
+		if a.Suppressed && a.SuppressionReason == reason {
+			return true
+		}
+	}
+	return false
+}
+
+// LastSuppressionReason returns the suppression reason from the most recent suppressed attempt.
+func (t RetryTrace) LastSuppressionReason() (RetrySuppressionReason, bool) {
+	for i := len(t.Attempts) - 1; i >= 0; i-- {
+		if t.Attempts[i].Suppressed {
+			return t.Attempts[i].SuppressionReason, true
+		}
+	}
+	return "", false
+}
+
+// runWithRetryOpts carries routing, idempotency, and suppression context for runWithRetry.
 type runWithRetryOpts struct {
 	Key               string
 	Lane              Lane
 	ShardID           int
 	Idempotency       Idempotency
 	IdempotencyPolicy IdempotencyPolicy
+	SuppressionPolicy RetrySuppressionPolicy
+	Snapshot          RetrySuppressionSnapshotFunc
 }
 
 type retryClock interface {
@@ -453,6 +481,43 @@ func runWithRetry[T any](
 			}
 		}
 
+		var snap RetrySuppressionSnapshot
+		if opts.Snapshot != nil {
+			snap = opts.Snapshot(opts.Key, opts.Lane, opts.ShardID)
+		}
+		suppress := DecideRetrySuppression(ctx, opts.SuppressionPolicy, RetrySuppressionCheck{
+			Key:             opts.Key,
+			Lane:            opts.Lane,
+			ShardID:         opts.ShardID,
+			Attempt:         attempt,
+			Failure:         lastFailure,
+			Retry:           policy,
+			Budget:          budget,
+			Pressure:        snap.Pressure,
+			LaneDepthRatio:  snap.LaneDepthRatio,
+			ShardDepthRatio: snap.ShardDepthRatio,
+			ScaleSignal:     snap.ScaleSignal,
+			Idempotency:     opts.Idempotency,
+			LaneClass:       snap.LaneClass,
+			HotKeyCandidate: snap.HotKeyCandidate,
+		})
+		if len(retryAttempts) > 0 {
+			last := &retryAttempts[len(retryAttempts)-1]
+			last.Suppressed = suppress.Suppress
+			last.SuppressionReason = suppress.Reason
+			last.PressureRatio = snap.Pressure.TotalDepthRatio
+			last.LaneDepthRatioSnap = snap.LaneDepthRatio
+			last.ShardDepthRatioSnap = snap.ShardDepthRatio
+		}
+		if suppress.Suppress {
+			return runWithRetryResult[T]{
+				err:           failureAsError(lastFailure),
+				budget:        budget,
+				beforeHandler: false,
+				retryAttempts: retryAttempts,
+			}
+		}
+
 		if sleepErr := clock.Sleep(ctx, decision.Delay); sleepErr != nil {
 			return runWithRetryResult[T]{
 				err:           sleepErr,
@@ -501,6 +566,26 @@ func runValueJobWithRetry[T any](
 	return runWithRetry(ctx, policy, retryPolicy, opts, budget, nil, nil, func(int) (T, error) {
 		return run(ctx)
 	})
+}
+
+func buildRunWithRetryOpts(
+	q *Queue,
+	key string,
+	lane Lane,
+	shardID int,
+	idempotency Idempotency,
+	suppressionOverride *RetrySuppressionPolicy,
+) runWithRetryOpts {
+	suppressionPolicy := resolveRetrySuppressionPolicy(q.retrySuppression, suppressionOverride)
+	opts := runWithRetryOpts{
+		Key: key, Lane: lane, ShardID: shardID,
+		Idempotency: idempotency, IdempotencyPolicy: q.idempotencyPolicy,
+		SuppressionPolicy: suppressionPolicy,
+	}
+	if suppressionPolicy.Enabled {
+		opts.Snapshot = q.RetrySuppressionSnapshot
+	}
+	return opts
 }
 
 func failureAsError(f Failure) error {

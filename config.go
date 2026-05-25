@@ -45,6 +45,9 @@ type Config struct {
 
 	// Idempotency configures duplicate-safety checks when retry is enabled.
 	Idempotency IdempotencyPolicy
+
+	// RetrySuppression configures runtime-health checks before scheduling a retry.
+	RetrySuppression RetrySuppressionPolicy
 }
 
 type ObservabilityConfig struct {
@@ -120,7 +123,10 @@ func (c Config) Validate() error {
 	if err := validateConfigRetry(c); err != nil {
 		return err
 	}
-	return validateConfigIdempotency(c)
+	if err := validateConfigIdempotency(c); err != nil {
+		return err
+	}
+	return validateConfigRetrySuppression(c)
 }
 
 func validateConfigRetry(c Config) error {
@@ -133,4 +139,10 @@ func validateConfigIdempotency(c Config) error {
 	idem := c.Idempotency
 	NormalizeIdempotencyPolicy(&idem)
 	return ValidateIdempotencyPolicy(idem)
+}
+
+func validateConfigRetrySuppression(c Config) error {
+	sup := c.RetrySuppression
+	NormalizeRetrySuppressionPolicy(&sup)
+	return ValidateRetrySuppressionPolicy(sup)
 }

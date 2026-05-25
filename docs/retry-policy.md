@@ -4,4 +4,6 @@ Bounded retry configuration and behavior are documented in [failure-policy.md â€
 
 Duplicate-safety requirements (the second gate before a retry sleeps) are in [idempotency.md](idempotency.md).
 
+Runtime-health suppression (the third gate) is in [retry-suppression.md](retry-suppression.md).
+
 This file exists so spec and cross-references to `docs/retry-policy.md` resolve without duplicating content.

@@ -51,6 +51,13 @@ GODEBUG=gctrace=1 go test -bench=GCPressure -benchmem ./benchmarks
 
 Output is environment-specific; use for local investigation only, not as a product guarantee.
 
+### Retry suppression (KL-1604)
+```bash
+go test -bench='RetrySuppression|DecideRetrySuppression' -benchmem .
+```
+
+Covers `DecideRetrySuppression` (healthy vs overloaded), `RetrySuppressionSnapshot`, `BenchmarkRunWithRetrySuppressedUnderPressure`, `BenchmarkRunWithRetrySuppressionTrace`, and `runWithRetry` with suppression disabled.
+
 ### Full Benchmark Suite
 To run all benchmarks (including public and internal core packages) showing memory allocation statistics:
 ```bash
