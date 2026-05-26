@@ -76,6 +76,8 @@ Do not use `Key` or `RequestID` as Prometheus labels. Use `operation`, `lane`, `
 
 ```go
 type StageObservation struct {
+    Execution StageExecutionContext // canonical metadata (KL-1702)
+
     RequestID string
     Key       string   // debugging only — do not use as a metric label
     Lane      Lane
@@ -90,6 +92,8 @@ type StageObservation struct {
     DeadlineRemaining time.Duration
 }
 ```
+
+Flat fields mirror `Execution` for backward-compatible hooks. Prefer `Execution` for new adapters. See [stage-execution-context.md](stage-execution-context.md).
 
 - `OnStageStarted` fires before each stage `Run`.
 - `OnStageCompleted` fires after a successful stage.

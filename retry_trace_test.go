@@ -15,7 +15,7 @@ func TestRetryTraceFromFutureSuccessAfterRetry(t *testing.T) {
 	clock := &testRetryClock{now: now}
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	var n int
-	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		n++
 		if n < 2 {
 			return 0, RetryableFailure(errors.New("t"))
@@ -43,7 +43,7 @@ func TestRetryTraceFromFutureSafetySuppressed(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{
 		Idempotency: Idempotency{Safety: RetrySafetyUnsafe},
-	}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	future := newResultFuture[int]()
@@ -74,7 +74,7 @@ func TestRetryTraceFromFuturePressureSuppressed(t *testing.T) {
 	opts.Snapshot = func(string, Lane, int) RetrySuppressionSnapshot {
 		return RetrySuppressionSnapshot{Pressure: overloadedPressure()}
 	}
-	res := runWithRetry(context.Background(), FailurePolicy{}, q.retryPolicy, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, q.retryPolicy, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	trace := RetryTrace{Attempts: res.retryAttempts, Final: res.retryFinal}
@@ -89,7 +89,7 @@ func TestRetryTraceFromFuturePressureSuppressed(t *testing.T) {
 func TestRetryTraceFromFutureExhausted(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
-	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("transient"))
 	})
 	future := newResultFuture[int]()
@@ -128,7 +128,7 @@ func TestRetryTraceCopyImmutable(t *testing.T) {
 func TestRetryTracePermanentFailureWithoutAttempts(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
-	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}}, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, PermanentFailure(errors.New("perm"))
 	})
 	if len(res.retryAttempts) != 0 {

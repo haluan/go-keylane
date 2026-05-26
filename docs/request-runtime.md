@@ -232,3 +232,7 @@ meta := keylane.RequestMeta{
 ## Request pipelines (v0.7)
 
 For multi-step handlers with stage-level observability, use [`SubmitPipeline`](request-pipeline.md). Pipelines reuse the same routing, admission, retry, and `Future` semantics as `SubmitRequest`. Stages run sequentially in-worker in KL-1701; non-blocking continuation is planned separately (KL-1703).
+
+Both APIs attach [`StageExecutionContext`](stage-execution-context.md) to the handler context so stages can read shard, stage, attempt, and deadline metadata via `StageExecutionFromContext`.
+
+When request-level retry is enabled, `exec.Deadline` in that context is refreshed at the start of each retry attempt (queue wait and runtime still accumulate on the underlying budget). Stages and handlers should read `exec.Deadline` per attempt rather than caching it across failures.

@@ -60,12 +60,14 @@ Constructors: `RetryableFailure`, `PermanentFailure`, `TimeoutFailure`, `Cancell
 
 ```go
 if sf, ok := keylane.AsStageFailure(err); ok {
-    _ = sf.Stage.Name // low-cardinality stage id
+    _ = sf.Stage.Name              // low-cardinality stage id
+    _ = sf.Execution.Attempt       // retry attempt when retry enabled
+    _ = sf.Execution.ShardID       // shard at failure time
 }
 fail, _ := keylane.FailureFromFuture(future) // same classification as SubmitRequest
 ```
 
-`FailureFromFuture` classifies the underlying error via `Unwrap`. Stage names are not substituted into `Failure.Error()` text.
+`FailureFromFuture` classifies the underlying error via `Unwrap`. Stage names are not substituted into `Failure.Error()` text. Full execution metadata is in `sf.Execution` (see [stage-execution-context.md](stage-execution-context.md)).
 
 ### Custom classifier
 

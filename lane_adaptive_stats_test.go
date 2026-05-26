@@ -423,11 +423,24 @@ func TestAdmissionCountersInLaneStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
-	_ = q.Start(ctx)
-	_ = q.Submit(ctx, Job{Key: "k", Lane: "default", Run: func(context.Context) error { return nil }})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	blockChan := make(chan struct{})
+	t.Cleanup(func() { close(blockChan) })
+
+	_ = q.Submit(ctx, Job{
+		Key: "k", Lane: "default",
+		Run: func(context.Context) error { <-blockChan; return nil },
+	})
+	time.Sleep(10 * time.Millisecond)
+
 	_ = q.Submit(ctx, Job{Key: "k2", Lane: "default", Run: func(context.Context) error { return nil }})
-	err = q.Submit(ctx, Job{Key: "k3", Lane: "default", Run: func(context.Context) error { return nil }})
+	_ = q.Submit(ctx, Job{Key: "k3", Lane: "default", Run: func(context.Context) error { return nil }})
+	err = q.Submit(ctx, Job{Key: "k4", Lane: "default", Run: func(context.Context) error { return nil }})
 	if !errors.Is(err, ErrQueueFull) {
 		t.Fatalf("err = %v, want queue full", err)
 	}

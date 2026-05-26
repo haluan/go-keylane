@@ -126,15 +126,21 @@ func SubmitRequest[I any, O any](
 			var err error
 			var beforeHandler bool
 
+			baseExec := singleRequestExecutionContext(
+				meta, shardID, queueWait, 1,
+				SnapshotDeadlineBudget(handlerStartBudget, handlerStartNow),
+			)
+
 			if retryPolicy.Enabled {
 				opts := buildRunWithRetryOpts(q, meta.Key, meta.Lane, shardID, req.Idempotency, req.RetrySuppression)
 				res := runSubmitRequestHandlerWithRetry(
-					reqCtx, policy, retryPolicy, opts, handlerStartBudget, handle, input,
+					reqCtx, policy, retryPolicy, opts, handlerStartBudget, baseExec, handle, input,
 				)
 				future.setRetryOutcome(res.retryAttempts, res.retryFinal, res.retryTracked)
 				out, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
-				out, err = handle(reqCtx, input)
+				handlerCtx := ContextWithStageExecution(reqCtx, baseExec)
+				out, err = handle(handlerCtx, input)
 				beforeHandler = false
 			}
 

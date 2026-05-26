@@ -444,7 +444,7 @@ func runWithRetry[T any](
 	startBudget DeadlineBudget,
 	clock retryClock,
 	jitter retryJitterSource,
-	run func(attempt int) (T, error),
+	run func(attempt int, budget DeadlineBudget) (T, error),
 ) runWithRetryResult[T] {
 	var zero T
 	if clock == nil {
@@ -460,7 +460,11 @@ func runWithRetry[T any](
 
 	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
 		now := clock.Now()
+		runtimeSoFar := budget.Runtime
 		budget = startBudget.refreshAt(now)
+		if runtimeSoFar > 0 {
+			budget = budget.WithRuntimeAt(runtimeSoFar, now)
+		}
 
 		rec := retryObsMeta(opts, attempt, Failure{}, budget)
 
@@ -481,7 +485,7 @@ func runWithRetry[T any](
 		observeRetry(opts, rec)
 
 		attemptStart := now
-		val, err := run(attempt)
+		val, err := run(attempt, budget)
 		attemptRuntime := clock.Now().Sub(attemptStart)
 		totalRuntime := budget.Runtime + attemptRuntime
 		budget = budget.WithRuntimeAt(totalRuntime, clock.Now())
@@ -639,11 +643,15 @@ func runSubmitRequestHandlerWithRetry[I, O any](
 	retryPolicy RetryPolicy,
 	opts runWithRetryOpts,
 	budget DeadlineBudget,
+	baseExec StageExecutionContext,
 	handle func(context.Context, I) (O, error),
 	input I,
 ) runWithRetryResult[O] {
-	return runWithRetry(reqCtx, policy, retryPolicy, opts, budget, nil, nil, func(int) (O, error) {
-		return handle(reqCtx, input)
+	return runWithRetry(reqCtx, policy, retryPolicy, opts, budget, nil, nil, func(attempt int, attemptBudget DeadlineBudget) (O, error) {
+		exec := baseExec
+		exec.Attempt = attempt
+		exec.Deadline = SnapshotDeadlineBudget(attemptBudget, time.Now())
+		return handle(ContextWithStageExecution(reqCtx, exec), input)
 	})
 }
 
@@ -656,7 +664,7 @@ func runValueJobWithRetry[T any](
 	budget DeadlineBudget,
 	run func(context.Context) (T, error),
 ) runWithRetryResult[T] {
-	return runWithRetry(ctx, policy, retryPolicy, opts, budget, nil, nil, func(int) (T, error) {
+	return runWithRetry(ctx, policy, retryPolicy, opts, budget, nil, nil, func(int, DeadlineBudget) (T, error) {
 		return run(ctx)
 	})
 }

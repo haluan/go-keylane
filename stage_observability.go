@@ -7,6 +7,8 @@ import "time"
 
 // StageObservation is a snapshot of one pipeline stage execution for observability hooks.
 type StageObservation struct {
+	Execution StageExecutionContext
+
 	RequestID string
 	Key       string
 	Lane      Lane
@@ -25,44 +27,41 @@ type StageObservation struct {
 	DeadlineRemaining time.Duration
 }
 
-func newStageObservation(
-	meta RequestMeta,
-	stage StageMeta,
-	shardID int,
-	queueWait, stageDur, deadlineRemaining time.Duration,
+func newStageObservationFromExecution(
+	exec StageExecutionContext,
+	stageDur time.Duration,
 	err error,
 	policy FailurePolicy,
 ) StageObservation {
-	op := meta.Operation
-	if stage.Operation != "" {
-		op = stage.Operation
+	op := exec.Operation
+	if exec.Stage.Operation != "" {
+		op = exec.Stage.Operation
 	}
 	failure := classifyFailureWithPolicy(err, policy)
 	return StageObservation{
-		RequestID:         meta.RequestID,
-		Key:               meta.Key,
-		Lane:              meta.Lane,
-		ShardID:           shardID,
-		Transport:         meta.Transport,
+		Execution:         exec,
+		RequestID:         exec.RequestID,
+		Key:               exec.Key,
+		Lane:              exec.Lane,
+		ShardID:           exec.ShardID,
+		Transport:         exec.Transport,
 		Operation:         op,
-		Stage:             stage.Name,
+		Stage:             exec.Stage.Name,
 		Outcome:           classifyRequestOutcome(err),
 		FailureKind:       failure.Kind,
-		QueueWaitDuration: queueWait,
+		QueueWaitDuration: exec.QueueWait,
 		StageDuration:     stageDur,
-		DeadlineRemaining: deadlineRemaining,
+		DeadlineRemaining: exec.Deadline.Remaining,
 	}
 }
 
-func (q *Queue) newStageObservation(
-	meta RequestMeta,
-	stage StageMeta,
-	shardID int,
-	queueWait, stageDur, deadlineRemaining time.Duration,
+func (q *Queue) newStageObservationFromExecution(
+	exec StageExecutionContext,
+	stageDur time.Duration,
 	err error,
 ) StageObservation {
 	if q == nil {
-		return newStageObservation(meta, stage, shardID, queueWait, stageDur, deadlineRemaining, err, FailurePolicy{})
+		return newStageObservationFromExecution(exec, stageDur, err, FailurePolicy{})
 	}
-	return newStageObservation(meta, stage, shardID, queueWait, stageDur, deadlineRemaining, err, q.failurePolicy)
+	return newStageObservationFromExecution(exec, stageDur, err, q.failurePolicy)
 }

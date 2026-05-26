@@ -247,7 +247,7 @@ func TestRunWithRetryPermanentFailureDoesNotCallSuppressionHook(t *testing.T) {
 	attempts := 0
 	now := time.Now()
 	res := runWithRetry(context.Background(), FailurePolicy{}, p, runWithRetrySuppressionOpts(policy),
-		NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+		NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			attempts++
 			return 0, PermanentFailure(errors.New("perm"))
 		})
@@ -269,7 +269,7 @@ func TestRunWithRetryDeadlineExhaustedDoesNotCallSuppressionHook(t *testing.T) {
 	clock := &testRetryClock{now: now}
 	attempts := 0
 	res := runWithRetry(ctx, FailurePolicy{}, p, runWithRetrySuppressionOpts(policy),
-		budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+		budget, clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			attempts++
 			return 0, RetryableFailure(errors.New("transient"))
 		})
@@ -287,7 +287,7 @@ func TestRunWithRetryContextCancelDoesNotCallSuppressionHook(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false}
 	attempts := 0
 	res := runWithRetry(ctx, FailurePolicy{}, p, runWithRetrySuppressionOpts(policy),
-		NewDeadlineBudget(ctx, time.Now()), &testRetryClock{now: time.Now()}, fixedJitterSource(0.5), func(int) (int, error) {
+		NewDeadlineBudget(ctx, time.Now()), &testRetryClock{now: time.Now()}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			attempts++
 			cancel()
 			return 0, RetryableFailure(errors.New("transient"))
@@ -309,7 +309,7 @@ func TestRunWithRetrySuppressionRecordsReason(t *testing.T) {
 	opts := runWithRetrySuppressionOpts(policy)
 	opts.Snapshot = snapshot
 	res := runWithRetry(context.Background(), FailurePolicy{}, p, opts,
-		NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+		NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, RetryableFailure(errors.New("transient"))
 		})
 	if len(res.retryAttempts) != 1 {
