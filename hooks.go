@@ -25,6 +25,8 @@ type RequestHooks struct {
 	OnStageStarted   func(StageObservation)
 	OnStageCompleted func(StageObservation)
 	OnStageFailed    func(StageObservation)
+	// Continuation holds optional hooks for the non-blocking continuation lifecycle.
+	Continuation ContinuationHooks
 }
 
 // Hooks contains user-definable callbacks for observability events.

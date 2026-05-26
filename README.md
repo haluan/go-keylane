@@ -138,6 +138,26 @@ func main() {
 
 ---
 
+## Non-blocking continuations (KL-1703)
+
+Pipeline stages can **yield** while slow I/O runs outside the Keylane worker (database read, external API, and similar). The stage returns a `Continuation`; when your async work finishes, `ContinuationCompleter.Complete` enqueues a **resume job** on the same key shard. Physical worker identity is not preserved across yield/resume.
+
+Opt in per queue:
+
+```go
+cfg.Continuation = keylane.ContinuationConfig{Enabled: true} // MaxPending defaults to 256
+```
+
+KL-1703 is a **handoff primitive only**. It does not provide backend pool pressure adapters; those are planned for KL-1704/KL-1705.
+
+Guide: [continuations.md](docs/continuations.md) · Pipeline integration: [request-pipeline.md](docs/request-pipeline.md)
+
+```bash
+go run ./examples/pipeline_continuation
+```
+
+---
+
 ## Configuration
 
 The `Config` struct controls how shard isolation, worker pools, and lane-level processing quotas are scoped globally:

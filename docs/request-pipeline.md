@@ -67,9 +67,21 @@ SubmitPipeline
 
 ### Not in KL-1701
 
-- Non-blocking yield/resume (KL-1703)
 - Per-stage retry policy
 - Backend pool adapters or resource queues (KL-1704)
+
+---
+
+## Non-blocking continuations (KL-1703)
+
+When `ContinuationConfig.Enabled` is true, a stage may use `RunContinuation` instead of `Run` and return a `*Continuation` from `NewContinuation` to release the worker until external code calls `ContinuationCompleter.Complete`, `Fail`, or `Cancel`. The runtime enqueues a resume job on the same key shard; stages after the yield run on a worker again.
+
+- **Opt-in**: set `Continuation.Enabled` on the queue; see [continuations.md](continuations.md).
+- **Limits**: `MaxPending` defaults to 256 when enabled and left at zero; `MaxPendingPerShard` is optional.
+- **Retry parity**: continuation failures use the same retry policy, idempotency safety, suppression, and `RetryTraceFromFuture` as `SubmitRequest` / synchronous pipelines (full pipeline restart from stage 0).
+- **Cancellation**: request context cancel or deadline while yielded resolves the continuation; late `Complete`/`Fail` increments `LateCompletions` and may fire `OnContinuationLate`.
+
+Runnable example: [`examples/pipeline_continuation`](../examples/pipeline_continuation/).
 
 ---
 
@@ -158,6 +170,7 @@ Each stage receives a derived `context.Context` with [`StageExecutionContext`](s
 
 ## Related docs
 
+- [Non-Blocking Continuations](continuations.md) — yield/resume, limits, late completion (KL-1703)
 - [Stage Execution Context](stage-execution-context.md) — metadata in `context.Context`
 - [Request Runtime](request-runtime.md) — `SubmitRequest`, routing, futures
 - [Request Observability](request-observability.md) — request and stage hooks

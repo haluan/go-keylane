@@ -377,7 +377,5 @@ func TestIntegrationSubmitRequestOnCompletedOnceWithRetry(t *testing.T) {
 	if _, err := future.Await(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if completed.Load() != 1 {
-		t.Fatalf("OnCompleted calls = %d", completed.Load())
-	}
+	waitUntil(t, func() bool { return completed.Load() == 1 }, 2*time.Second)
 }

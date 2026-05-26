@@ -48,6 +48,26 @@ type Config struct {
 
 	// RetrySuppression configures runtime-health checks before scheduling a retry.
 	RetrySuppression RetrySuppressionPolicy
+
+	// Continuation configures the non-blocking continuation model (disabled by default).
+	Continuation ContinuationConfig
+}
+
+// ContinuationConfig configures the bounded in-memory continuation registry.
+// Zero value disables continuations; stages using RunContinuation will return ErrContinuationDisabled.
+type ContinuationConfig struct {
+	// Enabled must be true to allow continuation stages.
+	Enabled bool
+
+	// MaxPending is the global cap on pending continuations. When Enabled is true and MaxPending is zero,
+	// NormalizeContinuationConfig applies DefaultContinuationMaxPending.
+	MaxPending int
+
+	// MaxPendingPerShard is an optional per-shard cap. Zero means no per-shard override.
+	MaxPendingPerShard int
+
+	// CompletionRetention is reserved for future completed-continuation diagnostics.
+	CompletionRetention time.Duration
 }
 
 type ObservabilityConfig struct {
@@ -126,7 +146,16 @@ func (c Config) Validate() error {
 	if err := validateConfigIdempotency(c); err != nil {
 		return err
 	}
-	return validateConfigRetrySuppression(c)
+	if err := validateConfigRetrySuppression(c); err != nil {
+		return err
+	}
+	return validateConfigContinuation(c)
+}
+
+func validateConfigContinuation(c Config) error {
+	cont := c.Continuation
+	NormalizeContinuationConfig(&cont)
+	return ValidateContinuationConfig(cont)
 }
 
 func validateConfigRetry(c Config) error {

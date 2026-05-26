@@ -14,13 +14,24 @@ var ErrEmptyPipelineStages = errors.New("keylane: pipeline has no stages")
 // ErrNilPipelineComplete is returned when Pipeline.Complete is nil.
 var ErrNilPipelineComplete = errors.New("keylane: nil pipeline complete function")
 
+// ErrAmbiguousPipelineStage is returned when a PipelineStage sets both Run and RunContinuation.
+var ErrAmbiguousPipelineStage = errors.New("keylane: pipeline stage must set Run or RunContinuation, not both")
+
 // StageFunc runs one pipeline stage, returning updated state or an error.
 type StageFunc[S any] func(context.Context, S) (S, error)
 
 // PipelineStage is one ordered step in a same-state request pipeline.
+// Exactly one of Run or RunContinuation must be set.
 type PipelineStage[S any] struct {
 	Meta StageMeta
-	Run  StageFunc[S]
+
+	// Run is the synchronous stage function.
+	Run StageFunc[S]
+
+	// RunContinuation is the optional continuation-aware stage function.
+	// When set, the stage may yield execution and resume later via a ContinuationCompleter.
+	// Requires Config.Continuation.Enabled on the Queue.
+	RunContinuation ContinuationStageFunc[S]
 }
 
 // Pipeline is a typed multi-stage request with the same policies as Request.
@@ -53,7 +64,10 @@ func validatePipeline[S any, O any](p Pipeline[S, O]) error {
 		if err := ValidateStageMeta(st.Meta); err != nil {
 			return err
 		}
-		if st.Run == nil {
+		if st.Run != nil && st.RunContinuation != nil {
+			return ErrAmbiguousPipelineStage
+		}
+		if st.Run == nil && st.RunContinuation == nil {
 			return ErrNilJobRun
 		}
 	}

@@ -669,6 +669,144 @@ func runValueJobWithRetry[T any](
 	})
 }
 
+// pipelineRetryEvaluation is the outcome of evaluatePipelineRetry for continuation pipelines.
+type pipelineRetryEvaluation struct {
+	ScheduleRetry bool
+	Delay         time.Duration
+	Failure       Failure
+	TerminalFinal RetryFinalState
+}
+
+// evaluatePipelineRetry applies the same retry, idempotency, and suppression rules as runWithRetry
+// for a single failed pipeline attempt before scheduling a full-pipeline re-enqueue.
+func evaluatePipelineRetry(
+	ctx context.Context,
+	failurePolicy FailurePolicy,
+	retryPolicy RetryPolicy,
+	opts runWithRetryOpts,
+	attempt int,
+	handlerErr error,
+	budget DeadlineBudget,
+	retryAttempts *[]RetryAttempt,
+	jitter retryJitterSource,
+	clock retryClock,
+) pipelineRetryEvaluation {
+	lastFailure := classifyCompletionFailure(handlerErr, failurePolicy, budget, false)
+	eval := pipelineRetryEvaluation{Failure: lastFailure}
+
+	policy := retryPolicy
+	NormalizeRetryPolicy(&policy)
+	if clock == nil {
+		clock = defaultRetryClock
+	}
+	if jitter == nil {
+		jitter = defaultRetryJitter
+	}
+	now := clock.Now()
+
+	if !policy.Enabled {
+		eval.TerminalFinal = finalStateFromFailure(lastFailure, false, RetryDecisionDisabled, "", "")
+		return eval
+	}
+	if attempt >= policy.MaxAttempts {
+		rec := retryObsMeta(opts, attempt, lastFailure, budget)
+		observeRetryTerminalStop(opts, rec, RetryDecisionMaxAttempts)
+		eval.TerminalFinal = finalStateFromFailure(lastFailure, true, RetryDecisionMaxAttempts, "", "")
+		return eval
+	}
+
+	decision := DecideRetry(policy, RetryState{
+		Ctx: ctx, Attempt: attempt, Failure: lastFailure, Budget: budget, Now: now,
+	}, jitter)
+	rec := retryObsMeta(opts, attempt, lastFailure, budget)
+	rec.Kind = RetryEventFailureClassified
+	observeRetry(opts, rec)
+
+	if !decision.Retry {
+		observeRetryTerminalStop(opts, rec, decision.Reason)
+		eval.TerminalFinal = finalStateFromFailure(
+			lastFailure, retryTerminalExhausted(decision.Reason), decision.Reason, "", "",
+		)
+		return eval
+	}
+
+	safety := DecideRetrySafety(ctx, RetrySafetyCheck{
+		Key: opts.Key, Lane: opts.Lane, ShardID: opts.ShardID,
+		Attempt: attempt, Failure: lastFailure, Retry: policy,
+		Idempotency: opts.Idempotency, Budget: budget,
+	}, opts.IdempotencyPolicy)
+
+	ra := RetryAttempt{
+		Lane:                 opts.Lane,
+		Key:                  opts.Key,
+		ShardID:              opts.ShardID,
+		Attempt:              attempt,
+		Delay:                decision.Delay,
+		Failure:              lastFailure,
+		Reason:               decision.Reason,
+		IdempotencyKey:       opts.Idempotency.Key,
+		IdempotencyScope:     opts.Idempotency.Scope,
+		IdempotencyOperation: opts.Idempotency.Operation,
+		RetrySafety:          opts.Idempotency.Safety,
+		SafetyReason:         safety.Reason,
+	}
+	if retryAttempts != nil {
+		*retryAttempts = append(*retryAttempts, ra)
+	}
+
+	if !safety.Allow {
+		rec.Kind = RetryEventSafetySuppressed
+		rec.RetryReason = decision.Reason
+		rec.SafetyReason = safety.Reason
+		observeRetry(opts, rec)
+		eval.TerminalFinal = finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, "")
+		return eval
+	}
+
+	var snap RetrySuppressionSnapshot
+	if opts.Snapshot != nil {
+		snap = opts.Snapshot(opts.Key, opts.Lane, opts.ShardID)
+	}
+	suppress := DecideRetrySuppression(ctx, opts.SuppressionPolicy, RetrySuppressionCheck{
+		Key: opts.Key, Lane: opts.Lane, ShardID: opts.ShardID,
+		Attempt: attempt, Failure: lastFailure, Retry: policy,
+		Budget: budget, Pressure: snap.Pressure,
+		LaneDepthRatio: snap.LaneDepthRatio, ShardDepthRatio: snap.ShardDepthRatio,
+		ScaleSignal: snap.ScaleSignal, Idempotency: opts.Idempotency,
+		LaneClass: snap.LaneClass, HotKeyCandidate: snap.HotKeyCandidate,
+	})
+	if retryAttempts != nil && len(*retryAttempts) > 0 {
+		last := &(*retryAttempts)[len(*retryAttempts)-1]
+		last.Suppressed = suppress.Suppress
+		last.SuppressionReason = suppress.Reason
+		last.PressureRatio = snap.Pressure.TotalDepthRatio
+		last.LaneDepthRatioSnap = snap.LaneDepthRatio
+		last.ShardDepthRatioSnap = snap.ShardDepthRatio
+	}
+	if suppress.Suppress {
+		rec.Kind = RetryEventSuppressed
+		rec.RetryReason = decision.Reason
+		rec.SafetyReason = safety.Reason
+		rec.SuppressionReason = suppress.Reason
+		rec.Pressure = snap.Pressure
+		rec.Delay = decision.Delay
+		observeRetry(opts, rec)
+		eval.TerminalFinal = finalStateFromFailure(lastFailure, false, decision.Reason, safety.Reason, suppress.Reason)
+		return eval
+	}
+
+	rec.Kind = RetryEventScheduled
+	rec.RetryReason = decision.Reason
+	rec.SafetyReason = safety.Reason
+	rec.Delay = decision.Delay
+	rec.Pressure = snap.Pressure
+	observeRetry(opts, rec)
+
+	eval.ScheduleRetry = true
+	eval.Delay = decision.Delay
+	return eval
+}
+
 func buildRunWithRetryOpts(
 	q *Queue,
 	key string,

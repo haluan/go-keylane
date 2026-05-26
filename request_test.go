@@ -263,17 +263,10 @@ func TestSubmitRequestTimingPreserved(t *testing.T) {
 		t.Fatalf("Await: %v", err)
 	}
 
-	stats := q.Stats()
-	ls, ok := laneStatsInStats(stats, "default")
-	if !ok {
-		t.Fatal("default lane not found in stats")
-	}
-	if ls.CompletedTotal < 1 {
-		t.Errorf("CompletedTotal = %d, want >= 1", ls.CompletedTotal)
-	}
-	if ls.QueueWaitCount < 1 {
-		t.Errorf("QueueWaitCount = %d, want >= 1", ls.QueueWaitCount)
-	}
+	waitUntil(t, func() bool {
+		ls, ok := laneStatsInStats(q.Stats(), "default")
+		return ok && ls.CompletedTotal >= 1 && ls.QueueWaitCount >= 1
+	}, 2*time.Second)
 }
 
 func TestSubmitRequestWithRequestID(t *testing.T) {

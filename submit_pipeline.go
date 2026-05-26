@@ -54,6 +54,10 @@ func SubmitPipeline[S any, O any](
 		return future, err
 	}
 
+	if hasContinuationStages(pipeline) {
+		return submitPipelineWithContinuation(ctx, q, pipeline)
+	}
+
 	return SubmitRequest(ctx, q, Request[S, O]{
 		Meta:             pipeline.Meta,
 		Admission:        pipeline.Admission,

@@ -17,6 +17,7 @@ This directory contains runnable, fully-contained examples demonstrating the cor
 - **[idempotency_retry](idempotency_retry/)**: Safe vs unsafe idempotency under retry.
 - **[retry_suppression](retry_suppression/)**: Retry suppressed when the queue is overloaded.
 - **[failure_observability](failure_observability/)**: `RetryFailureSnapshot` and `RetryTraceFromFuture`.
+- **[pipeline_continuation](pipeline_continuation/)**: Non-blocking pipeline yield, async `Complete`, and resume.
 
 ---
 
@@ -49,4 +50,5 @@ go run ./examples/deadline_budget
 go run ./examples/idempotency_retry
 go run ./examples/retry_suppression
 go run ./examples/failure_observability
+go run ./examples/pipeline_continuation
 ```
