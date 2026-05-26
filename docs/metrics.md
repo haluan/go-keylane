@@ -40,6 +40,27 @@ Do not add `key`, `request_id`, URL path, tenant id, or raw error strings as lab
 
 ---
 
+## v0.7 backend resource metrics (hook adapters, KL-1704)
+
+KL-1704 provides in-process backend admission and `DebugSnapshot.BackendResources` pressure. The library does **not** register Prometheus counters for backend coordination; implement them in `Hooks.Backend.OnBackendAdmission` and `OnBackendReleased` from [request-observability.md](request-observability.md). See [backend-resource-coordination.md](backend-resource-coordination.md).
+
+Concrete pool-stat adapters (`database/sql`, HTTP, Redis) are **KL-1705**, not KL-1704.
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `keylane_backend_admission_total` | Counter | `resource`, `backend_lane`, `stage`, `reason` | Admission attempts (`BackendAdmissionDecision.Reason`) |
+| `keylane_backend_admission_accepted_total` | Counter | `resource`, `backend_lane`, `stage` | Accepted acquisitions |
+| `keylane_backend_admission_rejected_total` | Counter | `resource`, `backend_lane`, `stage`, `reason` | Rejected acquisitions (`saturated`, `unknown_resource`, …) |
+| `keylane_backend_inflight` | Gauge | `resource`, `backend_lane` | `InFlight` after admission or release |
+| `keylane_backend_capacity` | Gauge | `resource`, `backend_lane` | Configured `MaxInFlight` |
+| `keylane_backend_held_seconds` | Histogram | `resource`, `backend_lane`, `stage` | `BackendReleaseEvent.HeldFor` |
+
+Use **backend lane** (`db_read`, `external_api`, …), not request `lane`, for downstream classification. `resource` must be a small static set (`primary-db`, `wallet-api`). Do not label with SQL text, URLs, or request IDs.
+
+For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().BackendResources` when `BackendResources.Enabled` and `EnableDebugSnapshot` are true.
+
+---
+
 ## v0.5 scale and pressure metrics
 
 | Metric | Type | Labels | Description |
@@ -77,9 +98,12 @@ shard_id
 action
 reason
 scope
+resource
+backend_lane
+stage
 ```
 
-`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation.
+`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation. `backend_lane` and `resource` are separate low-cardinality sets for KL-1704 backend coordination.
 
 ---
 
@@ -147,5 +171,6 @@ See [tracing-opentelemetry.md](tracing-opentelemetry.md) for span integration.
 ## Related docs
 
 - [metrics-prometheus.md](metrics-prometheus.md) — adapter quick start
+- [backend-resource-coordination.md](backend-resource-coordination.md) — backend lanes, leases, hooks (KL-1704)
 - [autoscaling-signals.md](autoscaling-signals.md) — interpreting scale metrics
 - [runbooks/hot-key-and-scale-pressure.md](runbooks/hot-key-and-scale-pressure.md) — operator alerts

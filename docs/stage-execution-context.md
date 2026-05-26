@@ -110,9 +110,10 @@ if sf, ok := keylane.AsStageFailure(err); ok {
 ## Not in KL-1702
 
 - Non-blocking yield/resume (KL-1703)
-- Backend resource lanes (KL-1704)
 - Per-stage retry policy
 - Cross-pod context propagation
+
+Backend resource coordination (KL-1704) uses stage metadata from this context via `BackendOperationFromStage`. See [backend-resource-coordination.md](backend-resource-coordination.md).
 
 ---
 
@@ -120,6 +121,7 @@ if sf, ok := keylane.AsStageFailure(err); ok {
 
 - [Request Pipeline](request-pipeline.md)
 - [Request Observability](request-observability.md)
+- [Backend resource coordination](backend-resource-coordination.md)
 - [Failure Policy](failure-policy.md)
 - [Retry Policy](retry-policy.md)
 - [Deadline Budget](deadline-budget.md)

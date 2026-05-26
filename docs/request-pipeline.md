@@ -13,7 +13,7 @@ Production HTTP and backend handlers are often multi-step: validate, authorize, 
 Use `SubmitPipeline` when you need:
 
 - Stage-level duration and failure attribution in hooks or metrics adapters
-- Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and resource lanes (KL-1704)
+- Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and [backend resource coordination](backend-resource-coordination.md) (KL-1704)
 
 Keep using `SubmitRequest` for single-step work. Existing callers do not need to migrate.
 
@@ -68,7 +68,10 @@ SubmitPipeline
 ### Not in KL-1701
 
 - Per-stage retry policy
-- Backend pool adapters or resource queues (KL-1704)
+
+### Backend resource coordination (KL-1704)
+
+Stages may call `AcquireBackend` / `WithBackend` to bound downstream usage per configured resource and backend lane. See [backend-resource-coordination.md](backend-resource-coordination.md). Concrete DB/HTTP pool adapters remain KL-1705.
 
 ---
 

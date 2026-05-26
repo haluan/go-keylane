@@ -1,6 +1,6 @@
 # DebugSnapshot (v0.5)
 
-`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"4"` includes v0.5 hot key, shard pressure, and autoscaling fields.
+`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"5"` adds backend resource pressure (KL-1704) on top of v0.5 hot key, shard pressure, and autoscaling fields.
 
 Safe for concurrent reads while workers run. Does not guarantee a globally atomic view across all shards.
 
@@ -42,7 +42,7 @@ Illustrative output using actual exported field names (values are examples):
 
 ```json
 {
-  "Version": "4",
+  "Version": "5",
   "GeneratedAt": "2026-05-23T12:00:00Z",
   "ShardCount": 4,
   "WorkerCount": 2,

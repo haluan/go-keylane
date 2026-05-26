@@ -51,6 +51,9 @@ type Config struct {
 
 	// Continuation configures the non-blocking continuation model (disabled by default).
 	Continuation ContinuationConfig
+
+	// BackendResources configures optional backend resource lane coordination (disabled by default).
+	BackendResources BackendResourceConfig
 }
 
 // ContinuationConfig configures the bounded in-memory continuation registry.
@@ -149,7 +152,16 @@ func (c Config) Validate() error {
 	if err := validateConfigRetrySuppression(c); err != nil {
 		return err
 	}
-	return validateConfigContinuation(c)
+	if err := validateConfigContinuation(c); err != nil {
+		return err
+	}
+	return validateConfigBackendResources(c)
+}
+
+func validateConfigBackendResources(c Config) error {
+	br := c.BackendResources
+	NormalizeBackendResourceConfig(&br)
+	return ValidateBackendResourceConfig(br)
 }
 
 func validateConfigContinuation(c Config) error {

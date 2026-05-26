@@ -30,6 +30,7 @@ type Queue struct {
 	retrySuppression       RetrySuppressionPolicy
 	retryObs               retryCounters
 	continuationReg        *continuationRegistry
+	backendCoord           *backendCoordinator
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -105,6 +106,10 @@ func New(config Config) (*Queue, error) {
 	if contCfg.Enabled {
 		q.continuationReg = newContinuationRegistry(contCfg)
 	}
+	brCfg := config.BackendResources
+	NormalizeBackendResourceConfig(&brCfg)
+	config.BackendResources = brCfg
+	q.backendCoord = newBackendCoordinator(brCfg)
 	return q, nil
 }
 
@@ -298,10 +303,14 @@ func (q *Queue) Pressure() Pressure {
 // while workers run; not a globally atomic stop-the-world snapshot.
 func (q *Queue) DebugSnapshot() DebugSnapshot {
 	snap := copyDebugSnapshot(q.sched.DebugSnapshot())
+	snap.Version = DebugSnapshotVersion
 	q.emitHotKeyCandidatesFromSnapshot(snap)
 	if q.continuationReg != nil {
 		snap.Continuation = q.continuationReg.snapshot()
 		snap.ContinuationPerShard = q.continuationReg.shardSnapshot()
+	}
+	if q.backendCoord != nil && q.backendCoord.enabled && q.config.Observability.EnableDebugSnapshot {
+		snap.BackendResources = q.backendCoord.snapshot()
 	}
 	return snap
 }

@@ -56,6 +56,8 @@ type Hooks struct {
 	OnScaleSignal func(ScaleSignalEvent)
 	// Retry holds optional retry/failure observability hooks.
 	Retry RetryHooks
+	// Backend holds optional backend resource coordination hooks.
+	Backend BackendResourceHooks
 }
 
 // RetryHooks contains optional callbacks for retry scheduling and suppression.

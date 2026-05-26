@@ -206,7 +206,7 @@ Hooks respect `Observability.EnableHooks` like other request hooks; callbacks ar
 
 ## Examples
 
-KL-1703 provides yield/resume only. **Backend pool pressure adapters are not included**; use bounded executors in your application until KL-1704/KL-1705.
+KL-1703 provides yield/resume. For bounded downstream usage, use [backend resource coordination](backend-resource-coordination.md) (KL-1704) and release backend leases in the completer goroutine (`defer lease.Release()`). Concrete pool adapters are KL-1705.
 
 ### Slow DB read (yielded)
 
@@ -268,6 +268,7 @@ Continuations are a yield/resume primitive for explicit I/O hand-off, not a gene
 - **Not parallel stages**: stages remain sequential. Continuations only free the worker between two sequential stages.
 - **Not transparent**: callers must explicitly call `NewContinuation` and manage the completer. The runtime does not automatically detect blocking calls.
 - **Not retry-on-resume**: the retry policy applies to the full pipeline, not to individual resume attempts.
-- **Not backend pools (KL-1704/KL-1705)**: no resource-queue or pressure-aware adapter is built into KL-1703; integrate your own bounded executor or wait for follow-on phases.
+- **Backend leases (KL-1704)**: acquire before yield; `defer lease.Release()` in the goroutine that completes the continuation. See [backend-resource-coordination.md](backend-resource-coordination.md).
+- **Not pool adapters (KL-1705)**: no `database/sql`/HTTP integration in KL-1704.
 
 See [request-pipeline.md](request-pipeline.md) for the base pipeline model and [stage-execution-context.md](stage-execution-context.md) for execution context propagation across yield/resume.
