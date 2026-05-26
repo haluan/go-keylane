@@ -104,3 +104,9 @@ Permission to use one slot of backend capacity until `Release()` is called. See 
 
 ### Backend saturation (v0.7)
 When `inflight >= MaxInFlight` for a resource/lane and admission mode is `reject`. Reported as `BackendAdmissionSaturated` in hooks and snapshots.
+
+### BackendPressureProvider (v0.7, KL-1705)
+Optional adapter that reports external pool pressure (`database/sql`, custom API semaphores) for one `resource` + `backend_lane` pair. See [backend-pressure-adapters.md](backend-pressure-adapters.md).
+
+### BackendPressureSnapshot (v0.7, KL-1705)
+Low-cardinality pool pressure view: `InUse`, `Capacity`, `Idle`, `WaitCount`, `WaitTime`, `Saturated`, `Pressure`. Emitted via `Queue.BackendPressure` and `OnBackendPressure` hooks.

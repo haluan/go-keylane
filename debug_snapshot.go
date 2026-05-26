@@ -6,7 +6,7 @@ package keylane
 import "time"
 
 // DebugSnapshotVersion is the schema version of DebugSnapshot.
-const DebugSnapshotVersion = "5"
+const DebugSnapshotVersion = "6"
 
 // TopHotShards is the maximum number of hot shards returned in a debug snapshot.
 const TopHotShards = 5
@@ -64,6 +64,9 @@ type DebugSnapshot struct {
 
 	// BackendResources exposes configured backend lane pressure (nil when disabled or empty).
 	BackendResources []BackendResourceSnapshot
+
+	// BackendPressure exposes external pool pressure from configured providers (nil when empty).
+	BackendPressure []BackendPressureDiagnostic
 }
 
 // ShardSnapshot reports current queue depth and in-flight jobs for one shard.

@@ -31,6 +31,7 @@ type Queue struct {
 	retryObs               retryCounters
 	continuationReg        *continuationRegistry
 	backendCoord           *backendCoordinator
+	backendPressureProvs   []BackendPressureProvider
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -110,6 +111,7 @@ func New(config Config) (*Queue, error) {
 	NormalizeBackendResourceConfig(&brCfg)
 	config.BackendResources = brCfg
 	q.backendCoord = newBackendCoordinator(brCfg)
+	q.backendPressureProvs = copyBackendPressureProviders(brCfg.PressureProviders)
 	return q, nil
 }
 
@@ -312,7 +314,18 @@ func (q *Queue) DebugSnapshot() DebugSnapshot {
 	if q.backendCoord != nil && q.backendCoord.enabled && q.config.Observability.EnableDebugSnapshot {
 		snap.BackendResources = q.backendCoord.snapshot()
 	}
+	if q.config.Observability.EnableDebugSnapshot {
+		snap.BackendPressure = q.collectBackendPressure(context.Background())
+	}
 	return snap
+}
+
+// BackendPressure collects normalized pool pressure from configured providers.
+func (q *Queue) BackendPressure(ctx context.Context) []BackendPressureDiagnostic {
+	if q == nil {
+		return nil
+	}
+	return q.collectBackendPressure(ctx)
 }
 
 // PressureSummary returns global shard pressure diagnostics.

@@ -47,6 +47,33 @@ func TestDebugSnapshotBackendResources(t *testing.T) {
 	lease.Release()
 }
 
+func TestDebugSnapshotBackendPressure(t *testing.T) {
+	ctx := testTimeout(t)
+	prov := staticPressureProvider{snap: BackendPressureSnapshot{
+		Resource: "primary-db",
+		Lane:     BackendLaneDBRead,
+		InUse:    2,
+		Capacity: 8,
+	}}
+	cfg := newTestConfig()
+	cfg.BackendResources.PressureProviders = []BackendPressureProvider{prov}
+	cfg.Observability.EnableDebugSnapshot = true
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	snap := q.DebugSnapshot()
+	if len(snap.BackendPressure) != 1 {
+		t.Fatalf("pressure = %+v", snap.BackendPressure)
+	}
+	if snap.BackendPressure[0].InUse != 2 || snap.BackendPressure[0].Capacity != 8 {
+		t.Fatalf("pressure = %+v", snap.BackendPressure[0])
+	}
+}
+
 func TestDebugSnapshotBackendDisabledEmpty(t *testing.T) {
 	ctx := testTimeout(t)
 	q := newStartedTestQueue(t, ctx)
