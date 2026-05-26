@@ -29,6 +29,7 @@ type Queue struct {
 	idempotencyPolicy      IdempotencyPolicy
 	retrySuppression       RetrySuppressionPolicy
 	retryObs               retryCounters
+	continuationReg        *continuationRegistry
 }
 
 // New creates a new Queue instance with the specified configuration.
@@ -98,6 +99,12 @@ func New(config Config) (*Queue, error) {
 		retrySuppression:       config.RetrySuppression,
 	}
 	q.initAdaptiveController()
+	contCfg := config.Continuation
+	NormalizeContinuationConfig(&contCfg)
+	config.Continuation = contCfg
+	if contCfg.Enabled {
+		q.continuationReg = newContinuationRegistry(contCfg)
+	}
 	return q, nil
 }
 
@@ -292,6 +299,10 @@ func (q *Queue) Pressure() Pressure {
 func (q *Queue) DebugSnapshot() DebugSnapshot {
 	snap := copyDebugSnapshot(q.sched.DebugSnapshot())
 	q.emitHotKeyCandidatesFromSnapshot(snap)
+	if q.continuationReg != nil {
+		snap.Continuation = q.continuationReg.snapshot()
+		snap.ContinuationPerShard = q.continuationReg.shardSnapshot()
+	}
 	return snap
 }
 

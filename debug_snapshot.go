@@ -55,6 +55,12 @@ type DebugSnapshot struct {
 	HotKeys       []HotKeyCandidateSnapshot
 	Mitigations   []PerKeyMitigationSnapshot
 	ShardPressure []ShardPressureSnapshot
+
+	// Continuation exposes bounded continuation diagnostics (zero value when disabled).
+	Continuation ContinuationSnapshot
+
+	// ContinuationPerShard provides per-shard pending continuation counts (nil when disabled or empty).
+	ContinuationPerShard []ShardContinuationSnapshot
 }
 
 // ShardSnapshot reports current queue depth and in-flight jobs for one shard.
