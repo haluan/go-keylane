@@ -44,7 +44,7 @@ Do not add `key`, `request_id`, URL path, tenant id, or raw error strings as lab
 
 KL-1704 provides in-process backend admission and `DebugSnapshot.BackendResources` pressure. The library does **not** register Prometheus counters for backend coordination; implement them in `Hooks.Backend.OnBackendAdmission` and `OnBackendReleased` from [request-observability.md](request-observability.md). See [backend-resource-coordination.md](backend-resource-coordination.md).
 
-Concrete pool-stat adapters (`database/sql`, HTTP, Redis) are **KL-1705**, not KL-1704.
+KL-1705 pool pressure metrics are implemented via `Hooks.Backend.OnBackendPressure`; see [backend-pressure-adapters.md](backend-pressure-adapters.md).
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
@@ -58,6 +58,19 @@ Concrete pool-stat adapters (`database/sql`, HTTP, Redis) are **KL-1705**, not K
 Use **backend lane** (`db_read`, `external_api`, …), not request `lane`, for downstream classification. `resource` must be a small static set (`primary-db`, `wallet-api`). Do not label with SQL text, URLs, or request IDs.
 
 For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().BackendResources` when `BackendResources.Enabled` and `EnableDebugSnapshot` are true.
+
+### v0.7 backend pool pressure metrics (KL-1705)
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `keylane_backend_pressure_ratio` | Gauge | `resource`, `backend_lane` | `BackendPressureSnapshot.Pressure` (0..1) |
+| `keylane_backend_in_use` | Gauge | `resource`, `backend_lane` | External pool in-use count |
+| `keylane_backend_capacity` | Gauge | `resource`, `backend_lane` | External pool capacity |
+| `keylane_backend_wait_total` | Counter | `resource`, `backend_lane` | Cumulative wait events |
+| `keylane_backend_wait_seconds_total` | Counter | `resource`, `backend_lane` | Cumulative wait time |
+| `keylane_backend_saturated` | Gauge | `resource`, `backend_lane` | 1 when pool saturated |
+
+Use `Queue.BackendPressure` or `DebugSnapshot.BackendPressure` as the data source.
 
 ---
 

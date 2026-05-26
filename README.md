@@ -148,7 +148,7 @@ Opt in per queue:
 cfg.Continuation = keylane.ContinuationConfig{Enabled: true} // MaxPending defaults to 256
 ```
 
-KL-1703 is a **handoff primitive only**. It does not provide backend pool pressure adapters; those are planned for KL-1704/KL-1705.
+KL-1703 is a **handoff primitive only**. Backend in-process coordination (KL-1704) and optional pool pressure adapters (`database/sql`, custom API pools — KL-1705) are documented in [backend-resource-coordination.md](docs/backend-resource-coordination.md) and [backend-pressure-adapters.md](docs/backend-pressure-adapters.md).
 
 Guide: [continuations.md](docs/continuations.md) · Pipeline integration: [request-pipeline.md](docs/request-pipeline.md)
 

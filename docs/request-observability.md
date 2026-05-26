@@ -232,7 +232,10 @@ obs.Hooks.Backend = keylane.BackendResourceHooks{
     OnBackendReleased: func(e keylane.BackendReleaseEvent) {
         // key_hash, request_lane, shard_id, held_for, inflight after release
     },
+    OnBackendPressure: func(ev keylane.BackendPressureEvent) {
+        // resource, backend_lane, pressure, saturated, wait stats (KL-1705)
+    },
 }
 ```
 
-Labels stay low-cardinality: resource name, backend lane, stage name, admission reason. See [backend-resource-coordination.md](backend-resource-coordination.md).
+Labels stay low-cardinality: resource name, backend lane, stage name, admission reason. See [backend-resource-coordination.md](backend-resource-coordination.md) and [backend-pressure-adapters.md](backend-pressure-adapters.md).

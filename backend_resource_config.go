@@ -7,8 +7,9 @@ import "fmt"
 
 // BackendResourceConfig configures optional backend resource lane coordination (disabled by default).
 type BackendResourceConfig struct {
-	Enabled   bool
-	Resources map[BackendResourceName]BackendResourcePolicy
+	Enabled           bool
+	Resources         map[BackendResourceName]BackendResourcePolicy
+	PressureProviders []BackendPressureProvider
 }
 
 // BackendResourcePolicy holds per-lane policies for one backend resource.
@@ -56,6 +57,14 @@ func NormalizeBackendResourceConfig(cfg *BackendResourceConfig) {
 
 // ValidateBackendResourceConfig validates backend resource settings after normalization.
 func ValidateBackendResourceConfig(cfg BackendResourceConfig) error {
+	for i, p := range cfg.PressureProviders {
+		if p == nil {
+			return fmt.Errorf("%w: BackendResources.PressureProviders[%d] is nil", ErrInvalidConfig, i)
+		}
+		if err := validateBackendPressureProviderProbe(i, p); err != nil {
+			return err
+		}
+	}
 	if !cfg.Enabled {
 		return nil
 	}

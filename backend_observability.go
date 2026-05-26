@@ -30,10 +30,17 @@ type BackendReleaseEvent struct {
 	Queued   int
 }
 
+// BackendPressureEvent reports external pool pressure for observability hooks.
+type BackendPressureEvent struct {
+	Time     time.Time
+	Snapshot BackendPressureSnapshot
+}
+
 // BackendResourceHooks contains optional backend coordination callbacks.
 type BackendResourceHooks struct {
 	OnBackendAdmission func(BackendAdmissionDecision)
 	OnBackendReleased  func(BackendReleaseEvent)
+	OnBackendPressure  func(BackendPressureEvent)
 }
 
 func newBackendReleaseEvent(admission BackendAdmissionDecision, held time.Duration, inflight, capacity, queued int) BackendReleaseEvent {

@@ -137,6 +137,6 @@ Backend hooks expose `KeyHash` (not raw routing keys) for correlation with hot-k
 
 ---
 
-## KL-1705 (out of scope here)
+## Pool pressure adapters (KL-1705)
 
-KL-1704 does **not** implement concrete `database/sql`, HTTP, Redis, or gRPC pool adapters. Use this layer for in-process admission; integrate external pool stats in KL-1705.
+KL-1704 coordinates in-process leases only. For external pool telemetry (`database/sql`, custom API semaphores), see [backend-pressure-adapters.md](backend-pressure-adapters.md).

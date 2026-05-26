@@ -3,8 +3,8 @@
 
 // Example: pipeline stage yields, async work completes the continuation, pipeline resumes.
 //
-// KL-1703 is a handoff primitive only. Backend pool pressure adapters are not provided
-// until KL-1704/KL-1705; use a bounded executor in application code for real I/O.
+// KL-1703 is a handoff primitive only. For backend leases and pool pressure adapters,
+// see docs/backend-resource-coordination.md and docs/backend-pressure-adapters.md.
 package main
 
 import (

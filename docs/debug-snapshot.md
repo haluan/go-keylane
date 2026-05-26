@@ -1,6 +1,6 @@
 # DebugSnapshot (v0.5)
 
-`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"5"` adds backend resource pressure (KL-1704) on top of v0.5 hot key, shard pressure, and autoscaling fields.
+`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"6"` adds external backend pool pressure (KL-1705). Version `"5"` added in-process backend resource pressure (KL-1704) on top of v0.5 hot key, shard pressure, and autoscaling fields.
 
 Safe for concurrent reads while workers run. Does not guarantee a globally atomic view across all shards.
 
@@ -31,6 +31,8 @@ Do not call `DebugSnapshot()` on every submit. Sample on a timer or admin endpoi
 | `ShardPressure` | Flat slice of per-shard `ShardPressureSnapshot` |
 | `HotShards` / `HotLanes` | Legacy depth rankings (backward compatible) |
 | `Shards[]` | Per-shard depth, hot key candidates, nested `ShardPressure` |
+| `BackendResources` | KL-1704 in-process backend lane inflight (when coordination enabled) |
+| `BackendPressure` | KL-1705 external pool pressure from configured providers |
 
 Legacy fields (`Pressure`, lane/shard counters, policy versions) remain unchanged from earlier versions.
 
@@ -42,7 +44,7 @@ Illustrative output using actual exported field names (values are examples):
 
 ```json
 {
-  "Version": "5",
+  "Version": "6",
   "GeneratedAt": "2026-05-23T12:00:00Z",
   "ShardCount": 4,
   "WorkerCount": 2,
