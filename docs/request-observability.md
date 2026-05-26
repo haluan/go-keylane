@@ -217,3 +217,22 @@ queue, _ := keylane.New(keylane.Config{
 ```
 
 For HTTP-specific observability (method, path, status code), use `Config.Observe` in `httpkeylane.Middleware`. See [http-middleware.md](http-middleware.md).
+
+---
+
+## Backend resource hooks (KL-1704)
+
+When `BackendResources.Enabled` is true and `EnableHooks` is set:
+
+```go
+obs.Hooks.Backend = keylane.BackendResourceHooks{
+    OnBackendAdmission: func(d keylane.BackendAdmissionDecision) {
+        // resource, backend_lane, stage, key_hash, request_lane, shard_id, reason, inflight, capacity
+    },
+    OnBackendReleased: func(e keylane.BackendReleaseEvent) {
+        // key_hash, request_lane, shard_id, held_for, inflight after release
+    },
+}
+```
+
+Labels stay low-cardinality: resource name, backend lane, stage name, admission reason. See [backend-resource-coordination.md](backend-resource-coordination.md).
