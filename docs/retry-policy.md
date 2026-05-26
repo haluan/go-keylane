@@ -6,6 +6,8 @@ Bounded in-worker retry for `SubmitValue`, `SubmitRequest`, and `SubmitPipeline`
 
 For pipelines, retry re-runs the **entire** stage list and `Complete` function on each attempt. Per-stage retry is not supported in KL-1701. See [request-pipeline.md](request-pipeline.md).
 
+When retry is enabled, `StageExecutionContext.Attempt` in each stage context reflects the current 1-based attempt (see [stage-execution-context.md](stage-execution-context.md)).
+
 Before a retry sleeps, Keylane runs three gates: [failure classification](failure-policy.md) → [idempotency safety](idempotency.md) → [retry suppression](retry-suppression.md). See [deadline-budget.md](deadline-budget.md) for budget checks between attempts.
 
 ---

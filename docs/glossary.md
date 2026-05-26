@@ -89,3 +89,6 @@ A typed multi-stage request submitted with `SubmitPipeline[S,O]`. Stages share o
 
 ### Stage / StageName (v0.7)
 A low-cardinality label for one step in a pipeline (`validate`, `db_read`, custom stable names). Used in `StageObservation` and `StageFailure`, not as metric labels for raw keys or request IDs.
+
+### StageExecutionContext (v0.7)
+Immutable request/stage execution metadata attached to `context.Context` during `SubmitPipeline` stages and `SubmitRequest` handlers. Includes shard, lane, stage index, attempt, and deadline snapshot. See [stage-execution-context.md](stage-execution-context.md).

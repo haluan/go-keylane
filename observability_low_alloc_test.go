@@ -264,7 +264,7 @@ func TestLowAllocationRetryRecordsCountersWithoutHooks(t *testing.T) {
 		t.Fatal("expected observer for counter recording")
 	}
 	now := time.Now()
-	_ = runWithRetry(context.Background(), FailurePolicy{}, cfg.Retry, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, cfg.Retry, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, PermanentFailure(errors.New("x"))
 	})
 	if q.RetryFailureSnapshot().FailuresTotal == 0 {

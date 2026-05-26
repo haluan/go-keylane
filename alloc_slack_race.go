@@ -6,5 +6,5 @@
 package keylane
 
 func submitRequestAllocSlack(jobAllocs float64) float64 {
-	return jobAllocs + 5
+	return jobAllocs + 7
 }

@@ -88,7 +88,7 @@ func BenchmarkRunWithRetrySuppressedUnderPressure(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, RetryableFailure(errors.New("transient"))
 		})
 	}
@@ -103,7 +103,7 @@ func BenchmarkRunWithRetrySuppressionTrace(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+		res := runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, RetryableFailure(errors.New("transient"))
 		})
 		trace := RetryTrace{Attempts: res.retryAttempts}
@@ -120,7 +120,7 @@ func BenchmarkRunWithRetrySuppressionDisabled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 1, nil
 		})
 	}

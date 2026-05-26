@@ -13,7 +13,7 @@ Production HTTP and backend handlers are often multi-step: validate, authorize, 
 Use `SubmitPipeline` when you need:
 
 - Stage-level duration and failure attribution in hooks or metrics adapters
-- A stable model for later stage-aware context (KL-1702) and resource lanes (KL-1704)
+- Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and resource lanes (KL-1704)
 
 Keep using `SubmitRequest` for single-step work. Existing callers do not need to migrate.
 
@@ -62,6 +62,7 @@ SubmitPipeline
 
 - First stage error stops the pipeline; `Complete` is not called.
 - Context cancellation before or between stages stops execution cooperatively.
+- When the deadline budget is exhausted before a stage or `Complete` runs, the pipeline returns a `StageFailure` classified as `deadline_exhausted` (not handler `timeout`).
 - Retry is **request-level**: when retry is enabled, the entire pipeline (all stages + `Complete`) is retried as one unit. See [retry-policy.md](retry-policy.md).
 
 ### Not in KL-1701
@@ -149,8 +150,15 @@ out, err := future.Await(ctx)
 
 ---
 
+## Execution context
+
+Each stage receives a derived `context.Context` with [`StageExecutionContext`](stage-execution-context.md) attached. Read it via `StageExecutionFromContext` inside `Run` and `Complete` without duplicating routing fields in your state struct.
+
+---
+
 ## Related docs
 
+- [Stage Execution Context](stage-execution-context.md) — metadata in `context.Context`
 - [Request Runtime](request-runtime.md) — `SubmitRequest`, routing, futures
 - [Request Observability](request-observability.md) — request and stage hooks
 - [Failure Policy](failure-policy.md) — `StageFailure` and classification

@@ -123,7 +123,7 @@ func TestCustomFailurePolicyReflectedInCountersAndEvents(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), policy, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), policy, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, customClassifierErr{}
 	})
 	snap := q.RetryFailureSnapshot()
@@ -132,7 +132,7 @@ func TestCustomFailurePolicyReflectedInCountersAndEvents(t *testing.T) {
 	}
 
 	opts2 := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q2.retryObserver()}
-	_ = runWithRetry(context.Background(), policy, p, opts2, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), policy, p, opts2, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, customClassifierErr{}
 	})
 	var classified RetryEvent

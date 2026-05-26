@@ -92,7 +92,7 @@ func BenchmarkRetryEventHookDisabled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, PermanentFailure(errors.New("x"))
 		})
 	}
@@ -109,7 +109,7 @@ func BenchmarkRetryEventHookEnabled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, PermanentFailure(errors.New("x"))
 		})
 	}
@@ -181,7 +181,7 @@ func BenchmarkRetryStormSuppressedWithObservability(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int) (int, error) {
+		_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 			return 0, RetryableFailure(errors.New("t"))
 		})
 	}

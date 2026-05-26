@@ -140,7 +140,7 @@ func TestAttemptsTotalCountsSuccessfulAttempts(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	var n atomic.Int32
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		if n.Add(1) < 2 {
 			return 0, RetryableFailure(errors.New("t"))
 		}
@@ -168,7 +168,7 @@ func TestRunWithRetryScheduledEmitsScheduledEvent(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	var n atomic.Int32
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		if n.Add(1) < 2 {
 			return 0, RetryableFailure(errors.New("t"))
 		}
@@ -206,7 +206,7 @@ func TestRunWithRetryDisabledNoScheduledRetry(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: false, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	for _, k := range kinds {
@@ -229,7 +229,7 @@ func TestRunWithRetryIncrementsScheduledCounter(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	var n atomic.Int32
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		if n.Add(1) < 2 {
 			return 0, RetryableFailure(errors.New("t"))
 		}
@@ -272,7 +272,7 @@ func runRetryObsSnapshot(
 	t *testing.T,
 	idempotency Idempotency,
 	idempotencyPolicy IdempotencyPolicy,
-	run func(int) (int, error),
+	run func(int, DeadlineBudget) (int, error),
 ) RetryFailureSnapshot {
 	t.Helper()
 	q, err := New(newTestConfig())
@@ -293,7 +293,7 @@ func runRetryObsSnapshot(
 func TestRetrySafetyReasonObservability(t *testing.T) {
 	t.Run("safe", func(t *testing.T) {
 		var n atomic.Int32
-		snap := runRetryObsSnapshot(t, Idempotency{Safety: RetrySafetySafe}, IdempotencyPolicy{}, func(int) (int, error) {
+		snap := runRetryObsSnapshot(t, Idempotency{Safety: RetrySafetySafe}, IdempotencyPolicy{}, func(int, DeadlineBudget) (int, error) {
 			if n.Add(1) < 2 {
 				return 0, RetryableFailure(errors.New("t"))
 			}
@@ -313,7 +313,7 @@ func TestRetrySafetyReasonObservability(t *testing.T) {
 			IdempotencyPolicy{Hook: func(context.Context, RetrySafetyCheck) RetrySafetyDecision {
 				return RetrySafetyDecision{Allow: true, Reason: RetrySafetyDecisionHookAllowed}
 			}},
-			func(int) (int, error) {
+			func(int, DeadlineBudget) (int, error) {
 				return 0, RetryableFailure(errors.New("t"))
 			},
 		)
@@ -328,7 +328,7 @@ func TestRetrySafetyReasonObservability(t *testing.T) {
 			IdempotencyPolicy{Hook: func(context.Context, RetrySafetyCheck) RetrySafetyDecision {
 				return RetrySafetyDecision{Allow: false, Reason: RetrySafetyDecisionHookRejected}
 			}},
-			func(int) (int, error) {
+			func(int, DeadlineBudget) (int, error) {
 				return 0, RetryableFailure(errors.New("t"))
 			},
 		)
@@ -346,7 +346,7 @@ func TestRetrySafetyReasonObservability(t *testing.T) {
 			IdempotencyPolicy{Hook: func(context.Context, RetrySafetyCheck) RetrySafetyDecision {
 				panic("hook")
 			}},
-			func(int) (int, error) {
+			func(int, DeadlineBudget) (int, error) {
 				return 0, RetryableFailure(errors.New("t"))
 			},
 		)
@@ -362,7 +362,7 @@ func TestRetrySafetyReasonObservability(t *testing.T) {
 		snap := runRetryObsSnapshot(t,
 			Idempotency{Safety: RetrySafetySafe, Key: ""},
 			IdempotencyPolicy{RequireForRetry: true},
-			func(int) (int, error) {
+			func(int, DeadlineBudget) (int, error) {
 				return 0, RetryableFailure(errors.New("t"))
 			},
 		)
@@ -378,7 +378,7 @@ func TestRetrySafetyReasonObservability(t *testing.T) {
 		snap := runRetryObsSnapshot(t,
 			Idempotency{Safety: RetrySafetyUnsafe},
 			IdempotencyPolicy{},
-			func(int) (int, error) {
+			func(int, DeadlineBudget) (int, error) {
 				return 0, RetryableFailure(errors.New("t"))
 			},
 		)
@@ -399,7 +399,7 @@ func TestRunWithRetryExhaustedObservability(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("transient"))
 	})
 	snap := q.RetryFailureSnapshot()
@@ -422,7 +422,7 @@ func TestRunWithRetryPermanentFailureTerminalObservability(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, PermanentFailure(errors.New("perm"))
 	})
 	snap := q.RetryFailureSnapshot()
@@ -444,7 +444,7 @@ func TestRunWithRetryContextCancelledTerminalObservability(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(ctx, FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(ctx, FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	snap := q.RetryFailureSnapshot()
@@ -473,7 +473,7 @@ func TestRunWithRetryContextCancelledDuringSleepObservability(t *testing.T) {
 	clock := &cancelOnSleepClock{testRetryClock: testRetryClock{now: now}, cancel: cancel}
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(ctx, FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(ctx, FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), clock, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	snap := q.RetryFailureSnapshot()
@@ -505,7 +505,7 @@ func TestRunWithRetryExhaustedEmitsBothTerminalEvents(t *testing.T) {
 	now := time.Now()
 	p := RetryPolicy{Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, NewDeadlineBudget(context.Background(), now), &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("transient"))
 	})
 	var hasMaxStopped, hasExhausted bool
@@ -531,7 +531,7 @@ func TestRunWithRetryDeadlineStoppedObservability(t *testing.T) {
 	budget := DeadlineBudget{HasDeadline: true, Deadline: now.Add(-time.Millisecond), StartedAt: now, Exhausted: true}
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	opts := runWithRetryOpts{Idempotency: Idempotency{Safety: RetrySafetySafe}, Observer: q.retryObserver()}
-	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, &testRetryClock{now: now}, fixedJitterSource(0.5), func(int) (int, error) {
+	_ = runWithRetry(context.Background(), FailurePolicy{}, p, opts, budget, &testRetryClock{now: now}, fixedJitterSource(0.5), func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	})
 	snap := q.RetryFailureSnapshot()
@@ -560,7 +560,7 @@ func runRetrySuppressionObs(
 	t *testing.T,
 	policy RetrySuppressionPolicy,
 	snapshot func(string, Lane, int) RetrySuppressionSnapshot,
-	run func(int) (int, error),
+	run func(int, DeadlineBudget) (int, error),
 	retryableKinds ...FailureKind,
 ) RetryFailureSnapshot {
 	t.Helper()
@@ -584,7 +584,7 @@ func runRetrySuppressionObs(
 }
 
 func TestRetrySuppressionReasonObservability(t *testing.T) {
-	retryable := func(int) (int, error) {
+	retryable := func(int, DeadlineBudget) (int, error) {
 		return 0, RetryableFailure(errors.New("t"))
 	}
 	healthySnap := func() RetrySuppressionSnapshot {
@@ -658,7 +658,7 @@ func TestRetrySuppressionReasonObservability(t *testing.T) {
 	t.Run("overload_failure", func(t *testing.T) {
 		snap := runRetrySuppressionObs(t, enabledSuppressionPolicy(), func(string, Lane, int) RetrySuppressionSnapshot {
 			return healthySnap()
-		}, func(int) (int, error) {
+		}, func(int, DeadlineBudget) (int, error) {
 			return 0, OverloadedFailure(errors.New("overload"))
 		}, FailureOverloaded)
 		if snap.RetriesSuppressedTotal < 1 || suppressionReasonCount(snap, RetrySuppressionOverloadFailure) < 1 {
@@ -669,7 +669,7 @@ func TestRetrySuppressionReasonObservability(t *testing.T) {
 	t.Run("admission_failure", func(t *testing.T) {
 		snap := runRetrySuppressionObs(t, enabledSuppressionPolicy(), func(string, Lane, int) RetrySuppressionSnapshot {
 			return healthySnap()
-		}, func(int) (int, error) {
+		}, func(int, DeadlineBudget) (int, error) {
 			return 0, RejectedFailure(ErrAdmissionRejected)
 		}, FailureRejected)
 		if snap.RetriesSuppressedTotal < 1 || suppressionReasonCount(snap, RetrySuppressionAdmissionFailure) < 1 {
@@ -680,7 +680,7 @@ func TestRetrySuppressionReasonObservability(t *testing.T) {
 	t.Run("per_key_admission", func(t *testing.T) {
 		snap := runRetrySuppressionObs(t, enabledSuppressionPolicy(), func(string, Lane, int) RetrySuppressionSnapshot {
 			return healthySnap()
-		}, func(int) (int, error) {
+		}, func(int, DeadlineBudget) (int, error) {
 			return 0, RejectedFailure(ErrPerKeyAdmissionThrottled)
 		}, FailureRejected)
 		if snap.RetriesSuppressedTotal < 1 || suppressionReasonCount(snap, RetrySuppressionPerKeyAdmission) < 1 {
@@ -732,9 +732,9 @@ func TestOnRetryEventDoesNotChangeResult(t *testing.T) {
 	p := RetryPolicy{Enabled: true, MaxAttempts: 3, InitialBackoff: time.Millisecond, Jitter: false, MinRemainingBudget: 0}
 	clock := &testRetryClock{now: now}
 	budget := NewDeadlineBudget(context.Background(), now)
-	makeRun := func() func(int) (int, error) {
+	makeRun := func() func(int, DeadlineBudget) (int, error) {
 		var n atomic.Int32
-		return func(int) (int, error) {
+		return func(int, DeadlineBudget) (int, error) {
 			if n.Add(1) < 2 {
 				return 0, RetryableFailure(errors.New("t"))
 			}

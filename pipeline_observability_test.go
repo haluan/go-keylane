@@ -94,6 +94,12 @@ func TestSubmitPipelineStageHooksFirePerStage(t *testing.T) {
 	if completed1.FailureKind != FailureNone {
 		t.Errorf("failure kind = %q", completed1.FailureKind)
 	}
+	if started1.Execution.Stage.Name != StageValidate {
+		t.Errorf("execution stage = %q", started1.Execution.Stage.Name)
+	}
+	if started1.Execution.StageIndex != 0 {
+		t.Errorf("stage index = %d", started1.Execution.StageIndex)
+	}
 }
 
 func TestSubmitPipelineStageFailedHook(t *testing.T) {
@@ -167,11 +173,13 @@ func TestSubmitPipelineRequestHooksOncePerPipeline(t *testing.T) {
 }
 
 func TestStageObservationLowCardinalityStageName(t *testing.T) {
-	obs := newStageObservation(
+	exec := baseExecutionContext(
 		RequestMeta{Key: "tenant-secret", Operation: "get-customer"},
-		StageMeta{Name: StageDBRead},
-		0, time.Millisecond, time.Second, time.Second, nil, FailurePolicy{},
+		0, time.Millisecond, 1,
+		StageMeta{Name: StageDBRead}, 0, 1,
+		DeadlineBudgetSnapshot{Remaining: time.Second},
 	)
+	obs := newStageObservationFromExecution(exec, time.Second, nil, FailurePolicy{})
 	if obs.Stage != StageDBRead {
 		t.Fatalf("stage = %q", obs.Stage)
 	}

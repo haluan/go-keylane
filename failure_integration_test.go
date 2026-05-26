@@ -38,13 +38,18 @@ func TestIntegrationFailureQueueFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
 	run := func(context.Context) error { <-block; return nil }
+	if err := q.Submit(ctx, Job{Key: "k", Lane: "default", Run: run}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(10 * time.Millisecond)
 	for i := 0; i < 2; i++ {
-		if err := q.Submit(ctx, Job{Key: "k", Lane: "default", Run: run}); err != nil {
+		if err := q.Submit(ctx, Job{Key: "k", Lane: "default", Run: func(context.Context) error { return nil }}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	err = q.Submit(ctx, Job{Key: "k3", Lane: "default", Run: run})
+	err = q.Submit(ctx, Job{Key: "k4", Lane: "default", Run: func(context.Context) error { return nil }})
 	if !errors.Is(err, ErrQueueFull) {
 		t.Fatalf("err = %v", err)
 	}
@@ -52,7 +57,6 @@ func TestIntegrationFailureQueueFull(t *testing.T) {
 	if f.Kind != FailureRejected {
 		t.Fatalf("kind = %q", f.Kind)
 	}
-	close(block)
 }
 
 func TestIntegrationFailureAdmissionRejected(t *testing.T) {
@@ -177,6 +181,41 @@ func TestIntegrationFailureHandlerTimeout(t *testing.T) {
 	_, awaitErr := future.Await(context.Background())
 	if !errors.Is(awaitErr, context.DeadlineExceeded) {
 		t.Fatalf("await err = %v", awaitErr)
+	}
+	assertFutureFailureKind(t, future, FailureTimeout)
+}
+
+func TestSubmitRequestTypedDeadlineExhaustedDuringHandlerIsTimeout(t *testing.T) {
+	q, queueCtx := testRequestQueue(t)
+	future, err := SubmitRequest(queueCtx, q, Request[sumInput, sumOutput]{
+		Meta:  RequestMeta{Key: "k", Lane: "default"},
+		Input: sumInput{},
+		Handle: func(context.Context, sumInput) (sumOutput, error) {
+			return sumOutput{}, DeadlineExhaustedFailure(context.DeadlineExceeded)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, awaitErr := future.Await(context.Background()); awaitErr == nil {
+		t.Fatal("expected error")
+	}
+	assertFutureFailureKind(t, future, FailureTimeout)
+}
+
+func TestSubmitValueTypedDeadlineExhaustedDuringHandlerIsTimeout(t *testing.T) {
+	q, queueCtx := testRequestQueue(t)
+	future, err := SubmitValue(queueCtx, q, ValueJob[int]{
+		Key: "k", Lane: "default",
+		Run: func(context.Context) (int, error) {
+			return 0, DeadlineExhaustedFailure(context.DeadlineExceeded)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, awaitErr := future.Await(context.Background()); awaitErr == nil {
+		t.Fatal("expected error")
 	}
 	assertFutureFailureKind(t, future, FailureTimeout)
 }

@@ -85,15 +85,32 @@ func (f *resultFuture[T]) retryTrace() (RetryTrace, bool) {
 	return RetryTrace{Attempts: out, Final: f.retryFinal}, true
 }
 
-func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) {
-	failure := NewFailure(FailureNone, nil)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			failure = ClassifyContextErrorAt(err, budget, beforeHandler, time.Now())
-		} else {
-			failure = classifyFailureWithPolicy(err, policy)
+// classifyCompletionFailure classifies handler/pipeline errors for future completion.
+// StageFailure must not change cancellation/timeout semantics for raw context errors.
+// Pipeline pre-stage exhaustion uses StageFailure wrapping FailureDeadlineExhausted.
+// SubmitRequest/SubmitValue handlers returning typed Failures that wrap context errors
+// still follow ClassifyContextErrorAt (v0.6 compatibility).
+func classifyCompletionFailure(err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) Failure {
+	if err == nil {
+		return NewFailure(FailureNone, nil)
+	}
+	root := err
+	if sf, ok := AsStageFailure(err); ok {
+		root = sf.Err
+		var classified Failure
+		if errors.As(root, &classified) && classified.Kind == FailureDeadlineExhausted &&
+			errors.Is(root, errPipelineBudgetExhaustedBeforeStage) {
+			return classifyFailureWithPolicy(err, policy)
 		}
 	}
+	if errors.Is(root, context.Canceled) || errors.Is(root, context.DeadlineExceeded) {
+		return ClassifyContextErrorAt(root, budget, beforeHandler, time.Now())
+	}
+	return classifyFailureWithPolicy(err, policy)
+}
+
+func (f *resultFuture[T]) complete(val T, err error, policy FailurePolicy, budget DeadlineBudget, beforeHandler bool) {
+	failure := classifyCompletionFailure(err, policy, budget, beforeHandler)
 	f.once.Do(func() {
 		f.mu.Lock()
 		f.val = val
