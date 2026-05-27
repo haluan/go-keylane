@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Example: pipeline stage yields, async work completes the continuation, pipeline resumes.
+// Explicit opt-in: Continuation.Enabled must be true (disabled by default in ProductionDefaults).
 //
 // The continuation model is a handoff primitive only. For backend leases and pool pressure adapters,
 // see docs/backend-resource-coordination.md and docs/backend-pressure-adapters.md.

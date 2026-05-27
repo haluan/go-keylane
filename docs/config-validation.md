@@ -74,6 +74,8 @@ Warning examples:
 | `KL_CONFIG_RAW_KEY_EXPOSURE_ENABLED` | `HotKey.ExposeRawKey` |
 | `KL_CONFIG_BACKEND_RESOURCES_ENABLED` | Coordination enabled—ensure release discipline |
 | `KL_CONFIG_PRESSURE_PROVIDER_OBSERVATIONAL_ONLY` | Providers configured (telemetry is observational even when coordination is enabled) |
+| `KL_CONFIG_OBSERVABILITY_FULL_DEFAULTS_RESOLVED` | Unset `Observability` resolves to full defaults at `New` |
+| `KL_CONFIG_DEBUG_SNAPSHOT_HOT_PATH_HEAVY` | Debug snapshot + queue-wait + run timing on workers without low-allocation mode |
 | `KL_CONFIG_HIGH_CARDINALITY_LABEL_RISK` | Hooks + debug snapshot + hot keys together |
 
 See [config-versioning.md](config-versioning.md) for compatibility expectations on codes.
@@ -122,9 +124,17 @@ The snapshot includes effective settings for adaptive quota (controller config a
 
 ---
 
+## Production defaults inspection
+
+See [ProductionDefaults()](../config_defaults.go) and [ExplainDefaults](../config_defaults.go) in [production-defaults.md](production-defaults.md). Compatibility expectations: [compatibility-rules.md](compatibility-rules.md). Observability: [observability-contract.md](observability-contract.md).
+
+---
+
 ## Related docs
 
 - [config-versioning.md](config-versioning.md)
 - [production-defaults.md](production-defaults.md)
+- [compatibility-rules.md](compatibility-rules.md)
+- [observability-contract.md](observability-contract.md)
 - [configuration.md](configuration.md)
 - [api-stability.md](api-stability.md)

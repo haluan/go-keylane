@@ -29,23 +29,25 @@ const (
 
 // Stable validation issue codes for automation and tests.
 const (
-	CodeConfigInvalidShardCount             = "KL_CONFIG_INVALID_SHARD_COUNT"
-	CodeConfigInvalidWorkerCount            = "KL_CONFIG_INVALID_WORKER_COUNT"
-	CodeConfigInvalidQueueCapacity          = "KL_CONFIG_INVALID_QUEUE_CAPACITY"
-	CodeConfigInvalidLaneQuota              = "KL_CONFIG_INVALID_LANE_QUOTA"
-	CodeConfigMissingLaneQuotas             = "KL_CONFIG_MISSING_LANE_QUOTAS"
-	CodeConfigInvalidLane                   = "KL_CONFIG_INVALID_LANE"
-	CodeConfigInvalid                       = "KL_CONFIG_INVALID"
-	CodeConfigUnboundedRetry                = "KL_CONFIG_UNBOUNDED_RETRY"
-	CodeConfigInvalidBackoff                = "KL_CONFIG_INVALID_BACKOFF"
-	CodeConfigUnsafeRetryWithoutIdempotency = "KL_CONFIG_UNSAFE_RETRY_WITHOUT_IDEMPOTENCY"
-	CodeConfigContinuationTimeoutMissing    = "KL_CONFIG_CONTINUATION_TIMEOUT_MISSING"
-	CodeConfigBackendResourcesEnabled       = "KL_CONFIG_BACKEND_RESOURCES_ENABLED"
-	CodeConfigPressureProviderObservational = "KL_CONFIG_PRESSURE_PROVIDER_OBSERVATIONAL_ONLY"
-	CodeConfigRawKeyExposureEnabled         = "KL_CONFIG_RAW_KEY_EXPOSURE_ENABLED"
-	CodeConfigHighCardinalityLabelRisk      = "KL_CONFIG_HIGH_CARDINALITY_LABEL_RISK"
-	CodeConfigWorkerCountExceedsGOMAXPROCS  = "KL_CONFIG_WORKER_COUNT_EXCEEDS_GOMAXPROCS"
-	CodeConfigHighQueueCapacity             = "KL_CONFIG_HIGH_QUEUE_CAPACITY"
+	CodeConfigInvalidShardCount                 = "KL_CONFIG_INVALID_SHARD_COUNT"
+	CodeConfigInvalidWorkerCount                = "KL_CONFIG_INVALID_WORKER_COUNT"
+	CodeConfigInvalidQueueCapacity              = "KL_CONFIG_INVALID_QUEUE_CAPACITY"
+	CodeConfigInvalidLaneQuota                  = "KL_CONFIG_INVALID_LANE_QUOTA"
+	CodeConfigMissingLaneQuotas                 = "KL_CONFIG_MISSING_LANE_QUOTAS"
+	CodeConfigInvalidLane                       = "KL_CONFIG_INVALID_LANE"
+	CodeConfigInvalid                           = "KL_CONFIG_INVALID"
+	CodeConfigUnboundedRetry                    = "KL_CONFIG_UNBOUNDED_RETRY"
+	CodeConfigInvalidBackoff                    = "KL_CONFIG_INVALID_BACKOFF"
+	CodeConfigUnsafeRetryWithoutIdempotency     = "KL_CONFIG_UNSAFE_RETRY_WITHOUT_IDEMPOTENCY"
+	CodeConfigContinuationTimeoutMissing        = "KL_CONFIG_CONTINUATION_TIMEOUT_MISSING"
+	CodeConfigBackendResourcesEnabled           = "KL_CONFIG_BACKEND_RESOURCES_ENABLED"
+	CodeConfigPressureProviderObservational     = "KL_CONFIG_PRESSURE_PROVIDER_OBSERVATIONAL_ONLY"
+	CodeConfigRawKeyExposureEnabled             = "KL_CONFIG_RAW_KEY_EXPOSURE_ENABLED"
+	CodeConfigHighCardinalityLabelRisk          = "KL_CONFIG_HIGH_CARDINALITY_LABEL_RISK"
+	CodeConfigWorkerCountExceedsGOMAXPROCS      = "KL_CONFIG_WORKER_COUNT_EXCEEDS_GOMAXPROCS"
+	CodeConfigHighQueueCapacity                 = "KL_CONFIG_HIGH_QUEUE_CAPACITY"
+	CodeConfigObservabilityFullDefaultsResolved = "KL_CONFIG_OBSERVABILITY_FULL_DEFAULTS_RESOLVED"
+	CodeConfigDebugSnapshotHotPathHeavy         = "KL_CONFIG_DEBUG_SNAPSHOT_HOT_PATH_HEAVY"
 )
 
 const (
@@ -450,7 +452,24 @@ func collectConfigWarnings(c Config) []ValidationIssue {
 			Message:  msg,
 		})
 	}
+	if isUnsetObservabilityConfig(c.Observability) {
+		issues = append(issues, ValidationIssue{
+			Severity: ValidationWarning,
+			Code:     CodeConfigObservabilityFullDefaultsResolved,
+			Path:     "Observability",
+			Message:  "unset Observability resolves to DefaultObservabilityConfig at New; use LowAllocationObservabilityConfig or explicit flags for production",
+		})
+	}
 	obs := ResolveObservabilityConfig(c.Observability)
+	if !c.Observability.LowAllocationMode &&
+		obs.EnableDebugSnapshot && obs.EnableQueueWaitTiming && obs.EnableRunTiming {
+		issues = append(issues, ValidationIssue{
+			Severity: ValidationWarning,
+			Code:     CodeConfigDebugSnapshotHotPathHeavy,
+			Path:     "Observability",
+			Message:  "debug snapshot with queue-wait and run timing enabled on workers may increase hot-path overhead; prefer LowAllocationObservabilityConfig",
+		})
+	}
 	if obs.EnableHooks && obs.EnableDebugSnapshot && c.HotKey.Enabled {
 		issues = append(issues, ValidationIssue{
 			Severity: ValidationWarning,

@@ -348,6 +348,8 @@ cd tracing/otel && go test ./...
 - [Config Validation](docs/config-validation.md)
 - [Config Versioning](docs/config-versioning.md)
 - [Production Defaults](docs/production-defaults.md)
+- [Compatibility Rules](docs/compatibility-rules.md)
+- [Observability Contract](docs/observability-contract.md)
 - [Migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
 
 ### v0.7.0 pipelines, continuations & backend coordination

@@ -69,6 +69,14 @@ Core scheduler fields (`ShardCount`, `WorkerCount`, `QueueSizePerLane`, `LaneQuo
 | `ConfigVersionV1` | Active config schema version |
 | `Queue.ConfigValidationWarnings` | Non-fatal warnings from `New` |
 
+### Production defaults API (KL-1803, stable candidate)
+
+| Symbol | Role |
+|--------|------|
+| `ProductionDefaults` | Conservative bounded `Config` for production evaluation |
+| `ExplainDefaults`, `ExplainDefaultsWithMode` | Inspect gates and warnings |
+| `DefaultReport`, `DefaultEntry`, `SafetyMode` | Default inspection types |
+
 ---
 
 ## Repeatable export review
@@ -98,4 +106,6 @@ See [internal/apicheck/README.md](../internal/apicheck/README.md).
 - [config-validation.md](config-validation.md)
 - [config-versioning.md](config-versioning.md)
 - [production-defaults.md](production-defaults.md)
+- [compatibility-rules.md](compatibility-rules.md)
+- [observability-contract.md](observability-contract.md)
 - [v0.7 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md)

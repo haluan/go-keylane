@@ -26,6 +26,9 @@ Guard: `go test ./internal/apicheck/...`
 | `ValidateConfig`, `ValidationReport`, `ValidationIssue` | Stable Candidate | KL-1802 structured validation |
 | `NormalizeConfig`, `NormalizedConfig`, `ConfigVersionV1` | Stable Candidate | Support/debug snapshots |
 | `Queue.ConfigValidationWarnings` | Stable Candidate | Non-fatal warnings from `New` |
+| `ProductionDefaults`, `ExplainDefaults`, `ExplainDefaultsWithMode` | Stable Candidate | KL-1803 production default inspection |
+| `DefaultReport`, `DefaultEntry`, `SafetyMode` | Stable Candidate | Default report types |
+| `SafetyModeProduction`, `SafetyModeDevelopment` | Stable Candidate | ExplainDefaults mode constants |
 | `Job`, `Lane`, `WithDrain` | Stable Candidate | Fire-and-forget execution |
 | `ErrQueueAlreadyStarted`, `ErrQueueNotStarted`, `ErrNilQueue` | Stable Candidate | Lifecycle errors |
 

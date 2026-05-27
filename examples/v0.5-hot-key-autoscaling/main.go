@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // v0.5 example: hot key detection (observe mode), DebugSnapshot, and ScaleSignal.
+// Explicit opt-in: uses DefaultHotKeyConfig and related diagnostics bundles (disabled in ProductionDefaults).
 package main
 
 import (
