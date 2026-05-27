@@ -341,10 +341,13 @@ cd tracing/otel && go test ./...
 
 ## Documentation
 
-### v0.8 API stability
+### v0.8 API stability and configuration
 
 - [API Stability](docs/api-stability.md)
 - [Public API Inventory](docs/public-api-inventory.md)
+- [Config Validation](docs/config-validation.md)
+- [Config Versioning](docs/config-versioning.md)
+- [Production Defaults](docs/production-defaults.md)
 - [Migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
 
 ### v0.7.0 pipelines, continuations & backend coordination

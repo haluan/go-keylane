@@ -4,7 +4,6 @@
 package keylane
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -105,91 +104,13 @@ type ObservabilityConfig struct {
 }
 
 // Validate ensures the configuration is valid.
+// Invalid explicit values are rejected before normalization defaults are applied.
+// For structured errors and warnings, use ValidateConfig.
 func (c Config) Validate() error {
-	if c.ShardCount < 1 {
-		return fmt.Errorf("%w: ShardCount must be at least 1", ErrInvalidShardCount)
-	}
-	if c.WorkerCount < 1 {
-		return fmt.Errorf("%w: WorkerCount must be at least 1", ErrInvalidWorkerCount)
-	}
-	if c.QueueSizePerLane < 1 {
-		return fmt.Errorf("%w: QueueSizePerLane must be at least 1", ErrInvalidQueueSize)
-	}
-	if len(c.LaneQuotas) == 0 {
-		return ErrMissingLaneQuotas
-	}
-	for lane, quota := range c.LaneQuotas {
-		if lane == "" {
-			return fmt.Errorf("%w: lane name cannot be empty", ErrInvalidLane)
-		}
-		if quota < 1 {
-			return fmt.Errorf("%w: quota for lane %q must be at least 1", ErrInvalidLaneQuota, lane)
-		}
-	}
-	if err := ValidateAdaptiveQuotaPolicy(c.AdaptiveQuota, c.LaneQuotas); err != nil {
+	if err := validateConfigBeforeNormalize(c); err != nil {
 		return err
 	}
-	hk := c.HotKey
-	NormalizeHotKeyConfig(&hk)
-	if err := ValidateHotKeyConfig(hk); err != nil {
-		return err
-	}
-	pk := c.PerKeyAdmission
-	NormalizePerKeyAdmissionConfig(&pk)
-	if err := ValidatePerKeyAdmissionConfig(pk, hk); err != nil {
-		return err
-	}
-	sp := c.ShardPressure
-	NormalizeShardPressureConfig(&sp)
-	if err := ValidateShardPressureConfig(sp); err != nil {
-		return err
-	}
-	as := c.AutoscalingSignal
-	NormalizeAutoscalingSignalConfig(&as)
-	if err := ValidateAutoscalingSignalConfig(as); err != nil {
-		return err
-	}
-	if err := validateConfigRetry(c); err != nil {
-		return err
-	}
-	if err := validateConfigIdempotency(c); err != nil {
-		return err
-	}
-	if err := validateConfigRetrySuppression(c); err != nil {
-		return err
-	}
-	if err := validateConfigContinuation(c); err != nil {
-		return err
-	}
-	return validateConfigBackendResources(c)
-}
-
-func validateConfigBackendResources(c Config) error {
-	br := c.BackendResources
-	NormalizeBackendResourceConfig(&br)
-	return ValidateBackendResourceConfig(br)
-}
-
-func validateConfigContinuation(c Config) error {
-	cont := c.Continuation
-	NormalizeContinuationConfig(&cont)
-	return ValidateContinuationConfig(cont)
-}
-
-func validateConfigRetry(c Config) error {
-	retry := c.Retry
-	NormalizeRetryPolicy(&retry)
-	return ValidateRetryPolicy(retry)
-}
-
-func validateConfigIdempotency(c Config) error {
-	idem := c.Idempotency
-	NormalizeIdempotencyPolicy(&idem)
-	return ValidateIdempotencyPolicy(idem)
-}
-
-func validateConfigRetrySuppression(c Config) error {
-	sup := c.RetrySuppression
-	NormalizeRetrySuppressionPolicy(&sup)
-	return ValidateRetrySuppressionPolicy(sup)
+	cp := c
+	normalizeConfigInPlace(&cp)
+	return validateNormalizedConfig(cp)
 }

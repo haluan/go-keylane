@@ -58,6 +58,17 @@ See the full inventory: [public-api-inventory.md](public-api-inventory.md).
 
 When `Continuation.Enabled` is true and `MaxPending == 0`, `New` applies `DefaultContinuationMaxPending`.
 
+Core scheduler fields (`ShardCount`, `WorkerCount`, `QueueSizePerLane`, `LaneQuotas`) are **required**; a bare zero `Config` does not construct a queue. See [production-defaults.md](production-defaults.md) and [config-validation.md](config-validation.md) for per-field detail.
+
+### Config validation API (KL-1802, stable candidate)
+
+| Symbol | Role |
+|--------|------|
+| `ValidateConfig`, `ValidationReport`, `ValidationIssue` | Structured validation |
+| `NormalizeConfig`, `NormalizedConfig` | Support/debug snapshots |
+| `ConfigVersionV1` | Active config schema version |
+| `Queue.ConfigValidationWarnings` | Non-fatal warnings from `New` |
+
 ---
 
 ## Repeatable export review
@@ -84,4 +95,7 @@ See [internal/apicheck/README.md](../internal/apicheck/README.md).
 
 - [public-api-inventory.md](public-api-inventory.md)
 - [configuration.md](configuration.md)
+- [config-validation.md](config-validation.md)
+- [config-versioning.md](config-versioning.md)
+- [production-defaults.md](production-defaults.md)
 - [v0.7 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md)

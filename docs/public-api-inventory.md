@@ -22,7 +22,10 @@ Guard: `go test ./internal/apicheck/...`
 | Symbol | Category | Notes |
 |--------|----------|-------|
 | `Queue`, `New`, `Start`, `Stop`, `Submit`, `TrySubmit` | Stable Candidate | Primary entry points |
-| `Config`, `Config.Validate` | Stable Candidate | Zero values disable optional subsystems |
+| `Config`, `Config.Validate` | Stable Candidate | Core fields required; optional subsystems zero-disable |
+| `ValidateConfig`, `ValidationReport`, `ValidationIssue` | Stable Candidate | KL-1802 structured validation |
+| `NormalizeConfig`, `NormalizedConfig`, `ConfigVersionV1` | Stable Candidate | Support/debug snapshots |
+| `Queue.ConfigValidationWarnings` | Stable Candidate | Non-fatal warnings from `New` |
 | `Job`, `Lane`, `WithDrain` | Stable Candidate | Fire-and-forget execution |
 | `ErrQueueAlreadyStarted`, `ErrQueueNotStarted`, `ErrNilQueue` | Stable Candidate | Lifecycle errors |
 

@@ -4,6 +4,7 @@ AcquireBackend
 AdaptiveControllerSnapshot
 AdaptiveDebugSnapshot
 AdaptiveQuotaConfig
+AdaptiveQuotaConfigSnapshot
 AdaptiveQuotaDecisionEvent
 AdaptiveQuotaEvent
 AdaptiveQuotaPolicy
@@ -22,6 +23,7 @@ AdmissionResult
 AsFailure
 AsStageFailure
 AutoscalingSignalConfig
+AutoscalingSignalConfigSnapshot
 BackendAdmissionAccepted
 BackendAdmissionCancelled
 BackendAdmissionDeadlineExhausted
@@ -55,7 +57,9 @@ BackendPressureProvider
 BackendPressureSnapshot
 BackendReleaseEvent
 BackendResourceConfig
+BackendResourceConfigSnapshot
 BackendResourceHooks
+BackendResourceLaneSnapshot
 BackendResourceName
 BackendResourcePolicy
 BackendResourceSnapshot
@@ -71,8 +75,27 @@ CheckPerKeyAdmission
 ClassifyContextError
 ClassifyContextErrorAt
 ClassifyFailure
+CodeConfigBackendResourcesEnabled
+CodeConfigContinuationTimeoutMissing
+CodeConfigHighCardinalityLabelRisk
+CodeConfigHighQueueCapacity
+CodeConfigInvalid
+CodeConfigInvalidBackoff
+CodeConfigInvalidLane
+CodeConfigInvalidLaneQuota
+CodeConfigInvalidQueueCapacity
+CodeConfigInvalidShardCount
+CodeConfigInvalidWorkerCount
+CodeConfigMissingLaneQuotas
+CodeConfigPressureProviderObservational
+CodeConfigRawKeyExposureEnabled
+CodeConfigUnboundedRetry
+CodeConfigUnsafeRetryWithoutIdempotency
+CodeConfigWorkerCountExceedsGOMAXPROCS
 Config
 Config.Validate
+ConfigVersion
+ConfigVersionV1
 ContextWithStageExecution
 Continuation
 ContinuationCompleter
@@ -176,6 +199,7 @@ FailureOverloaded
 FailurePanic
 FailurePermanent
 FailurePolicy
+FailurePolicyConfigSnapshot
 FailureRejected
 FailureRetryable
 FailureTimeout
@@ -186,6 +210,7 @@ HotKeyCandidate
 HotKeyCandidateEvent
 HotKeyCandidateSnapshot
 HotKeyConfig
+HotKeyConfigSnapshot
 HotKeyDetection
 HotKeyPressureSnapshot
 HotKeyStatus
@@ -195,6 +220,7 @@ HotKeyStatusNone
 HotLane
 HotShard
 Idempotency
+IdempotencyConfigSnapshot
 IdempotencyPolicy
 IsFailure
 Job
@@ -208,11 +234,13 @@ JobTimingEvent
 Lane
 Lane.Validate
 LaneAdaptivePolicy
+LaneAdaptivePolicySnapshot
 LaneAdaptiveStats
 LaneBackground
 LaneBestEffort
 LaneClass
 LaneClass.Validate
+LaneConfigSnapshot
 LaneCountersGCPressure
 LaneCritical
 LaneDepthGCPressure
@@ -221,6 +249,7 @@ LaneNormal
 LaneOverloadPolicy
 LanePolicy
 LanePressureSnapshot
+LaneQuotaEntry
 LaneSnapshot
 LaneStats
 LaneStats.AverageQueueWait
@@ -237,6 +266,7 @@ NormalizeAdaptiveQuotaConfig
 NormalizeAdmissionConfig
 NormalizeAutoscalingSignalConfig
 NormalizeBackendResourceConfig
+NormalizeConfig
 NormalizeContinuationConfig
 NormalizeHotKeyConfig
 NormalizeIdempotencyPolicy
@@ -244,7 +274,9 @@ NormalizePerKeyAdmissionConfig
 NormalizeRetryPolicy
 NormalizeRetrySuppressionPolicy
 NormalizeShardPressureConfig
+NormalizedConfig
 ObservabilityConfig
+ObservabilityConfigSnapshot
 ObservationForError
 OverloadAction
 OverloadConfig
@@ -273,6 +305,7 @@ OverloadedDepthRatio
 OverloadedFailure
 PanicFailure
 PerKeyAdmissionConfig
+PerKeyAdmissionConfigSnapshot
 PerKeyAdmissionDecision
 PerKeyAdmissionDecisionEvent
 PerKeyAdmissionDecisionTotal
@@ -296,6 +329,7 @@ PerKeyMitigationSnapshot
 PerKeyMitigationThrottle
 PermanentFailure
 Pipeline
+PipelineConfigSnapshot
 PipelineStage
 Pressure
 PressureSummarySnapshot
@@ -305,6 +339,7 @@ Queue.AdaptiveDebugSnapshot
 Queue.AdaptiveQuotaSnapshot
 Queue.AppendHotShards
 Queue.BackendPressure
+Queue.ConfigValidationWarnings
 Queue.CurrentAdmissionPolicy
 Queue.CurrentOverloadPolicy
 Queue.CurrentQuotaPolicy
@@ -384,6 +419,7 @@ RequestOutcomeTimedOut
 ResolveObservabilityConfig
 ResourcePressureReader
 RetryAttempt
+RetryConfigSnapshot
 RetryDecision
 RetryDecisionBudgetTooSmall
 RetryDecisionContextCancelled
@@ -434,6 +470,7 @@ RetrySafetyUnspecified
 RetryState
 RetrySuppressionAdmissionFailure
 RetrySuppressionCheck
+RetrySuppressionConfigSnapshot
 RetrySuppressionDecision
 RetrySuppressionDisabled
 RetrySuppressionGlobalOverload
@@ -465,6 +502,7 @@ RunStatsGCPressure
 RunStatsGCPressure.AverageDuration
 RunStatsGCPressure.AverageNanos
 RunStatsGCPressure.MaxDuration
+RuntimeConfigSnapshot
 SQLDBPressureAdapter
 SQLDBPressureAdapter.BackendPressure
 SQLDBStatsReader
@@ -493,6 +531,7 @@ ScaleSignalSnapshot
 ShardContinuationSnapshot
 ShardPressureClass
 ShardPressureConfig
+ShardPressureConfigSnapshot
 ShardPressureDistributed
 ShardPressureHealthy
 ShardPressureLaneDominant
@@ -545,6 +584,7 @@ ValidateBackendOperation
 ValidateBackendPressureSnapshot
 ValidateBackendResourceConfig
 ValidateBackoffHint
+ValidateConfig
 ValidateContinuationConfig
 ValidateHotKeyConfig
 ValidateIdempotencyPolicy
@@ -553,6 +593,14 @@ ValidateRetryPolicy
 ValidateRetrySuppressionPolicy
 ValidateShardPressureConfig
 ValidateStageMeta
+ValidationError
+ValidationIssue
+ValidationReport
+ValidationReport.Err
+ValidationReport.HasErrors
+ValidationReport.HasWarnings
+ValidationSeverity
+ValidationWarning
 ValueJob
 Version
 WithBackend
