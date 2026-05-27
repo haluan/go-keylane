@@ -2,7 +2,7 @@
 
 Part of v0.7 — Advanced Request Pipeline & Backend Resource Coordination.
 
-KL-1704 bounds **in-process** backend usage via leases (`AcquireBackend` / `WithBackend`). KL-1705 adds **optional adapters** that map external pool telemetry (`database/sql`, custom API semaphores) into the same low-cardinality `resource` + `backend_lane` identity for diagnostics and hooks.
+KL-1704 bounds **in-process** backend usage via leases (`AcquireBackend` / `WithBackend`). KL-1705 adds **optional adapters** that map external pool telemetry (`database/sql`, custom API semaphores) into the same low-cardinality `backend_resource` + `backend_lane` identity for diagnostics and hooks.
 
 Keylane does **not** own connection pools, HTTP clients, transports, or retry semantics.
 
@@ -118,12 +118,12 @@ Suggested Prometheus-style metrics (implement in your hook adapter):
 
 | Metric | Type | Labels |
 |--------|------|--------|
-| `keylane_backend_pressure_ratio` | Gauge | `resource`, `backend_lane` |
-| `keylane_backend_in_use` | Gauge | `resource`, `backend_lane` |
-| `keylane_backend_capacity` | Gauge | `resource`, `backend_lane` |
-| `keylane_backend_wait_total` | Counter | `resource`, `backend_lane` |
-| `keylane_backend_wait_seconds_total` | Counter | `resource`, `backend_lane` |
-| `keylane_backend_saturated` | Gauge | `resource`, `backend_lane` |
+| `keylane_backend_pressure_ratio` | Gauge | `backend_resource`, `backend_lane` |
+| `keylane_backend_in_use` | Gauge | `backend_resource`, `backend_lane` |
+| `keylane_backend_capacity` | Gauge | `backend_resource`, `backend_lane` |
+| `keylane_backend_wait_total` | Counter | `backend_resource`, `backend_lane` |
+| `keylane_backend_wait_duration_seconds` | Counter | `backend_resource`, `backend_lane` |
+| `keylane_backend_saturated` | Gauge | `backend_resource`, `backend_lane` |
 
 Do **not** label with raw URL, SQL, tenant ID, user ID, request ID, or routing key.
 
@@ -134,3 +134,10 @@ Do **not** label with raw URL, SQL, tenant ID, user ID, request ID, or routing k
 - [backend-resource-coordination.md](backend-resource-coordination.md) — KL-1704 leases and admission
 - [request-observability.md](request-observability.md) — hook configuration
 - [metrics.md](metrics.md) — metric naming
+- [pipeline-observability.md](pipeline-observability.md) — `OnBackendPressure` lifecycle and low-cardinality fields
+- [pipeline-testing.md](pipeline-testing.md) — pressure adapter and `DebugSnapshot.BackendPressure` tests
+
+### Troubleshooting
+
+- **Empty `BackendPressure` in snapshot**: confirm `PressureProviders` on `BackendResourceConfig` and `EnableDebugSnapshot`; see `debug_snapshot_pipeline_test.go`.
+- **Pool saturated but admission still succeeds**: KL-1705 observes only; applications gate on `Saturated` before `AcquireBackend` if needed.

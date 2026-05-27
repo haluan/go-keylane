@@ -37,7 +37,11 @@ func TestDebugSnapshotBackendResources(t *testing.T) {
 	}
 	found := false
 	for _, lane := range snap.BackendResources[0].Lanes {
-		if lane.Lane == BackendLaneDBRead && lane.InFlight == 1 && lane.Capacity == 2 {
+		if lane.Lane == BackendLaneDBRead &&
+			lane.InFlight == 1 &&
+			lane.Capacity == 2 &&
+			lane.Queued == 0 &&
+			!lane.Saturated {
 			found = true
 		}
 	}
@@ -47,13 +51,61 @@ func TestDebugSnapshotBackendResources(t *testing.T) {
 	lease.Release()
 }
 
+func TestDebugSnapshotBackendLaneFieldsIncludeQueued(t *testing.T) {
+	ctx := testTimeout(t)
+	cfg := newTestConfig()
+	cfg.BackendResources = testBackendResourceConfig()
+	cfg.Observability.EnableDebugSnapshot = true
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	lease, err := AcquireBackend(ctx, q, BackendOperation{
+		Resource: "primary-db", Lane: BackendLaneDBWrite,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snap := q.DebugSnapshot()
+	var lane BackendLaneSnapshot
+	found := false
+	for _, res := range snap.BackendResources {
+		for _, l := range res.Lanes {
+			if l.Lane == BackendLaneDBWrite {
+				lane = l
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("lanes = %+v", snap.BackendResources)
+	}
+	if lane.InFlight != 1 || lane.Capacity != 1 {
+		t.Fatalf("inflight/capacity = %+v", lane)
+	}
+	if lane.Queued != 0 {
+		t.Fatalf("Queued = %d, want 0 under reject admission", lane.Queued)
+	}
+	if !lane.Saturated {
+		t.Fatal("expected Saturated when inflight == capacity")
+	}
+	lease.Release()
+}
+
 func TestDebugSnapshotBackendPressure(t *testing.T) {
 	ctx := testTimeout(t)
 	prov := staticPressureProvider{snap: BackendPressureSnapshot{
-		Resource: "primary-db",
-		Lane:     BackendLaneDBRead,
-		InUse:    2,
-		Capacity: 8,
+		Resource:  "primary-db",
+		Lane:      BackendLaneDBRead,
+		InUse:     2,
+		Capacity:  8,
+		Pressure:  0.375,
+		Saturated: false,
 	}}
 	cfg := newTestConfig()
 	cfg.BackendResources.PressureProviders = []BackendPressureProvider{prov}
@@ -69,8 +121,15 @@ func TestDebugSnapshotBackendPressure(t *testing.T) {
 	if len(snap.BackendPressure) != 1 {
 		t.Fatalf("pressure = %+v", snap.BackendPressure)
 	}
-	if snap.BackendPressure[0].InUse != 2 || snap.BackendPressure[0].Capacity != 8 {
-		t.Fatalf("pressure = %+v", snap.BackendPressure[0])
+	bp := snap.BackendPressure[0]
+	if bp.Resource != "primary-db" || bp.Lane != BackendLaneDBRead {
+		t.Fatalf("pressure identity = %+v", bp)
+	}
+	if bp.InUse != 2 || bp.Capacity != 8 || bp.Pressure != 0.375 {
+		t.Fatalf("pressure ratio/usage = %+v", bp)
+	}
+	if bp.Saturated {
+		t.Fatalf("pressure saturated = %+v", bp)
 	}
 }
 

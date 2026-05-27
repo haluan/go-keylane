@@ -25,6 +25,7 @@ func newContinuationTestQueue(t *testing.T, ctx context.Context, maxPending int)
 	if err := q.Start(ctx); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
+	t.Cleanup(func() { stopTestQueue(t, q) })
 	return q
 }
 
@@ -124,7 +125,7 @@ func TestContinuationDeliverCallsLateWhenOutcomeFull(t *testing.T) {
 	cont.outcome <- continuationOutcome[int]{kind: continuationOutcomeCancel, err: context.Canceled}
 
 	var lateCalled bool
-	setContinuationLateHandler(completer, func() {
+	setContinuationLateHandler(completer, nil, StageExecutionContext{}, func() {
 		reg.recordLate()
 		lateCalled = true
 	})
@@ -153,7 +154,7 @@ func TestContinuationLateCompleteIgnored(t *testing.T) {
 	if _, found := reg.resolve(cont.ID, continuationOutcomeCancel); !found {
 		t.Fatal("expected registered continuation to resolve")
 	}
-	setContinuationLateHandler(completer, func() { reg.recordLate() })
+	setContinuationLateHandler(completer, nil, StageExecutionContext{}, func() { reg.recordLate() })
 	if completer.Complete(42) {
 		t.Fatal("late Complete should return false")
 	}

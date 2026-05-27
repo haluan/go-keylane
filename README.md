@@ -152,6 +152,8 @@ KL-1703 is a **handoff primitive only**. Backend in-process coordination (KL-170
 
 Guide: [continuations.md](docs/continuations.md) · Pipeline integration: [request-pipeline.md](docs/request-pipeline.md)
 
+**Observability and tests (v0.7):** [pipeline-observability.md](docs/pipeline-observability.md) · [pipeline-testing.md](docs/pipeline-testing.md) · [benchmarks/pipeline.md](docs/benchmarks/pipeline.md)
+
 ```bash
 go run ./examples/pipeline_continuation
 ```

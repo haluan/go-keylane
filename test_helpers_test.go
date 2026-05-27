@@ -58,6 +58,36 @@ func waitForSignal(t *testing.T, ch <-chan struct{}) {
 	}
 }
 
+func stopTestQueue(t *testing.T, q *Queue) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := q.Stop(ctx); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+}
+
+func backendLaneInFlight(q *Queue, resource BackendResourceName, lane BackendLane) int {
+	for _, res := range q.DebugSnapshot().BackendResources {
+		if res.Resource != resource {
+			continue
+		}
+		for _, l := range res.Lanes {
+			if l.Lane == lane {
+				return l.InFlight
+			}
+		}
+	}
+	return 0
+}
+
+func assertBackendLaneInFlightZero(t *testing.T, q *Queue, resource BackendResourceName, lane BackendLane) {
+	t.Helper()
+	if n := backendLaneInFlight(q, resource, lane); n != 0 {
+		t.Fatalf("backend inflight for %s/%s = %d, want 0", resource, lane, n)
+	}
+}
+
 func eventuallyNoGoroutineGrowth(t *testing.T, before int, tolerance int) {
 	t.Helper()
 	deadline := time.After(3 * time.Second)

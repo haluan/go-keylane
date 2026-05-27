@@ -50,6 +50,13 @@ func TestPipelineContinuationDeadlineWhileYielded(t *testing.T) {
 	if !errors.Is(awaitErr, context.DeadlineExceeded) && !errors.Is(awaitErr, context.Canceled) {
 		t.Fatalf("expected deadline/cancel error, got %T: %v", awaitErr, awaitErr)
 	}
+
+	waitUntil(t, func() bool {
+		return q.DebugSnapshot().Continuation.Pending == 0
+	}, 2*time.Second)
+	if snap := q.DebugSnapshot().Continuation; snap.Pending != 0 {
+		t.Fatalf("pending after deadline = %d, want 0", snap.Pending)
+	}
 }
 
 func TestPipelineContinuationLateCompleteAfterDeadlineIgnored(t *testing.T) {

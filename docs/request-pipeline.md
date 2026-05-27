@@ -14,6 +14,7 @@ Use `SubmitPipeline` when you need:
 
 - Stage-level duration and failure attribution in hooks or metrics adapters
 - Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and [backend resource coordination](backend-resource-coordination.md) (KL-1704)
+- Unified hook lifecycle and metrics guidance ([pipeline-observability.md](pipeline-observability.md))
 
 Keep using `SubmitRequest` for single-step work. Existing callers do not need to migrate.
 

@@ -272,7 +272,9 @@ func runContinuationPipeline[S any, O any](
 		q.emitStageStarted(q.newStageObservationFromExecution(exec, 0, nil))
 
 		if stage.RunContinuation != nil {
-			result, err := stage.RunContinuation(stageCtx, state)
+			result, err := recoverStageResult(func() (StageResult[S], error) {
+				return stage.RunContinuation(stageCtx, state)
+			})
 			if err != nil {
 				stageDur := time.Since(stageStart)
 				endRuntime := priorRuntime + time.Since(pipelineStart)
@@ -310,9 +312,7 @@ func runContinuationPipeline[S any, O any](
 				closeDone := func() { doneOnce.Do(func() { close(cont.done) }) }
 
 				// Install before register so Complete after cancel cannot run invokeLate with no handler.
-				setContinuationLateHandler(cont.boundCompleter, func() {
-					cont.recordLateCompletion(q, exec, continuationOutcomeComplete, ErrContinuationLate)
-				})
+				setContinuationLateHandler(cont.boundCompleter, q, exec, nil)
 
 				entry := pendingEntry{
 					id:           cont.ID,
@@ -347,6 +347,7 @@ func runContinuationPipeline[S any, O any](
 					var o continuationOutcome[S]
 					select {
 					case <-reqCtx.Done():
+						closeDone()
 						o = continuationOutcome[S]{
 							kind: continuationOutcomeCancel,
 							err:  reqCtx.Err(),
@@ -357,13 +358,12 @@ func runContinuationPipeline[S any, O any](
 							recordLateOutcome(existing)
 						default:
 						}
-						// Completer may publish after the select above (inner default) before closeDone.
+						// Completer may publish after the select above (inner default).
 						select {
 						case existing := <-cont.outcome:
 							recordLateOutcome(existing)
 						default:
 						}
-						closeDone()
 						// Completer may publish after closeDone; outcome buffer holds at most one value.
 						select {
 						case existing := <-cont.outcome:
@@ -454,7 +454,9 @@ func runContinuationPipeline[S any, O any](
 		} else {
 			// Synchronous stage.
 			var err error
-			state, err = stage.Run(stageCtx, state)
+			state, err = recoverStageRun(func() (S, error) {
+				return stage.Run(stageCtx, state)
+			})
 			stageDur := time.Since(stageStart)
 			endRuntime := priorRuntime + time.Since(pipelineStart)
 			endDeadline := stageDeadlineBudget(reqCtx, queueWait, endRuntime, time.Now())

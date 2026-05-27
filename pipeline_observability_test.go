@@ -187,3 +187,112 @@ func TestStageObservationLowCardinalityStageName(t *testing.T) {
 		t.Fatal("key present for debugging but must not be used as metric label")
 	}
 }
+
+func TestSubmitPipelineStageHookPanicRecovered(t *testing.T) {
+	spy := newPipelineHookSpy()
+	q, ctx := startedQueueWithRequestHooks(t, spy.hooks())
+	obs := q.config.Observability
+	obs.Hooks.Request.OnStageStarted = func(StageObservation) { panic("stage hook panic") }
+	q.config.Observability = obs
+
+	future, err := SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+		Meta: RequestMeta{Key: "k", Lane: "default"},
+		Stages: []PipelineStage[pState]{
+			validPipelineStage(StageValidate, func(s *pState) { s.Val = 1 }),
+		},
+		Complete: validPipelineComplete(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Await(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitRequestObservation(t, spy.completed)
+	waitStageObservation(t, spy.stageCompleted)
+}
+
+func TestSubmitPipelineStageDurationPopulated(t *testing.T) {
+	spy := newPipelineHookSpy()
+	q, ctx := startedQueueWithRequestHooks(t, spy.hooks())
+
+	future, err := SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+		Meta: RequestMeta{Key: "k", Lane: "default"},
+		Stages: []PipelineStage[pState]{
+			validPipelineStage(StageValidate, func(s *pState) { time.Sleep(time.Millisecond) }),
+		},
+		Complete: validPipelineComplete(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Await(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitStageObservation(t, spy.stageStarted)
+	completed := waitStageObservation(t, spy.stageCompleted)
+	if completed.StageDuration <= 0 {
+		t.Fatalf("StageDuration = %v", completed.StageDuration)
+	}
+}
+
+func TestSubmitPipelineStageOperationOverride(t *testing.T) {
+	spy := newPipelineHookSpy()
+	q, ctx := startedQueueWithRequestHooks(t, spy.hooks())
+
+	future, err := SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+		Meta: RequestMeta{Key: "k", Lane: "default", Operation: "request-op"},
+		Stages: []PipelineStage[pState]{
+			{
+				Meta: StageMeta{Name: StageValidate, Operation: "stage-op"},
+				Run:  func(_ context.Context, st pState) (pState, error) { return st, nil },
+			},
+		},
+		Complete: validPipelineComplete(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Await(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	started := waitStageObservation(t, spy.stageStarted)
+	if started.Operation != "stage-op" {
+		t.Fatalf("Operation = %q, want stage-op", started.Operation)
+	}
+}
+
+func TestSubmitPipelineStageHooksDisabled(t *testing.T) {
+	spy := newPipelineHookSpy()
+	ctx := testTimeout(t)
+	cfg := newTestConfig()
+	cfg.Observability = DefaultObservabilityConfig()
+	cfg.Observability.EnableHooks = false
+	cfg.Observability.Hooks.Request = spy.hooks()
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	future, err := SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+		Meta: RequestMeta{Key: "k", Lane: "default"},
+		Stages: []PipelineStage[pState]{
+			validPipelineStage(StageValidate, func(s *pState) {}),
+		},
+		Complete: validPipelineComplete(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Await(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-spy.stageStarted:
+		t.Fatal("stage hook fired with EnableHooks false")
+	default:
+	}
+}

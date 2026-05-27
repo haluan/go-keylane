@@ -190,13 +190,15 @@ Per-shard breakdown is in `snap.ContinuationPerShard`.
 ```go
 cfg.Observability.Hooks.Request.Continuation = keylane.ContinuationHooks{
     OnContinuationYielded:   func(obs keylane.ContinuationObservation) { /* stage yielded */ },
+    OnContinuationCompleted: func(obs keylane.ContinuationObservation) { /* completer accepted */ },
     OnContinuationResumed:   func(obs keylane.ContinuationObservation) { /* resume job started */ },
-    OnContinuationCompleted: func(obs keylane.ContinuationObservation) { /* pipeline finished */ },
     OnContinuationFailed:    func(obs keylane.ContinuationObservation) { /* Fail called */ },
     OnContinuationCancelled: func(obs keylane.ContinuationObservation) { /* Cancel or deadline */ },
     OnContinuationLate:      func(obs keylane.ContinuationObservation) { /* late Complete ignored */ },
 }
 ```
+
+Hook order on the happy path: `OnContinuationYielded` → `OnContinuationCompleted` → `OnContinuationResumed` (see [pipeline-observability.md](pipeline-observability.md#continuation-stage)).
 
 `ContinuationObservation` includes `YieldedFor` (time from yield to resolution) and `ResumeQueueWait` (time from resume enqueue to resume job start).
 
@@ -272,3 +274,8 @@ Continuations are a yield/resume primitive for explicit I/O hand-off, not a gene
 - **Not pool adapters (KL-1705)**: no `database/sql`/HTTP integration in KL-1704.
 
 See [request-pipeline.md](request-pipeline.md) for the base pipeline model and [stage-execution-context.md](stage-execution-context.md) for execution context propagation across yield/resume.
+
+### Troubleshooting
+
+- **Pending continuations not draining**: check `DebugSnapshot.Continuation` (`Pending`, `MaxPending`, `LateCompletions`) and continuation hook order in [pipeline-observability.md](pipeline-observability.md).
+- **Tests**: [pipeline-testing.md](pipeline-testing.md) maps continuation observability and stress coverage to `continuation_observability_test.go` and `pipeline_stress_test.go`.
