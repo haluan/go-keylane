@@ -1,0 +1,3 @@
+MergeAttributes
+NewHooks
+Options

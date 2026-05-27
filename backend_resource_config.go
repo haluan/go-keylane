@@ -6,6 +6,10 @@ package keylane
 import "fmt"
 
 // BackendResourceConfig configures optional backend resource lane coordination (disabled by default).
+//
+// Experimental: may change before v1.0.
+//
+// Zero value (Enabled == false) disables coordination; AcquireBackend returns ErrBackendAdmissionDisabled.
 type BackendResourceConfig struct {
 	Enabled           bool
 	Resources         map[BackendResourceName]BackendResourcePolicy
@@ -20,8 +24,9 @@ type BackendResourcePolicy struct {
 // BackendLanePolicy bounds in-flight work for one backend lane.
 type BackendLanePolicy struct {
 	MaxInFlight int
-	QueueLimit  int
-	Admission   BackendAdmissionMode
+	// QueueLimit is reserved for future wait-mode admission (currently unused in snapshots).
+	QueueLimit int
+	Admission  BackendAdmissionMode
 }
 
 // BackendAdmissionMode selects how saturated backend lanes admit work.
@@ -29,7 +34,9 @@ type BackendAdmissionMode string
 
 const (
 	BackendAdmissionReject BackendAdmissionMode = "reject"
-	BackendAdmissionWait   BackendAdmissionMode = "wait"
+	// BackendAdmissionWait is reserved for future queue-mode admission.
+	// ValidateBackendResourceConfig rejects this mode; do not use in configuration.
+	BackendAdmissionWait BackendAdmissionMode = "wait"
 )
 
 // NormalizeBackendResourceConfig applies safe defaults when coordination is enabled.

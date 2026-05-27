@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// Config configures a Queue: shard routing, workers, lane quotas, and optional subsystems.
+// Zero values disable optional features (continuations, backend resources, hot keys, retry, etc.).
+// Call Validate before New when setting non-default subsystem configs.
 type Config struct {
 	ShardCount       int
 	WorkerCount      int
@@ -57,7 +60,10 @@ type Config struct {
 }
 
 // ContinuationConfig configures the bounded in-memory continuation registry.
-// Zero value disables continuations; stages using RunContinuation will return ErrContinuationDisabled.
+//
+// Experimental: may change before v1.0.
+//
+// Zero value disables continuations; stages using RunContinuation will return ErrContinuationDisabled at submit.
 type ContinuationConfig struct {
 	// Enabled must be true to allow continuation stages.
 	Enabled bool
@@ -69,7 +75,7 @@ type ContinuationConfig struct {
 	// MaxPendingPerShard is an optional per-shard cap. Zero means no per-shard override.
 	MaxPendingPerShard int
 
-	// CompletionRetention is reserved for future completed-continuation diagnostics.
+	// CompletionRetention is reserved for future completed-continuation diagnostics (currently unused).
 	CompletionRetention time.Duration
 }
 

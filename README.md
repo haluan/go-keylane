@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.7.0 — advanced request pipelines, continuations, and backend resource coordination on top of v0.6 retry/deadline/failure policy. Public APIs may still evolve before a stable v1.0.
+> Status: v0.8 (pre-v1.0) — v0.7 pipelines, continuations, and backend coordination on top of v0.6 retry/deadline/failure policy. See [API stability](docs/api-stability.md) and [public API inventory](docs/public-api-inventory.md).
 
 ---
 
@@ -340,6 +340,12 @@ cd tracing/otel && go test ./...
 ---
 
 ## Documentation
+
+### v0.8 API stability
+
+- [API Stability](docs/api-stability.md)
+- [Public API Inventory](docs/public-api-inventory.md)
+- [Migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
 
 ### v0.7.0 pipelines, continuations & backend coordination
 

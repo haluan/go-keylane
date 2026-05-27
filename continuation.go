@@ -31,6 +31,8 @@ type continuationOutcome[S any] struct {
 // Continuation is an opaque handle returned by a yielding stage.
 // It carries resume position and execution identity for the pipeline runner.
 // The type parameter S is the pipeline state type.
+//
+// Experimental: may change before v1.0.
 type Continuation[S any] struct {
 	ID         ContinuationID
 	exec       StageExecutionContext
@@ -108,6 +110,8 @@ type StageResult[S any] struct {
 type ContinuationStageFunc[S any] func(context.Context, S) (StageResult[S], error)
 
 // ContinuationCompleter allows external code to resolve a pending continuation exactly once.
+// ContinuationCompleter drives resolution of a yielded continuation (Complete, Fail, or Cancel).
+// Methods are exactly-once: the first call wins. Experimental: may change before v1.0.
 type ContinuationCompleter[S any] interface {
 	// Complete advances the pipeline with the given updated state. Returns false if already resolved.
 	Complete(state S) bool

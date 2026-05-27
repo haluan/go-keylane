@@ -200,6 +200,10 @@ Core submit, admission, and overload behavior from v0.3/v0.4 is unchanged.
 
 ---
 
+## API stability and zero values
+
+Config fields follow [api-stability.md](api-stability.md): zero values disable optional subsystems unless documented otherwise (for example `Continuation.MaxPending` when `Enabled` is true). See [public-api-inventory.md](public-api-inventory.md).
+
 ## Related docs
 
 - [v0.5-hot-key-autoscaling-signals.md](v0.5-hot-key-autoscaling-signals.md) — overview

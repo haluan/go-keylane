@@ -11,6 +11,8 @@ import (
 )
 
 // BackendPressureProvider reports downstream pool pressure for one resource/lane pair.
+//
+// Experimental: may change before v1.0. Observational only; keylane does not reject requests from pool telemetry unless the application gates on snapshots.
 type BackendPressureProvider interface {
 	BackendPressure(context.Context) BackendPressureSnapshot
 }

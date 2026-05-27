@@ -22,6 +22,8 @@ type StageFunc[S any] func(context.Context, S) (S, error)
 
 // PipelineStage is one ordered step in a same-state request pipeline.
 // Exactly one of Run or RunContinuation must be set.
+//
+// Experimental: may change before v1.0.
 type PipelineStage[S any] struct {
 	Meta StageMeta
 
@@ -35,6 +37,8 @@ type PipelineStage[S any] struct {
 }
 
 // Pipeline is a typed multi-stage request with the same policies as Request.
+//
+// Experimental: may change before v1.0. In-process orchestration only; not a persistent workflow.
 type Pipeline[S any, O any] struct {
 	Meta             RequestMeta
 	Admission        AdmissionConfig
