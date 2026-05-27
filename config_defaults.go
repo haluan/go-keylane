@@ -123,6 +123,8 @@ func buildDefaultEntries(raw, norm Config, obs ObservabilityConfig, mode SafetyM
 		"debug snapshots are pull/diagnostic APIs, not per-submit hot path", defaultStabilityStable)
 	add("Observability.EnableCounters", boolString(obs.EnableCounters),
 		"cumulative counters remain available in low-allocation mode", defaultStabilityStable)
+	add("Observability.ExposeRawRequestIdentifiers", boolString(obs.ExposeRawRequestIdentifiers),
+		"raw Key and RequestID in observations are opt-in; default is KeyHash only", defaultStabilityStable)
 
 	if isUnsetObservabilityConfig(raw.Observability) {
 		add("Observability.resolved", "DefaultObservabilityConfig",

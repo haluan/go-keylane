@@ -99,8 +99,8 @@ func TestBackendHooksAdmissionExecutionMetadata(t *testing.T) {
 	}
 	lease.Release()
 
-	if admitted.RequestID != "req-42" {
-		t.Fatalf("RequestID = %q", admitted.RequestID)
+	if admitted.RequestID != "" {
+		t.Fatalf("RequestID = %q, want empty (redacted)", admitted.RequestID)
 	}
 	if admitted.KeyHash != core.HashKey("k1") {
 		t.Fatalf("KeyHash = %d, want %d", admitted.KeyHash, core.HashKey("k1"))

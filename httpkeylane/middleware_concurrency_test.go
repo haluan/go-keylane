@@ -76,7 +76,11 @@ func TestHTTPRuntimeConcurrentRequestsComplete(t *testing.T) {
 
 func TestHTTPRuntimeConcurrentSameKeyShardAffinity(t *testing.T) {
 	obs := newTestRequestObserver()
-	q, _ := newTestQueue(t, withShardCount(8), withWorkerCount(4), withRequestHooks(obs.hooks()))
+	q, _ := newTestQueue(t,
+		withShardCount(8), withWorkerCount(4),
+		withQueueSizePerLane(64),
+		withRequestHooks(obs.hooks()),
+	)
 
 	handler := Middleware(q, Config{
 		KeyFunc:  StaticKey("affinity-key"),

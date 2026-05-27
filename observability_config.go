@@ -47,6 +47,7 @@ func ResolveObservabilityConfig(in ObservabilityConfig) ObservabilityConfig {
 		out.SlowJobThreshold = in.SlowJobThreshold
 		out.EnableAdaptiveDecisionTracing = in.EnableAdaptiveDecisionTracing
 		out.Hooks = in.Hooks
+		out.ExposeRawRequestIdentifiers = in.ExposeRawRequestIdentifiers
 		return out
 	}
 	return in
@@ -59,6 +60,9 @@ func hasV04Hooks(h Hooks) bool {
 
 func isUnsetObservabilityConfig(c ObservabilityConfig) bool {
 	if c.LowAllocationMode {
+		return false
+	}
+	if c.ExposeRawRequestIdentifiers {
 		return false
 	}
 	if anyEnableFlagExplicit(c) {

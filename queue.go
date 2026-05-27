@@ -257,27 +257,31 @@ func wireSchedulerObservability(sched *core.Scheduler, obs ObservabilityConfig) 
 	if obs.Hooks.OnJobTiming != nil {
 		h := obs.Hooks.OnJobTiming
 		sched.Obs.OnJobTiming = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration time.Duration, outcome core.JobOutcome) {
-			h(JobTimingEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Outcome:     JobOutcome(outcome),
+			callHook(func() {
+				h(JobTimingEvent{
+					ShardID:     shardID,
+					LaneID:      uint16(laneID),
+					Lane:        Lane(laneName),
+					QueueWait:   queueWait,
+					RunDuration: runDuration,
+					Outcome:     JobOutcome(outcome),
+				})
 			})
 		}
 	}
 	if obs.Hooks.OnSlowJob != nil {
 		h := obs.Hooks.OnSlowJob
 		sched.Obs.OnSlowJob = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome core.JobOutcome) {
-			h(SlowJobEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Threshold:   threshold,
-				Outcome:     JobOutcome(outcome),
+			callHook(func() {
+				h(SlowJobEvent{
+					ShardID:     shardID,
+					LaneID:      uint16(laneID),
+					Lane:        Lane(laneName),
+					QueueWait:   queueWait,
+					RunDuration: runDuration,
+					Threshold:   threshold,
+					Outcome:     JobOutcome(outcome),
+				})
 			})
 		}
 	}

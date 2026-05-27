@@ -28,8 +28,10 @@ const (
 type RequestObservation struct {
 	RequestID string
 	Key       string
-	Lane      Lane
-	ShardID   int
+	// KeyHash is always set when Key was non-empty at emission time (even when Key is redacted).
+	KeyHash uint64
+	Lane    Lane
+	ShardID int
 
 	Transport string
 	Operation string
@@ -74,12 +76,17 @@ func classifyRequestOutcome(err error) RequestOutcome {
 }
 
 // ObservationForError builds a request observation when queue wait and run are unknown.
+// Key and RequestID are redacted by default; they are included only when q is non-nil and
+// q.config.Observability.ExposeRawRequestIdentifiers is true.
 func ObservationForError(q *Queue, meta RequestMeta, err error) RequestObservation {
 	shardID := 0
+	exposeRaw := false
 	if q != nil {
 		shardID = q.ShardIDForKey(meta.Key)
+		exposeRaw = q.hookExposeRawIdentifiers()
 	}
-	return newRequestObservation(meta, shardID, 0, 0, err)
+	obs := newRequestObservation(meta, shardID, 0, 0, err)
+	return redactRequestObservation(obs, exposeRaw)
 }
 
 func newRequestObservation(

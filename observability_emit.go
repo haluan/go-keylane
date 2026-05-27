@@ -27,7 +27,7 @@ func (q *Queue) emitRetryEvent(e RetryEvent) {
 		return
 	}
 	if h := q.config.Observability.Hooks.Retry.OnRetryEvent; h != nil {
-		callHook(func() { h(e) })
+		callHook(func() { h(q.redactRetryEvent(e)) })
 	}
 }
 

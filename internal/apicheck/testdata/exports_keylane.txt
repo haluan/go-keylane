@@ -20,6 +20,7 @@ AdmissionRejectedError
 AdmissionRejectedError.Error
 AdmissionRejectedError.Unwrap
 AdmissionResult
+AllowedDefaultMetricLabelNames
 AsFailure
 AsStageFailure
 AutoscalingSignalConfig
@@ -91,6 +92,7 @@ CodeConfigMissingLaneQuotas
 CodeConfigObservabilityFullDefaultsResolved
 CodeConfigPressureProviderObservational
 CodeConfigRawKeyExposureEnabled
+CodeConfigRawRequestIdentifiersInHooks
 CodeConfigUnboundedRetry
 CodeConfigUnsafeRetryWithoutIdempotency
 CodeConfigWorkerCountExceedsGOMAXPROCS
@@ -184,6 +186,7 @@ ErrQuotaPolicyVersionConflict
 ErrQuotaTooLarge
 ErrRetryUnsafe
 ErrStopped
+ExperimentalMetricPatterns
 ExplainDefaults
 ExplainDefaultsWithMode
 Failure
@@ -210,7 +213,10 @@ FailureRejected
 FailureRetryable
 FailureTimeout
 FailureUnknown
+ForbiddenMetricLabelNames
 Future
+HashKey
+HookPanicsRecovered
 Hooks
 HotKeyCandidate
 HotKeyCandidateEvent
@@ -237,6 +243,7 @@ JobOutcomeCompleted
 JobOutcomeFailed
 JobOutcomePanicked
 JobTimingEvent
+LabelDescriptor
 Lane
 Lane.Validate
 LaneAdaptivePolicy
@@ -262,6 +269,7 @@ LaneStats.AverageQueueWait
 LaneStatsGCPressure
 LowAllocationObservabilityConfig
 MaxLaneQuota
+MetricDescriptor
 New
 NewContinuation
 NewDeadlineBudget
@@ -283,6 +291,10 @@ NormalizeShardPressureConfig
 NormalizedConfig
 ObservabilityConfig
 ObservabilityConfigSnapshot
+ObservabilityExperimental
+ObservabilityInternal
+ObservabilityStability
+ObservabilityStable
 ObservationForError
 OverloadAction
 OverloadConfig
@@ -556,6 +568,7 @@ ShardStats
 ShardStatsGCPressure
 SlowJobEvent
 SnapshotDeadlineBudget
+StableMetricDescriptors
 StageAuthorize
 StageBusiness
 StageCacheRead

@@ -23,11 +23,12 @@ const (
 )
 
 // RetryEvent carries retry/failure observability metadata for hooks.
-// Key is for debugging only; do not use as a Prometheus or metrics label.
+// Key is omitted by default; use KeyHash for correlation. Do not use raw Key as a metric label.
 type RetryEvent struct {
 	Kind RetryEventKind
 
 	Key     string
+	KeyHash uint64
 	Lane    Lane
 	ShardID int
 

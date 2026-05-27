@@ -103,6 +103,24 @@ func TestValidateConfigRawKeyExposureWarning(t *testing.T) {
 	}
 }
 
+func TestValidateConfigRawRequestIdentifiersWithoutHooks(t *testing.T) {
+	report := ValidateConfig(Config{
+		ShardCount:       1,
+		WorkerCount:      1,
+		QueueSizePerLane: 8,
+		LaneQuotas:       map[Lane]int{"default": 1},
+		Observability: ObservabilityConfig{
+			EnableStats:                 true,
+			EnableCounters:              true,
+			EnableHooks:                 false,
+			ExposeRawRequestIdentifiers: true,
+		},
+	})
+	if !hasIssueCode(report, CodeConfigRawRequestIdentifiersInHooks) {
+		t.Fatalf("missing warning %+v", report.Issues)
+	}
+}
+
 func TestValidateConfigIssueOrderingDeterministic(t *testing.T) {
 	cfg := newTestConfig()
 	cfg.WorkerCount = runtime.GOMAXPROCS(0)*workerCountGOMAXPROCSMult + 10

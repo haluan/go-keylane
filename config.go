@@ -96,6 +96,9 @@ type ObservabilityConfig struct {
 	EnableDebugSnapshot bool
 	// LowAllocationMode applies LowAllocationObservabilityConfig at queue construction.
 	LowAllocationMode bool
+	// ExposeRawRequestIdentifiers includes raw Key and RequestID in hook payloads when true.
+	// Default false: hooks receive KeyHash only for correlation; do not use raw values as metric labels.
+	ExposeRawRequestIdentifiers bool
 
 	// TrackQueueWait enables v1 Stats() queue-wait counters (EnqueuedAt); independent of EnableQueueWaitTiming.
 	TrackQueueWait   bool

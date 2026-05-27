@@ -11,15 +11,51 @@ import (
 )
 
 const (
-	attrShardID     = "keylane.shard_id"
-	attrLane        = "keylane.lane"
-	attrQueueWaitMS = "keylane.queue_wait_ms"
-	attrRunMS       = "keylane.run_ms"
-	attrQueueDepth  = "keylane.queue_depth"
-	attrInflight    = "keylane.inflight_jobs"
-	attrPressure    = "keylane.pressure_ratio"
-	attrSlowThresh  = "keylane.slow_job_threshold_ms"
-	attrOutcome     = "keylane.outcome"
+	// AttrShardID is the stable OTEL attribute for shard id.
+	AttrShardID = "keylane.shard_id"
+	// AttrLane is the stable OTEL attribute for lane name.
+	AttrLane = "keylane.lane"
+	// AttrQueueWaitMS is the stable OTEL attribute for queue wait milliseconds.
+	AttrQueueWaitMS = "keylane.queue_wait_ms"
+	// AttrRunMS is the stable OTEL attribute for run duration milliseconds.
+	AttrRunMS = "keylane.run_ms"
+	// AttrQueueDepth is the stable OTEL attribute for queue depth.
+	AttrQueueDepth = "keylane.queue_depth"
+	// AttrInflight is the stable OTEL attribute for in-flight job count.
+	AttrInflight = "keylane.inflight_jobs"
+	// AttrPressure is the stable OTEL attribute for pressure ratio.
+	AttrPressure = "keylane.pressure_ratio"
+	// AttrSlowThresh is the stable OTEL attribute for slow job threshold milliseconds.
+	AttrSlowThresh = "keylane.slow_job_threshold_ms"
+	// AttrOutcome is the stable OTEL attribute for job outcome.
+	AttrOutcome = "keylane.outcome"
+)
+
+// StableTraceAttributeKeys returns documented stable span attribute keys for the OTEL adapter.
+func StableTraceAttributeKeys() []string {
+	return []string{
+		AttrShardID,
+		AttrLane,
+		AttrQueueWaitMS,
+		AttrRunMS,
+		AttrQueueDepth,
+		AttrInflight,
+		AttrPressure,
+		AttrSlowThresh,
+		AttrOutcome,
+	}
+}
+
+const (
+	attrShardID     = AttrShardID
+	attrLane        = AttrLane
+	attrQueueWaitMS = AttrQueueWaitMS
+	attrRunMS       = AttrRunMS
+	attrQueueDepth  = AttrQueueDepth
+	attrInflight    = AttrInflight
+	attrPressure    = AttrPressure
+	attrSlowThresh  = AttrSlowThresh
+	attrOutcome     = AttrOutcome
 )
 
 func timingAttributes(ev keylane.JobTimingEvent, recordQueueWait, recordRun bool) []attribute.KeyValue {

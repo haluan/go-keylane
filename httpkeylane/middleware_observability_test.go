@@ -46,8 +46,43 @@ func TestHTTPObservabilityPropagatesRequestID(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if obs.RequestID != "req-abc" {
-		t.Errorf("RequestID = %q, want req-abc", obs.RequestID)
+	if obs.RequestID != "" {
+		t.Errorf("RequestID = %q, want empty (redacted)", obs.RequestID)
+	}
+	if obs.KeyHash != keylane.HashKey("k") {
+		t.Errorf("KeyHash = %d, want %d", obs.KeyHash, keylane.HashKey("k"))
+	}
+}
+
+func TestHTTPObservabilityExposeRawIdentifiersWhenEnabled(t *testing.T) {
+	var obs keylane.RequestObservation
+	q, _ := newTestQueue(t, withObservability(keylane.ObservabilityConfig{
+		EnableHooks:                 true,
+		ExposeRawRequestIdentifiers: true,
+	}))
+
+	handler := Middleware(q, observeConfig(q, func(_ HTTPRequestMetadata, o keylane.RequestObservation) {
+		obs = o
+	}))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req.Header.Set("X-Request-ID", "req-raw")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	resp.Body.Close()
+
+	if obs.RequestID != "req-raw" {
+		t.Errorf("RequestID = %q, want req-raw", obs.RequestID)
+	}
+	if obs.Key != "k" {
+		t.Errorf("Key = %q, want k", obs.Key)
 	}
 }
 
@@ -127,8 +162,11 @@ func TestHTTPObservabilityEmitsKeyLaneShard(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if obs.Key != "tenant-7" {
-		t.Errorf("Key = %q, want tenant-7", obs.Key)
+	if obs.Key != "" {
+		t.Errorf("Key = %q, want empty (redacted)", obs.Key)
+	}
+	if obs.KeyHash != keylane.HashKey("tenant-7") {
+		t.Errorf("KeyHash = %d, want %d", obs.KeyHash, keylane.HashKey("tenant-7"))
 	}
 	if obs.Lane != "default" {
 		t.Errorf("Lane = %q, want default", obs.Lane)

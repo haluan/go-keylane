@@ -4,6 +4,8 @@ Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v
 
 Platform-neutral reference for go-keylane observability metrics. Metric names are stable across adapters; this document describes semantics and label safety.
 
+**v0.8 contract:** Stable prometheus families are listed in [observability-contract.md](observability-contract.md) and `keylane.StableMetricDescriptors()`. Hook-adapter patterns are `experimental` via `keylane.ExperimentalMetricPatterns()`.
+
 For Prometheus wiring, see [metrics-prometheus.md](metrics-prometheus.md). For autoscaling interpretation, see [autoscaling-signals.md](autoscaling-signals.md).
 
 go-keylane does **not** implement an autoscaler. Metrics are inputs for Prometheus, OpenTelemetry, custom control loops, HPA external metrics, KEDA, or other platforms.

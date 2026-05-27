@@ -17,6 +17,8 @@ const TransportHTTP = "http"
 type OperationFunc func(*http.Request) string
 
 // ObserveFunc is an optional HTTP-specific callback after a request finishes or is rejected.
+// RequestObservation follows the queue redaction policy (Key and RequestID empty by default; KeyHash set).
+// Enable keylane.ObservabilityConfig.ExposeRawRequestIdentifiers on the queue for raw identifiers.
 // Configure keylane.Config.Observability.Hooks.Request for queue wait and run duration.
 type ObserveFunc func(HTTPRequestMetadata, keylane.RequestObservation)
 

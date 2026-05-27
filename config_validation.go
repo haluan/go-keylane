@@ -48,6 +48,7 @@ const (
 	CodeConfigHighQueueCapacity                 = "KL_CONFIG_HIGH_QUEUE_CAPACITY"
 	CodeConfigObservabilityFullDefaultsResolved = "KL_CONFIG_OBSERVABILITY_FULL_DEFAULTS_RESOLVED"
 	CodeConfigDebugSnapshotHotPathHeavy         = "KL_CONFIG_DEBUG_SNAPSHOT_HOT_PATH_HEAVY"
+	CodeConfigRawRequestIdentifiersInHooks      = "KL_CONFIG_RAW_REQUEST_IDENTIFIERS_IN_HOOKS"
 )
 
 const (
@@ -429,7 +430,16 @@ func collectConfigWarnings(c Config) []ValidationIssue {
 			Severity: ValidationWarning,
 			Code:     CodeConfigRawKeyExposureEnabled,
 			Path:     "HotKey.ExposeRawKey",
-			Message:  "raw key strings may appear in debug snapshots",
+			Message:  "raw key strings may appear in debug snapshots and must not be used as metric or trace labels",
+		})
+	}
+	obsForWarn := ResolveObservabilityConfig(c.Observability)
+	if obsForWarn.ExposeRawRequestIdentifiers {
+		issues = append(issues, ValidationIssue{
+			Severity: ValidationWarning,
+			Code:     CodeConfigRawRequestIdentifiersInHooks,
+			Path:     "Observability.ExposeRawRequestIdentifiers",
+			Message:  "request observations and hook payloads include raw Key and RequestID (including httpkeylane.ObserveFunc); do not export them as metric or trace labels",
 		})
 	}
 	if c.BackendResources.Enabled {

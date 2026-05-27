@@ -33,10 +33,13 @@ cfg.Observability = obs
 
 `RequestObservation` is the snapshot passed to `OnStarted`, `OnCompleted`, and `OnRejected` hooks, and to the HTTP `ObserveFunc`.
 
+By default, `Key` and `RequestID` are **redacted** (empty strings) in hook payloads and in `ObservationForError` (including `ObservationForError(nil, meta, err)`). Use `KeyHash` for correlation. Set `Observability.ExposeRawRequestIdentifiers` on the queue config to include raw values when a queue is passed (validation warns with `KL_CONFIG_RAW_REQUEST_IDENTIFIERS_IN_HOOKS`). See [observability-contract.md](observability-contract.md).
+
 ```go
 type RequestObservation struct {
-    RequestID string         // from RequestMeta.RequestID
-    Key       string         // routing key
+    RequestID string         // redacted by default; from RequestMeta when ExposeRawRequestIdentifiers
+    Key       string         // redacted by default; routing key when ExposeRawRequestIdentifiers
+    KeyHash   uint64         // always set when the routing key was non-empty at emission
     Lane      Lane           // execution lane
     ShardID   int            // shard index (hash(Key) % ShardCount)
 
@@ -66,7 +69,7 @@ hooks.OnCompleted = func(obs keylane.RequestObservation) {
 }
 ```
 
-Do not use `Key` or `RequestID` as Prometheus labels. Use `operation`, `lane`, `failure_kind`, `transport`.
+Do not use `Key`, `RequestID`, or `KeyHash` as Prometheus labels. Use `operation`, `lane`, `failure_kind`, `transport`.
 
 ---
 
@@ -118,7 +121,7 @@ Request-level hooks (`OnStarted`, `OnCompleted`) still fire once per pipeline jo
 
 ## HTTP Status Capture
 
-When using `httpkeylane.Middleware`, the HTTP status code written by the handler is captured and passed to the `ObserveFunc` callback:
+When using `httpkeylane.Middleware`, the HTTP status code written by the handler is captured and passed to the `ObserveFunc` callback. The `RequestObservation` argument is built via `keylane.ObservationForError` and follows the same redaction rules as request hooks (see above).
 
 ```go
 type ObserveFunc func(HTTPRequestMetadata, keylane.RequestObservation)
@@ -199,11 +202,11 @@ When only `Observe` is set (no `RequestHooks`), observations are built only at r
 obs := keylane.DefaultObservabilityConfig()
 obs.Hooks.Request = keylane.RequestHooks{
     OnCompleted: func(o keylane.RequestObservation) {
-        fmt.Printf("key=%s lane=%s shard=%d outcome=%s queue_wait=%s run=%s\n",
-            o.Key, o.Lane, o.ShardID, o.Outcome, o.QueueWait, o.Run)
+        fmt.Printf("key_hash=%d lane=%s shard=%d outcome=%s queue_wait=%s run=%s\n",
+            o.KeyHash, o.Lane, o.ShardID, o.Outcome, o.QueueWait, o.Run)
     },
     OnRejected: func(o keylane.RequestObservation) {
-        fmt.Printf("rejected key=%s outcome=%s err=%v\n", o.Key, o.Outcome, o.Err)
+        fmt.Printf("rejected key_hash=%d outcome=%s err=%v\n", o.KeyHash, o.Outcome, o.Err)
     },
 }
 

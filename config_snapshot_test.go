@@ -89,6 +89,27 @@ func TestNormalizeConfigAppliedDefaultsContinuation(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfigExposeRawRequestIdentifiersResolved(t *testing.T) {
+	cfg := Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 8,
+		LaneQuotas:    map[Lane]int{"default": 1},
+		Observability: ObservabilityConfig{ExposeRawRequestIdentifiers: true},
+	}
+	snap := NormalizeConfig(cfg)
+	if !snap.Observability.ExposeRawRequestIdentifiers {
+		t.Fatal("expected resolved ExposeRawRequestIdentifiers true in snapshot")
+	}
+
+	cfg2 := Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 8,
+		LaneQuotas: map[Lane]int{"default": 1},
+	}
+	snap2 := NormalizeConfig(cfg2)
+	if snap2.Observability.ExposeRawRequestIdentifiers {
+		t.Fatal("expected default ExposeRawRequestIdentifiers false in snapshot")
+	}
+}
+
 func TestNormalizeConfigNoRawKeysInSnapshot(t *testing.T) {
 	cfg := newTestConfig()
 	cfg.HotKey = HotKeyConfig{Enabled: true, ExposeRawKey: true, MaxTrackedKeysPerShard: 8}

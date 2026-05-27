@@ -27,6 +27,11 @@ Guard: `go test ./internal/apicheck/...`
 | `NormalizeConfig`, `NormalizedConfig`, `ConfigVersionV1` | Stable Candidate | Support/debug snapshots |
 | `Queue.ConfigValidationWarnings` | Stable Candidate | Non-fatal warnings from `New` |
 | `ProductionDefaults`, `ExplainDefaults`, `ExplainDefaultsWithMode` | Stable Candidate | KL-1803 production default inspection |
+| `StableMetricDescriptors`, `ExperimentalMetricPatterns` | Stable Candidate | KL-1804 observability contract inventory |
+| `MetricDescriptor`, `LabelDescriptor`, `ObservabilityStability` | Stable Candidate | Descriptor types and stability levels |
+| `AllowedDefaultMetricLabelNames`, `ForbiddenMetricLabelNames` | Stable Candidate | Label policy helpers |
+| `HashKey`, `HookPanicsRecovered` | Stable Candidate | KL-1804 routing hash and hook panic diagnostic |
+| `ObservabilityConfig.ExposeRawRequestIdentifiers` | Stable Candidate | Opt-in raw hook identifiers |
 | `DefaultReport`, `DefaultEntry`, `SafetyMode` | Stable Candidate | Default report types |
 | `SafetyModeProduction`, `SafetyModeDevelopment` | Stable Candidate | ExplainDefaults mode constants |
 | `Job`, `Lane`, `WithDrain` | Stable Candidate | Fire-and-forget execution |
@@ -159,6 +164,8 @@ All other exported symbols in `exports_keylane.txt` inherit the category of thei
 | `TransportHTTP` | Stable Candidate | Metric label transport |
 | `CookieKey`, `HeaderKey`, `QueryKey`, … | Stable Candidate | Key extraction helpers |
 | `DefaultErrorHandler`, `DegradeHandler` | Stable Candidate | Status mapping |
+| `ObserveFunc`, `HTTPRequestMetadata` | Stable Candidate | HTTP completion callback; observation redacted via `ObservationForError` |
+| `OperationFunc` | Stable Candidate | Low-cardinality operation name for HTTP requests |
 
 Full list: `exports_httpkeylane.txt` (38 symbols).
 
@@ -179,9 +186,11 @@ Full list: `exports_metrics_prometheus.txt` (5 symbols).
 
 | Symbol | Category | Notes |
 |--------|----------|-------|
-| `HookAdapter`, `NewHookAdapter` | Stable Candidate | Optional OTel bridge |
+| `Hooks`, `NewHooks`, `Options` | Stable Candidate | OTEL hook adapter |
+| `StableTraceAttributeKeys` | Stable Candidate | KL-1804 documented span attribute keys |
+| `AttrShardID`, `AttrLane`, `AttrOutcome`, … | Stable Candidate | Stable attribute key constants |
 
-Full list: `exports_tracing_otel.txt` (3 symbols).
+Full list: `exports_tracing_otel.txt`.
 
 ---
 

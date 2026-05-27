@@ -72,6 +72,7 @@ func TestOnRetryEventDisabledWhenHooksOff(t *testing.T) {
 }
 
 func TestOnRetryEventPanicRecovered(t *testing.T) {
+	before := HookPanicsRecovered()
 	cfg := newTestConfig()
 	cfg.Retry = RetryPolicy{
 		Enabled: true, MaxAttempts: 2, InitialBackoff: time.Millisecond,
@@ -93,6 +94,9 @@ func TestOnRetryEventPanicRecovered(t *testing.T) {
 	}
 	if _, awaitErr := future.Await(context.Background()); awaitErr == nil {
 		t.Fatal("expected error")
+	}
+	if HookPanicsRecovered() <= before {
+		t.Fatalf("HookPanicsRecovered = %d, want > %d", HookPanicsRecovered(), before)
 	}
 }
 
@@ -122,6 +126,12 @@ func TestRetryEventUsesLowCardinalityFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _ = future.Await(context.Background())
+	if got.Key != "" {
+		t.Fatalf("Key = %q, want empty (redacted)", got.Key)
+	}
+	if got.KeyHash != HashKey("secret-key") {
+		t.Fatalf("KeyHash = %d, want %d", got.KeyHash, HashKey("secret-key"))
+	}
 	if got.IdempotencyScope != "payment" || got.IdempotencyOperation != "charge" {
 		t.Fatalf("event = %+v", got)
 	}

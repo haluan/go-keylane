@@ -71,7 +71,8 @@ Warning examples:
 | `KL_CONFIG_WORKER_COUNT_EXCEEDS_GOMAXPROCS` | `WorkerCount` much larger than `GOMAXPROCS*4` |
 | `KL_CONFIG_HIGH_QUEUE_CAPACITY` | `QueueSizePerLane` ≥ 10_000 |
 | `KL_CONFIG_UNSAFE_RETRY_WITHOUT_IDEMPOTENCY` | Retry on without `RequireForRetry` or `Hook` |
-| `KL_CONFIG_RAW_KEY_EXPOSURE_ENABLED` | `HotKey.ExposeRawKey` |
+| `KL_CONFIG_RAW_KEY_EXPOSURE_ENABLED` | `HotKey.ExposeRawKey` (snapshots only; not metric/trace labels) |
+| `KL_CONFIG_RAW_REQUEST_IDENTIFIERS_IN_HOOKS` | `Observability.ExposeRawRequestIdentifiers` (hooks, `ObservationForError`, `httpkeylane.ObserveFunc`) |
 | `KL_CONFIG_BACKEND_RESOURCES_ENABLED` | Coordination enabled—ensure release discipline |
 | `KL_CONFIG_PRESSURE_PROVIDER_OBSERVATIONAL_ONLY` | Providers configured (telemetry is observational even when coordination is enabled) |
 | `KL_CONFIG_OBSERVABILITY_FULL_DEFAULTS_RESOLVED` | Unset `Observability` resolves to full defaults at `New` |

@@ -11,8 +11,10 @@ type StageObservation struct {
 
 	RequestID string
 	Key       string
-	Lane      Lane
-	ShardID   int
+	// KeyHash is always set when Key was non-empty at emission time (even when Key is redacted).
+	KeyHash uint64
+	Lane    Lane
+	ShardID int
 
 	Transport string
 	Operation string

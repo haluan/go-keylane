@@ -305,6 +305,7 @@ type ObservabilityConfigSnapshot struct {
 	EnableAdaptiveDecisionTracing bool
 	EnableDebugSnapshot           bool
 	LowAllocationMode             bool
+	ExposeRawRequestIdentifiers   bool
 	TrackQueueWait                bool
 	SlowJobThreshold              time.Duration
 	HooksConfigured               bool
@@ -541,6 +542,7 @@ func NormalizeConfig(cfg Config) NormalizedConfig {
 			EnableAdaptiveDecisionTracing: obs.EnableAdaptiveDecisionTracing,
 			EnableDebugSnapshot:           obs.EnableDebugSnapshot,
 			LowAllocationMode:             obs.LowAllocationMode,
+			ExposeRawRequestIdentifiers:   obs.ExposeRawRequestIdentifiers,
 			TrackQueueWait:                obs.TrackQueueWait,
 			SlowJobThreshold:              c.Observability.SlowJobThreshold,
 			HooksConfigured:               observabilityHooksConfigured(c.Observability),

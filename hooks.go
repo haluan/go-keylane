@@ -3,11 +3,25 @@
 
 package keylane
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
+
+var hookPanicsRecovered atomic.Uint64
+
+// HookPanicsRecovered returns the number of user hook panics recovered since process start.
+func HookPanicsRecovered() uint64 {
+	return hookPanicsRecovered.Load()
+}
 
 // callHook invokes fn and recovers panics so observer failures do not break callers.
 func callHook(fn func()) {
-	defer func() { _ = recover() }()
+	defer func() {
+		if recover() != nil {
+			hookPanicsRecovered.Add(1)
+		}
+	}()
 	fn()
 }
 
