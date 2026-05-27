@@ -54,7 +54,7 @@ if errors.As(err, &wrapped) {
 
 Constructors: `RetryableFailure`, `PermanentFailure`, `TimeoutFailure`, `CancelledFailure`, `OverloadedFailure`, `RejectedFailure`, `DeadlineExhaustedFailure`, `UnknownFailure`.
 
-### StageFailure (v0.7 pipelines)
+### StageFailure (v0.7.0 pipelines)
 
 `SubmitPipeline` wraps stage errors in `StageFailure` so callers can attribute failures without changing `FailureKind`:
 

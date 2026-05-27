@@ -204,7 +204,7 @@ func runContinuationPipeline[S any, O any](
 	)
 
 	// completeFailed classifies the error, applies retry if applicable, then resolves the future.
-	// Retry restarts the entire pipeline from stage 0 (no per-stage retry in KL-1703).
+	// Retry restarts the entire pipeline from stage 0.
 	completeFailed := func(err error) {
 		now := time.Now()
 		totalRuntime := priorRuntime + now.Sub(pipelineStart)

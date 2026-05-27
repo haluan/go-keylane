@@ -1,6 +1,6 @@
 # Stage Execution Context (v0.7)
 
-Part of v0.7 — Advanced Request Pipeline & Backend Resource Coordination (KL-1702).
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
 
 Pipeline stages and `SubmitRequest` handlers can read immutable execution metadata from `context.Context` without copying routing fields into business state.
 
@@ -91,6 +91,42 @@ Safe for **metric labels**:
 
 Never use raw URL paths, tenant IDs, customer IDs, or error strings as labels.
 
+### Backend operation from stage context
+
+Stages that call [backend resource coordination](backend-resource-coordination.md) should derive operations from the active stage:
+
+```go
+Run: func(ctx context.Context, state State) (State, error) {
+    op := keylane.BackendOperationFromStage(ctx, "primary-db", keylane.BackendLaneDBRead)
+    return keylane.WithBackend(ctx, q, op, func(ctx context.Context) (State, error) {
+        // ... downstream work while lease held
+        return state, nil
+    })
+},
+```
+
+`BackendOperationFromStage` copies `Stage.Name` into admission hooks when present.
+
+### Safe diagnostic logging
+
+Log bounded execution dimensions. Do not log `Key` or `RequestID` in default stage logs or metric labels — they are high-cardinality or sensitive. If your platform requires trace correlation, inject a hashed or external trace ID at the transport boundary instead of copying raw request identifiers into stage logs.
+
+```go
+exec, ok := keylane.StageExecutionFromContext(ctx)
+if ok {
+  log.Info("stage start",
+    "transport", exec.Transport,
+    "operation", exec.Operation,
+    "lane", exec.Lane,
+    "stage", exec.Stage.Name,
+    "shard", exec.ShardID,
+    "attempt", exec.Attempt,
+    "deadline_remaining", exec.Deadline.Remaining,
+  )
+  // Metric labels: transport, operation, lane, stage, outcome, failure_kind only
+}
+```
+
 ---
 
 ## Failures
@@ -107,18 +143,19 @@ if sf, ok := keylane.AsStageFailure(err); ok {
 
 ---
 
-## Not in KL-1702
+## Not supported
 
-- Non-blocking yield/resume (KL-1703)
+- Non-blocking yield/resume (see [continuations.md](continuations.md))
 - Per-stage retry policy
 - Cross-pod context propagation
 
-Backend resource coordination (KL-1704) uses stage metadata from this context via `BackendOperationFromStage`. See [backend-resource-coordination.md](backend-resource-coordination.md).
+Backend resource coordination uses stage metadata from this context via `BackendOperationFromStage`. See [backend-resource-coordination.md](backend-resource-coordination.md).
 
 ---
 
 ## Related docs
 
+- [v0.7.0 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md)
 - [Request Pipeline](request-pipeline.md)
 - [Request Observability](request-observability.md)
 - [Backend resource coordination](backend-resource-coordination.md)

@@ -231,7 +231,7 @@ meta := keylane.RequestMeta{
 
 ## Request pipelines (v0.7)
 
-For multi-step handlers with stage-level observability, use [`SubmitPipeline`](request-pipeline.md). Pipelines reuse the same routing, admission, retry, and `Future` semantics as `SubmitRequest`. Stages run sequentially; optional non-blocking yield/resume is enabled with [`ContinuationConfig`](continuations.md) (KL-1703).
+For multi-step handlers with stage-level observability, use [`SubmitPipeline`](request-pipeline.md). Pipelines reuse the same routing, admission, retry, and `Future` semantics as `SubmitRequest`. Stages run sequentially; optional non-blocking yield/resume is enabled with [`ContinuationConfig`](continuations.md).
 
 Both APIs attach [`StageExecutionContext`](stage-execution-context.md) to the handler context so stages can read shard, stage, attempt, and deadline metadata via `StageExecutionFromContext`.
 

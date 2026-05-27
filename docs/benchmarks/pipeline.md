@@ -1,5 +1,7 @@
 # Pipeline benchmarks (v0.7)
 
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](../v0.7-advanced-request-pipeline-and-resource-coordination.md).
+
 Measures SubmitPipeline overhead, hook cost, continuation yield/resume, and backend coordination. All benchmarks use in-memory fakes (no network or real database).
 
 ---

@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.6.0 (in progress) — failure classification, deadline budget, and bounded retry on top of v0.5 hot key / autoscaling signals. Public APIs may still evolve before a stable v1.0.
+> Status: v0.7.0 — advanced request pipelines, continuations, and backend resource coordination on top of v0.6 retry/deadline/failure policy. Public APIs may still evolve before a stable v1.0.
 
 ---
 
@@ -138,24 +138,40 @@ func main() {
 
 ---
 
-## Non-blocking continuations (KL-1703)
+## v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination
 
-Pipeline stages can **yield** while slow I/O runs outside the Keylane worker (database read, external API, and similar). The stage returns a `Continuation`; when your async work finishes, `ContinuationCompleter.Complete` enqueues a **resume job** on the same key shard. Physical worker identity is not preserved across yield/resume.
+Full guide: [v0.7.0 overview](docs/v0.7-advanced-request-pipeline-and-resource-coordination.md) · Release notes: [v0.7.0](docs/releases/v0.7.0.md)
 
-Opt in per queue:
+**Request pipelines** — `SubmitPipeline` runs ordered stages with shared state, stage-level failure attribution, and the same admission/retry/deadline semantics as `SubmitRequest`. Pipelines are in-process orchestration, not persistent workflows.
+
+**Stage execution context** — each stage reads `StageExecutionFromContext` for shard, lane, stage name, attempt, and deadline snapshot without duplicating routing fields in your state struct.
+
+**Continuations** — opt-in yield/resume releases the worker during slow I/O; `ContinuationCompleter.Complete` resumes on the same key shard. Shard identity end-to-end: yes. Worker blocked end-to-end: no.
+
+**Backend coordination** — `WithBackend` bounds in-process downstream usage per configured resource and backend lane (`db_read`, `external_api`, …).
+
+**Pool pressure adapters** — optional `SQLDBPressureAdapter` / `APIClientPressureAdapter` observe external pool saturation; keylane does not auto-reject from pool telemetry unless your app gates on snapshots.
+
+### Minimal pipeline example
 
 ```go
-cfg.Continuation = keylane.ContinuationConfig{Enabled: true} // MaxPending defaults to 256
+future, _ := keylane.SubmitPipeline(ctx, q, keylane.Pipeline[state, output]{
+    Meta: keylane.RequestMeta{Key: "customer-42", Lane: "read", Operation: "get-customer"},
+    Stages: []keylane.PipelineStage[state]{
+        {Meta: keylane.StageMeta{Name: keylane.StageValidate}, Run: validate},
+        {Meta: keylane.StageMeta{Name: keylane.StageDBRead}, Run: fetchRow},
+    },
+    Complete: buildResponse,
+})
+out, err := future.Await(ctx)
 ```
 
-KL-1703 is a **handoff primitive only**. Backend in-process coordination (KL-1704) and optional pool pressure adapters (`database/sql`, custom API pools — KL-1705) are documented in [backend-resource-coordination.md](docs/backend-resource-coordination.md) and [backend-pressure-adapters.md](docs/backend-pressure-adapters.md).
-
-Guide: [continuations.md](docs/continuations.md) · Pipeline integration: [request-pipeline.md](docs/request-pipeline.md)
-
-**Observability and tests (v0.7):** [pipeline-observability.md](docs/pipeline-observability.md) · [pipeline-testing.md](docs/pipeline-testing.md) · [benchmarks/pipeline.md](docs/benchmarks/pipeline.md)
+Key docs: [request-pipeline](docs/request-pipeline.md) · [stage-execution-context](docs/stage-execution-context.md) · [continuations](docs/continuations.md) · [backend-resource-coordination](docs/backend-resource-coordination.md) · [backend-pressure-adapters](docs/backend-pressure-adapters.md) · [pipeline-observability](docs/pipeline-observability.md)
 
 ```bash
+go run ./examples/pipeline_basics
 go run ./examples/pipeline_continuation
+go run ./examples/backend_coordination
 ```
 
 ---
@@ -241,8 +257,8 @@ Use `SubmitRequest[I, O]` for transport-agnostic typed request execution, or use
 See:
 
 - [Request Runtime](docs/request-runtime.md) — `SubmitRequest[I,O]`, `RequestMeta`, `Future.Await`, key routing, lane fairness
-- [Request Pipeline](docs/request-pipeline.md) — `SubmitPipeline`, ordered stages, stage observability (v0.7 KL-1701)
-- [Stage Execution Context](docs/stage-execution-context.md) — `StageExecutionFromContext`, attempt, deadline snapshot (v0.7 KL-1702)
+- [Request Pipeline](docs/request-pipeline.md) — `SubmitPipeline`, ordered stages, stage observability
+- [Stage Execution Context](docs/stage-execution-context.md) — `StageExecutionFromContext`, attempt, deadline snapshot (v0.7)
 - [HTTP Middleware](docs/http-middleware.md) — `httpkeylane.Middleware`, key and lane helpers, route rules, status codes
 - [Cancellation and Timeout](docs/cancellation-timeout.md) — cooperative cancellation, await semantics, non-guarantees
 - [Admission Control](docs/admission-control.md) — pressure-based request gating, 503/429, process-local scope
@@ -324,6 +340,19 @@ cd tracing/otel && go test ./...
 ---
 
 ## Documentation
+
+### v0.7.0 pipelines, continuations & backend coordination
+
+- [v0.7.0 Overview](docs/v0.7-advanced-request-pipeline-and-resource-coordination.md)
+- [Request Pipeline](docs/request-pipeline.md)
+- [Stage Execution Context](docs/stage-execution-context.md)
+- [Continuations](docs/continuations.md)
+- [Backend Resource Coordination](docs/backend-resource-coordination.md)
+- [Backend Pressure Adapters](docs/backend-pressure-adapters.md)
+- [Pipeline Observability](docs/pipeline-observability.md)
+- [Pipeline Testing](docs/pipeline-testing.md)
+- [Pipeline Benchmarks](docs/benchmarks/pipeline.md)
+- [v0.7.0 Release Notes](docs/releases/v0.7.0.md)
 
 ### v0.6.0 failure classification, deadline budget & retry
 

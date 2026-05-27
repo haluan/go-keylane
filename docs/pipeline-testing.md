@@ -1,6 +1,8 @@
 # Pipeline testing (v0.7)
 
-How KL-1701–KL-1705 behavior is covered by tests and how to run them locally.
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
+
+How the v0.7.0 pipeline and backend coordination features are covered by tests and how to run them locally.
 
 ---
 
@@ -46,7 +48,7 @@ See [benchmarks/pipeline.md](benchmarks/pipeline.md) for benchmark catalog.
 | Pool pressure adapters | `backend_pressure_test.go` (URL-like/overlong label rejection), `backend_sql_adapter_test.go`, `backend_api_adapter_test.go` |
 | Cross-feature integration | `pipeline_integration_test.go` |
 | Stress / goroutine leaks | `pipeline_stress_test.go` |
-| DebugSnapshot v0.7 | `debug_snapshot_pipeline_test.go`, `backend_snapshot_test.go` (lane `Queued`, pressure `Resource`/`Lane`/`Pressure` ratio) |
+| DebugSnapshot v0.7.0 | `debug_snapshot_pipeline_test.go`, `backend_snapshot_test.go` (lane `Queued`, pressure `Resource`/`Lane`/`Pressure` ratio) |
 
 ---
 

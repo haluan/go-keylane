@@ -1,6 +1,8 @@
-# DebugSnapshot (v0.5)
+# DebugSnapshot (v0.5+)
 
-`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"6"` adds external backend pool pressure (KL-1705). Version `"5"` added in-process backend resource pressure (KL-1704) on top of v0.5 hot key, shard pressure, and autoscaling fields.
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md) for continuation and backend diagnostics.
+
+`Queue.DebugSnapshot()` returns a near-time diagnostic view of scheduler queue state. Version `"6"` adds external backend pool pressure. Version `"5"` added in-process backend resource pressure on top of v0.5 hot key, shard pressure, and autoscaling fields.
 
 Safe for concurrent reads while workers run. Does not guarantee a globally atomic view across all shards.
 
@@ -31,17 +33,17 @@ Do not call `DebugSnapshot()` on every submit. Sample on a timer or admin endpoi
 | `ShardPressure` | Flat slice of per-shard `ShardPressureSnapshot` |
 | `HotShards` / `HotLanes` | Legacy depth rankings (backward compatible) |
 | `Shards[]` | Per-shard depth, hot key candidates, nested `ShardPressure` |
-| `BackendResources` | KL-1704 in-process backend lane inflight (when coordination enabled) |
-| `BackendPressure` | KL-1705 external pool pressure from configured providers |
+| `BackendResources` | In-process backend lane inflight (when coordination enabled) |
+| `BackendPressure` | External pool pressure from configured providers |
 
-### v0.7 pipeline diagnostics
+### v0.7.0 pipeline diagnostics
 
 | Field | When populated | Use |
 |-------|----------------|-----|
 | `Continuation.Pending` | `Continuation.Enabled` | In-flight async handoffs |
 | `Continuation.MaxPending` | `Continuation.Enabled` | Configured cap |
 | `Continuation.LateCompletions` | `Continuation.Enabled` | Completer called after resolution |
-| `BackendResources[].Lanes[]` | `BackendResources.Enabled` | KL-1704 per-lane `InFlight`, `Capacity`, `Queued`, `Saturated` |
+| `BackendResources[].Lanes[]` | `BackendResources.Enabled` | Per-lane `InFlight`, `Capacity`, `Queued`, `Saturated` |
 | `BackendPressure[]` | `PressureProviders` configured + `EnableDebugSnapshot` | External pool pressure ratio per resource/lane (`Pressure`), plus `InUse`, `Capacity`, `Saturated` |
 
 > With `BackendAdmissionReject` (current default), lane `Queued` is always `0`. The field is exported for API stability and matches `BackendAdmissionDecision.Queued` on admission/release hooks. Non-zero `Queued` is reserved for future block/queue admission modes.

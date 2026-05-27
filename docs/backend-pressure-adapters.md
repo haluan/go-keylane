@@ -1,21 +1,10 @@
-# Backend pool pressure adapters (KL-1705)
+# Backend pool pressure adapters
 
-Part of v0.7 — Advanced Request Pipeline & Backend Resource Coordination.
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
 
-KL-1704 bounds **in-process** backend usage via leases (`AcquireBackend` / `WithBackend`). KL-1705 adds **optional adapters** that map external pool telemetry (`database/sql`, custom API semaphores) into the same low-cardinality `backend_resource` + `backend_lane` identity for diagnostics and hooks.
+Bounds **in-process** backend usage via leases (`AcquireBackend` / `WithBackend`). v0.7.0 adds **optional adapters** that map external pool telemetry (`database/sql`, custom API semaphores) into the same low-cardinality `backend_resource` + `backend_lane` identity for diagnostics and hooks.
 
 Keylane does **not** own connection pools, HTTP clients, transports, or retry semantics.
-
----
-
-## Coordination vs pool observation
-
-| Layer | What it measures | API |
-|-------|------------------|-----|
-| KL-1704 | In-process leases admitted by keylane | `AcquireBackend`, `DebugSnapshot.BackendResources` |
-| KL-1705 | External pool stats (DB, API semaphore) | `BackendPressure`, `DebugSnapshot.BackendPressure` |
-
-Use KL-1704 to cap concurrent stage work inside the process. Use KL-1705 to **observe** downstream pool saturation and export metrics. Applications may consult `BackendPressureSnapshot.Saturated` before calling `AcquireBackend`; keylane does not auto-reject admission from pool stats in KL-1705.
 
 ---
 
@@ -34,7 +23,7 @@ Register providers at config time:
 ```go
 cfg.BackendResources = keylane.BackendResourceConfig{
     Enabled: true,
-    Resources: /* KL-1704 lanes */,
+    Resources: /* lanes */,
     PressureProviders: []keylane.BackendPressureProvider{
         keylane.SQLDBPressureAdapter{Resource: "primary-db", Lane: keylane.BackendLaneDBRead, DB: db},
         keylane.APIClientPressureAdapter{Resource: "wallet-api", Lane: keylane.BackendLaneExternalAPI, Reader: sem},
@@ -131,7 +120,7 @@ Do **not** label with raw URL, SQL, tenant ID, user ID, request ID, or routing k
 
 ## Related
 
-- [backend-resource-coordination.md](backend-resource-coordination.md) — KL-1704 leases and admission
+- [backend-resource-coordination.md](backend-resource-coordination.md) — leases and admission
 - [request-observability.md](request-observability.md) — hook configuration
 - [metrics.md](metrics.md) — metric naming
 - [pipeline-observability.md](pipeline-observability.md) — `OnBackendPressure` lifecycle and low-cardinality fields
@@ -140,4 +129,4 @@ Do **not** label with raw URL, SQL, tenant ID, user ID, request ID, or routing k
 ### Troubleshooting
 
 - **Empty `BackendPressure` in snapshot**: confirm `PressureProviders` on `BackendResourceConfig` and `EnableDebugSnapshot`; see `debug_snapshot_pipeline_test.go`.
-- **Pool saturated but admission still succeeds**: KL-1705 observes only; applications gate on `Saturated` before `AcquireBackend` if needed.
+- **Pool saturated but admission still succeeds**: v0.7.0 observes only; applications gate on `Saturated` before `AcquireBackend` if needed.

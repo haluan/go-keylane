@@ -70,13 +70,13 @@ Do not use `Key` or `RequestID` as Prometheus labels. Use `operation`, `lane`, `
 
 ---
 
-## StageObservation (v0.7 pipelines)
+## StageObservation (v0.7.0 pipelines)
 
 `SubmitPipeline` emits optional stage hooks with `StageObservation`:
 
 ```go
 type StageObservation struct {
-    Execution StageExecutionContext // canonical metadata (KL-1702)
+    Execution StageExecutionContext // canonical metadata
 
     RequestID string
     Key       string   // debugging only — do not use as a metric label
@@ -220,7 +220,7 @@ For HTTP-specific observability (method, path, status code), use `Config.Observe
 
 ---
 
-## Backend resource hooks (KL-1704)
+## Backend resource hooks
 
 When `BackendResources.Enabled` is true and `EnableHooks` is set:
 
@@ -233,7 +233,7 @@ obs.Hooks.Backend = keylane.BackendResourceHooks{
         // key_hash, request_lane, shard_id, held_for, inflight after release
     },
     OnBackendPressure: func(ev keylane.BackendPressureEvent) {
-        // resource, backend_lane, pressure, saturated, wait stats (KL-1705)
+        // resource, backend_lane, pressure, saturated, wait stats
     },
 }
 ```

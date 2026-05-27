@@ -93,6 +93,15 @@ A low-cardinality label for one step in a pipeline (`validate`, `db_read`, custo
 ### StageExecutionContext (v0.7)
 Immutable request/stage execution metadata attached to `context.Context` during `SubmitPipeline` stages and `SubmitRequest` handlers. Includes shard, lane, stage index, attempt, and deadline snapshot. See [stage-execution-context.md](stage-execution-context.md).
 
+### Continuation (v0.7)
+A handle returned from a `RunContinuation` stage when work continues outside the Keylane worker. Resolved by `ContinuationCompleter.Complete`, `Fail`, or `Cancel`. See [continuations.md](continuations.md).
+
+### Continuation completer (v0.7)
+The `ContinuationCompleter[S]` interface that drives continuation resolution. First call wins; later calls return `false` and may count as late completion. See [continuations.md](continuations.md).
+
+### Late continuation completion (v0.7)
+A `Complete`/`Fail`/`Cancel` after the continuation was already resolved (cancel, deadline, or earlier completer). Increments `DebugSnapshot.Continuation.LateCompletions` and may fire `OnContinuationLate`. See [continuations.md](continuations.md).
+
 ### Backend resource (v0.7)
 A low-cardinality name for a downstream system (`primary-db`, `wallet-api`). Configured under `BackendResources` with per-lane capacity limits.
 
@@ -102,11 +111,17 @@ A low-cardinality class of downstream usage (`db_read`, `db_write`, `external_ap
 ### Backend lease (v0.7)
 Permission to use one slot of backend capacity until `Release()` is called. See [backend-resource-coordination.md](backend-resource-coordination.md).
 
+### Backend admission (v0.7)
+The decision to grant or deny a backend lease for a resource/lane (`BackendAdmissionAccepted`, `BackendAdmissionSaturated`, etc.). Distinct from request-queue admission. See [backend-resource-coordination.md](backend-resource-coordination.md).
+
 ### Backend saturation (v0.7)
 When `inflight >= MaxInFlight` for a resource/lane and admission mode is `reject`. Reported as `BackendAdmissionSaturated` in hooks and snapshots.
 
-### BackendPressureProvider (v0.7, KL-1705)
-Optional adapter that reports external pool pressure (`database/sql`, custom API semaphores) for one `resource` + `backend_lane` pair. See [backend-pressure-adapters.md](backend-pressure-adapters.md).
+### DB/API pressure adapter (v0.7)
+An implementation of `BackendPressureProvider` that maps external pool telemetry into `BackendPressureSnapshot`. Built-in adapters: `SQLDBPressureAdapter` (`database/sql` stats) and `APIClientPressureAdapter` (custom bounded API client / semaphore). Observational only — keylane does not reject requests from pool pressure unless the application gates on snapshots. See [backend-pressure-adapters.md](backend-pressure-adapters.md).
 
-### BackendPressureSnapshot (v0.7, KL-1705)
+### BackendPressureProvider (v0.7)
+Optional interface for one `backend_resource` + `backend_lane` pressure probe. Implemented by DB/API pressure adapters and custom providers. See [backend-pressure-adapters.md](backend-pressure-adapters.md).
+
+### BackendPressureSnapshot (v0.7)
 Low-cardinality pool pressure view: `InUse`, `Capacity`, `Idle`, `WaitCount`, `WaitTime`, `Saturated`, `Pressure`. Emitted via `Queue.BackendPressure` and `OnBackendPressure` hooks.

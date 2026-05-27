@@ -154,7 +154,7 @@ func TestPipelineContinuationCancelDoesNotBlockCompleter(t *testing.T) {
 func TestPipelineContinuationCancelCompleteRace(t *testing.T) {
 	ctx := testTimeout(t)
 
-	// KL-1703: when cancellation wins the continuation resolution race, Complete is rejected
+	// DESIGN: when cancellation wins the continuation resolution race, Complete is rejected
 	// and counted as late. A canceled future alone is insufficient: Complete may resolve first
 	// and resume may observe reqCtx cancellation later (no late completion).
 	assertCancelWinsContinuationRace := func(t *testing.T, q *Queue, reqCtx context.Context, reqCancel context.CancelFunc, completer ContinuationCompleter[pState], future Future[pOutput], lateBefore uint64) {

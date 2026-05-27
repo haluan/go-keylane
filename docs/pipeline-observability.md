@@ -1,6 +1,8 @@
 # Pipeline observability (v0.7)
 
-Consolidates KL-1701 (pipeline stages) through KL-1705 (pool pressure) into one hook and snapshot model. The library does not register Prometheus counters directly; implement metrics in hooks. Canonical v0.7 metric names are in [metrics.md](metrics.md#v07-backend-resource-metrics-hook-adapters-kl-1704).
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
+
+Consolidates pipeline stages through pool pressure into one hook and snapshot model. The library does not register Prometheus counters directly; implement metrics in hooks. Canonical v0.7.0 metric names are in [metrics.md](metrics.md#v07-backend-resource-metrics-hook-adapters).
 
 ---
 
@@ -63,7 +65,7 @@ OnRejected or OnCompleted with failure
 
 ## Low-cardinality metadata
 
-Safe for metric labels (bounded sets per KL-1706):
+Safe for metric labels (bounded cardinality):
 
 - `lane`, `stage`, `operation`, `transport`
 - `outcome`, `failure_kind`
@@ -97,8 +99,8 @@ Backend hooks use `KeyHash` only (not raw routing keys). See [backend-pressure-a
 When `EnableDebugSnapshot` is true:
 
 - `Continuation` — pending count, capacity, late completions
-- `BackendResources` — in-process KL-1704 inflight per lane
-- `BackendPressure` — KL-1705 external pool snapshots
+- `BackendResources` — in-process backend resource coordination inflight per lane
+- `BackendPressure` — external pool pressure snapshots
 
 See [debug-snapshot.md](debug-snapshot.md).
 
