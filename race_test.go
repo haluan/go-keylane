@@ -107,6 +107,108 @@ func TestRaceConcurrentAwait(t *testing.T) {
 	wg.Wait()
 }
 
+func TestRaceConcurrentSubmitAndStop(t *testing.T) {
+	ctx := testTimeout(t)
+	q := newStartedTestQueue(t, ctx)
+
+	const count = 40
+	var wg sync.WaitGroup
+	wg.Add(count + 1)
+
+	stopped := make(chan struct{})
+	go func() {
+		defer wg.Done()
+		_ = q.Stop(ctx, WithDrain(false))
+		close(stopped)
+	}()
+
+	for i := 0; i < count; i++ {
+		go func(n int) {
+			defer wg.Done()
+			select {
+			case <-stopped:
+				return
+			default:
+			}
+			_ = q.Submit(ctx, Job{
+				Key:  fmt.Sprintf("race-%d", n),
+				Lane: "default",
+				Run:  func(context.Context) error { return nil },
+			})
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestRaceSubmitValueAwaitAndCancel(t *testing.T) {
+	ctx := testTimeout(t)
+	q := newStartedTestQueue(t, ctx)
+
+	block := make(chan struct{})
+	reqCtx, cancel := context.WithCancel(ctx)
+	future, err := SubmitValue(reqCtx, q, ValueJob[int]{
+		Key:  "block",
+		Lane: "default",
+		Run: func(context.Context) (int, error) {
+			<-block
+			return 42, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const count = 30
+	var wg sync.WaitGroup
+	wg.Add(count + 1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(2 * time.Millisecond)
+		cancel()
+	}()
+	for i := 0; i < count; i++ {
+		go func() {
+			defer wg.Done()
+			_, _ = future.Await(ctx)
+		}()
+	}
+	wg.Wait()
+	close(block)
+}
+
+func TestRacePipelineExecuteAndStop(t *testing.T) {
+	ctx := testTimeout(t)
+	q, err := New(newTestConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(20)
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wg.Done()
+			_, _ = SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+				Meta: RequestMeta{Key: "k", Lane: "default"},
+				Stages: []PipelineStage[pState]{
+					validPipelineStage(StageValidate, func(s *pState) { s.Val = 1 }),
+				},
+				Complete: validPipelineComplete(),
+			})
+		}()
+		go func() {
+			defer wg.Done()
+			stopCtx, c := context.WithTimeout(context.Background(), time.Second)
+			defer c()
+			_ = q.Stop(stopCtx, WithDrain(false))
+		}()
+	}
+	wg.Wait()
+}
+
 func TestRaceConcurrentStop(t *testing.T) {
 	ctx := testTimeout(t)
 	q := newStartedTestQueue(t, ctx)

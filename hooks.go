@@ -134,6 +134,6 @@ const (
 	JobOutcomeFailed
 	// JobOutcomeCanceled indicates the job returned context.Canceled or was skipped due to worker cancel.
 	JobOutcomeCanceled
-	// JobOutcomePanicked is reserved for panic recovery; not emitted until panic recovery exists.
+	// JobOutcomePanicked indicates the job Run function panicked and the worker recovered.
 	JobOutcomePanicked
 )

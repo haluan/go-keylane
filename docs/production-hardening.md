@@ -1,6 +1,6 @@
 # Production hardening (v0.8)
 
-Cross-cutting guide for running go-keylane in production across KL-1802 (validation), KL-1803 (defaults), and KL-1804 (observability contract).
+Cross-cutting guide for running go-keylane in production across KL-1802 (validation), KL-1803 (defaults), KL-1804 (observability contract), KL-1805 (benchmark baselines), and KL-1806 (lifecycle hardening).
 
 ---
 
@@ -45,6 +45,8 @@ _ = defaults
 | Safe defaults | [production-defaults.md](production-defaults.md) | `ProductionDefaults`, `ExplainDefaults` |
 | API stability | [api-stability.md](api-stability.md), [compatibility-rules.md](compatibility-rules.md) | apicheck snapshots |
 | Metrics, hooks, traces, snapshots | [observability-contract.md](observability-contract.md) | `StableMetricDescriptors`, contract tests |
+| Panic, shutdown, leaks, races | [runtime-lifecycle-hardening.md](runtime-lifecycle-hardening.md) | `Stop`, `WithDrain`, `ErrJobPanicked`, `HookPanicsRecovered` |
+| Performance regression | [performance-regression.md](performance-regression.md) | `make bench-baseline` |
 
 ---
 

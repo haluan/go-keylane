@@ -168,6 +168,7 @@ ErrInvalidRetrySuppressionPolicy
 ErrInvalidShardCount
 ErrInvalidShardPressureConfig
 ErrInvalidWorkerCount
+ErrJobPanicked
 ErrMissingLaneQuotas
 ErrNilJobRun
 ErrNilPipelineComplete

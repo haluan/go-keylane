@@ -34,7 +34,7 @@ That becomes dangerous when retry support is added: retrying the wrong failure a
 | `overloaded` | System pressure too high (overload policy) |
 | `rejected` | Explicit admission rejection (lane, queue full, per-key reject) |
 | `deadline_exhausted` | Caller deadline consumed before handler could run |
-| `panic` | Reserved for future panic recovery (not emitted by the scheduler today; same as `JobOutcomePanicked`) |
+| `panic` | User `Job.Run` / `ValueJob.Run` panicked; worker recovered (`ErrJobPanicked`); classified as `FailurePanic` |
 | `unknown` | Plain error with no stronger signal |
 
 ---

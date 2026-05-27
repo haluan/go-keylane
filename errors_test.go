@@ -1,7 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Haluan Irsad
+// SPDX-License-Identifier: AGPL-3.0-only
+
 package keylane
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -16,6 +20,13 @@ func TestErrStoppedIsComparableWithErrorsIs(t *testing.T) {
 	err := ErrStopped
 	if !errors.Is(err, ErrStopped) {
 		t.Errorf("expected ErrStopped to be checkable with errors.Is")
+	}
+}
+
+func TestErrJobPanickedIsComparableWithErrorsIs(t *testing.T) {
+	err := fmt.Errorf("%w: test", ErrJobPanicked)
+	if !errors.Is(err, ErrJobPanicked) {
+		t.Errorf("expected ErrJobPanicked to be checkable with errors.Is")
 	}
 }
 
