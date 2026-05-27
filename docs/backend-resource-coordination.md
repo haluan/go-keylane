@@ -1,6 +1,6 @@
-# Backend resource lane coordination (KL-1704)
+# Backend resource lane coordination
 
-Part of v0.7 — Advanced Request Pipeline & Backend Resource Coordination.
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
 
 Backend coordination bounds **downstream** work (database, cache, external APIs) per configured resource and backend lane. It is separate from request [`Lane`](lane-priority.md) fairness.
 
@@ -137,9 +137,9 @@ Backend hooks expose `KeyHash` (not raw routing keys) for correlation with hot-k
 
 ---
 
-## Pool pressure adapters (KL-1705)
+## Pool pressure adapters
 
-KL-1704 coordinates in-process leases only. For external pool telemetry (`database/sql`, custom API semaphores), see [backend-pressure-adapters.md](backend-pressure-adapters.md).
+v0.7.0 coordinates in-process leases only. For external pool telemetry (`database/sql`, custom API semaphores), see [backend-pressure-adapters.md](backend-pressure-adapters.md).
 
 ### Troubleshooting
 

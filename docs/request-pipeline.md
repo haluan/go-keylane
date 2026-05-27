@@ -1,6 +1,6 @@
 # Request Pipeline (v0.7)
 
-Part of v0.7 — Advanced Request Pipeline & Backend Resource Coordination (KL-1701).
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
 
 Production HTTP and backend handlers are often multi-step: validate, authorize, database access, external APIs, and response assembly. A single `SubmitRequest` handler hides where time was spent and which step failed.
 
@@ -13,10 +13,25 @@ Production HTTP and backend handlers are often multi-step: validate, authorize, 
 Use `SubmitPipeline` when you need:
 
 - Stage-level duration and failure attribution in hooks or metrics adapters
-- Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and [backend resource coordination](backend-resource-coordination.md) (KL-1704)
+- Stage-aware execution context ([stage-execution-context.md](stage-execution-context.md)) and [backend resource coordination](backend-resource-coordination.md)
 - Unified hook lifecycle and metrics guidance ([pipeline-observability.md](pipeline-observability.md))
 
-Keep using `SubmitRequest` for single-step work. Existing callers do not need to migrate.
+Keep using `SubmitRequest` for single-step work. Existing callers do not need to migrate. See [Migration from SubmitRequest](#migration-from-submitrequest).
+
+---
+
+## Non-goals
+
+Pipelines are **in-process request orchestration**.
+
+They are **not**:
+
+- Persistent workflows or durable sagas
+- Distributed queues or cross-replica execution engines
+- Exactly-once execution or automatic deduplication across restarts
+- A database transaction manager
+
+State and stage progress exist only for the lifetime of the in-memory request on one process.
 
 ---
 
@@ -44,11 +59,16 @@ func SubmitPipeline[S any, O any](
 ) (keylane.Future[O], error)
 ```
 
-Each `PipelineStage[S]` has `StageMeta` (low-cardinality `StageName`) and `Run(ctx, state) (state, error)`.
+Each `PipelineStage[S]` has `StageMeta` (low-cardinality `StageName`) and either:
+
+- `Run(ctx, state) (state, error)` — synchronous stage (default)
+- `RunContinuation(ctx, state) (StageResult[state], error)` — optional yield; requires `Continuation.Enabled` on the queue ([continuations.md](continuations.md))
+
+`Complete(ctx, state) (O, error)` runs once after all stages succeed.
 
 ---
 
-## Execution semantics (KL-1701)
+## Execution semantics
 
 Stages run **sequentially in-worker** in declaration order on the same request context:
 
@@ -66,17 +86,17 @@ SubmitPipeline
 - When the deadline budget is exhausted before a stage or `Complete` runs, the pipeline returns a `StageFailure` classified as `deadline_exhausted` (not handler `timeout`).
 - Retry is **request-level**: when retry is enabled, the entire pipeline (all stages + `Complete`) is retried as one unit. See [retry-policy.md](retry-policy.md).
 
-### Not in KL-1701
+### Not supported
 
 - Per-stage retry policy
 
-### Backend resource coordination (KL-1704)
+### Backend resource coordination
 
-Stages may call `AcquireBackend` / `WithBackend` to bound downstream usage per configured resource and backend lane. See [backend-resource-coordination.md](backend-resource-coordination.md). Concrete DB/HTTP pool adapters remain KL-1705.
+Stages may call `AcquireBackend` / `WithBackend` to bound downstream usage per configured resource and backend lane. See [backend-resource-coordination.md](backend-resource-coordination.md). Concrete DB/HTTP pool adapters are covered in [backend-pressure-adapters.md](backend-pressure-adapters.md).
 
 ---
 
-## Non-blocking continuations (KL-1703)
+## Non-blocking continuations
 
 When `ContinuationConfig.Enabled` is true, a stage may use `RunContinuation` instead of `Run` and return a `*Continuation` from `NewContinuation` to release the worker until external code calls `ContinuationCompleter.Complete`, `Fail`, or `Cancel`. The runtime enqueues a resume job on the same key shard; stages after the yield run on a worker again.
 
@@ -172,9 +192,39 @@ Each stage receives a derived `context.Context` with [`StageExecutionContext`](s
 
 ---
 
+## Future.Await
+
+`SubmitPipeline` returns `Future[O]` with the same semantics as `SubmitRequest`:
+
+- `future.Await(ctx)` blocks until the pipeline completes or fails.
+- Use the **request** context passed to `SubmitPipeline` for cancellation of in-flight work.
+- Use a separate **await** context only to bound how long the caller waits; cancelling the await context does not cancel a yielded continuation ([continuations.md](continuations.md)).
+- Never call `Await` on the same queue from inside a stage `Run` function — see README deadlock warning.
+
+`FailureFromFuture`, `RetryTraceFromFuture`, and `AsStageFailure` work the same as for single-handler requests.
+
+---
+
+## Migration from SubmitRequest
+
+| Situation | Recommendation |
+|-----------|----------------|
+| One handler, no stage metrics | Keep `SubmitRequest` |
+| Multi-step with shared state | Introduce `SubmitPipeline` with one `PipelineStage` per step |
+| Need yield during slow I/O | Enable `Continuation` and use `RunContinuation` on the slow stage only |
+| Already using retry/deadline | Copy `Retry`, `Idempotency`, and admission fields onto `Pipeline` — behavior is request-level |
+
+`SubmitRequest` handlers still receive `StageExecutionContext` (implicit `business` stage). No forced migration.
+
+Runnable sync example: [`examples/pipeline_basics`](../examples/pipeline_basics/).
+
+---
+
 ## Related docs
 
-- [Non-Blocking Continuations](continuations.md) — yield/resume, limits, late completion (KL-1703)
+- [v0.7.0 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md)
+
+- [Non-Blocking Continuations](continuations.md) — yield/resume, limits, late completion
 - [Stage Execution Context](stage-execution-context.md) — metadata in `context.Context`
 - [Request Runtime](request-runtime.md) — `SubmitRequest`, routing, futures
 - [Request Observability](request-observability.md) — request and stage hooks

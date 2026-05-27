@@ -1,4 +1,6 @@
-# Metrics (v0.5)
+# Metrics (v0.5+)
+
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md) for pipeline, continuation, and backend metric families.
 
 Platform-neutral reference for go-keylane observability metrics. Metric names are stable across adapters; this document describes semantics and label safety.
 
@@ -25,7 +27,7 @@ go-keylane does **not** implement an autoscaler. Metrics are inputs for Promethe
 
 ---
 
-## v0.7 pipeline stage metrics (adapter hooks)
+## v0.7.0 pipeline stage metrics (adapter hooks)
 
 The library does not register these counters directly; implement them in `OnStageStarted` / `OnStageCompleted` / `OnStageFailed` hooks from [request-observability.md](request-observability.md).
 
@@ -42,7 +44,7 @@ See [pipeline-observability.md](pipeline-observability.md) for hook lifecycle or
 
 ---
 
-## v0.7 continuation metrics (hook adapters, KL-1703)
+## v0.7.0 continuation metrics (hook adapters)
 
 Implement in `Hooks.Request.Continuation` callbacks. See [continuations.md](continuations.md).
 
@@ -57,11 +59,11 @@ Implement in `Hooks.Request.Continuation` callbacks. See [continuations.md](cont
 
 ---
 
-## v0.7 backend resource metrics (hook adapters, KL-1704)
+## v0.7.0 backend resource metrics (hook adapters)
 
-KL-1704 provides in-process backend admission and `DebugSnapshot.BackendResources` pressure. The library does **not** register Prometheus counters for backend coordination; implement them in `Hooks.Backend.OnBackendAdmission` and `OnBackendReleased` from [request-observability.md](request-observability.md). See [backend-resource-coordination.md](backend-resource-coordination.md).
+v0.7.0 provides in-process backend admission and `DebugSnapshot.BackendResources` pressure. The library does **not** register Prometheus counters for backend coordination; implement them in `Hooks.Backend.OnBackendAdmission` and `OnBackendReleased` from [request-observability.md](request-observability.md). See [backend-resource-coordination.md](backend-resource-coordination.md).
 
-KL-1705 pool pressure metrics are implemented via `Hooks.Backend.OnBackendPressure`; see [backend-pressure-adapters.md](backend-pressure-adapters.md).
+v0.7.0 pool pressure metrics are implemented via `Hooks.Backend.OnBackendPressure`; see [backend-pressure-adapters.md](backend-pressure-adapters.md).
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
@@ -82,7 +84,7 @@ Use **backend lane** (`db_read`, `external_api`, …), not request `lane`, for d
 
 For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().BackendResources` when `BackendResources.Enabled` and `EnableDebugSnapshot` are true.
 
-### v0.7 backend pool pressure metrics (KL-1705)
+### v0.7.0 backend pool pressure metrics (v0.7)
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
@@ -95,7 +97,9 @@ For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().Backe
 
 Use `Queue.BackendPressure` or `DebugSnapshot.BackendPressure` as the data source.
 
-### v0.7 pipeline production alerts
+**Autoscaling relevance:** v0.5 `keylane_scale_pressure_ratio` reflects **keylane queue/shard pressure** (worker-bound, hot keys). v0.7.0 `keylane_backend_pressure_ratio` reflects **downstream pool saturation** (DB/API). Use both when diagnosing tail latency — flat CPU/memory does not imply healthy downstream pools. See [v0.7.0 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md) and [autoscaling-signals.md](autoscaling-signals.md).
+
+### v0.7.0 pipeline production alerts
 
 Recommended continuation, backend, and stage alerts (pseudocode) are in [pipeline-observability.md](pipeline-observability.md#recommended-production-alerts-v07).
 
@@ -144,7 +148,7 @@ backend_reason
 stage
 ```
 
-`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation. `backend_lane` and `backend_resource` are separate low-cardinality label sets for KL-1704 backend coordination.
+`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation. `backend_lane` and `backend_resource` are separate low-cardinality label sets for v0.7.0 backend coordination.
 
 ---
 
@@ -212,6 +216,6 @@ See [tracing-opentelemetry.md](tracing-opentelemetry.md) for span integration.
 ## Related docs
 
 - [metrics-prometheus.md](metrics-prometheus.md) — adapter quick start
-- [backend-resource-coordination.md](backend-resource-coordination.md) — backend lanes, leases, hooks (KL-1704)
+- [backend-resource-coordination.md](backend-resource-coordination.md) — backend lanes, leases, hooks (v0.7)
 - [autoscaling-signals.md](autoscaling-signals.md) — interpreting scale metrics
 - [runbooks/hot-key-and-scale-pressure.md](runbooks/hot-key-and-scale-pressure.md) — operator alerts

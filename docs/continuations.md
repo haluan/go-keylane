@@ -1,6 +1,15 @@
-# Non-Blocking Continuations (v0.7 — KL-1703)
+# Non-Blocking Continuations (v0.7)
+
+Part of [v0.7.0 — Advanced Request Pipeline & Backend Resource Coordination](v0.7-advanced-request-pipeline-and-resource-coordination.md).
 
 Continuations extend `SubmitPipeline` so a stage can release the Keylane worker while waiting for slow I/O — a database read, an external API call, a cache miss — and resume the pipeline later through the same key/lane fairness path.
+
+```text
+Shard identity end-to-end: yes.
+Worker blocked end-to-end: no.
+```
+
+The resume job is enqueued on the same key hash as the original request. Physical worker goroutine identity is not preserved across yield/resume.
 
 ---
 
@@ -143,7 +152,7 @@ Continuation failures use the same retry path as synchronous pipelines (`DecideR
 - `priorRuntime` accumulates elapsed time including yield duration, so deadline budget is correctly charged across retries.
 - `RetryTraceFromFuture` records attempts and suppression reasons on the pipeline future.
 
-Retries are suppressed when idempotency is unsafe, suppression policy blocks retry under pressure, or the error is permanent. There is no per-stage retry in KL-1703; retry always re-runs the full pipeline.
+Retries are suppressed when idempotency is unsafe, suppression policy blocks retry under pressure, or the error is permanent. There is no per-stage retry in v0.7; retry always re-runs the full pipeline.
 
 ---
 
@@ -206,9 +215,29 @@ Hooks respect `Observability.EnableHooks` like other request hooks; callbacks ar
 
 ---
 
+## Safe usage
+
+- Start slow I/O in a separate goroutine; return the `Continuation` from `RunContinuation` immediately.
+- Propagate the stage/request `context.Context` into I/O you control so cancellation reaches your database or HTTP client.
+- Call `Complete`, `Fail`, or `Cancel` exactly once; check the boolean return — `false` means the continuation was already resolved (late or duplicate call).
+- Release [backend leases](backend-resource-coordination.md) in the completer goroutine (`defer lease.Release()`), not on the worker thread after yield.
+- Use `Failure` helpers (`RetryableFailure`, `PermanentFailure`) on `Fail` so retry and classification match v0.6 policy.
+
+---
+
+## Anti-patterns
+
+- **Blocking the worker** on `db.Query`, HTTP round-trips, or `time.Sleep` inside `Run` or `RunContinuation` before returning — use yield instead.
+- **Calling `future.Await` on the same queue from inside a stage** — can deadlock workers (see README).
+- **Ignoring `Complete`/`Fail` return values** — late completions increment `LateCompletions` and may fire `OnContinuationLate`.
+- **Assuming the async operation stops when the request is cancelled** — only your code can cancel downstream I/O; the runtime resolves the continuation but does not interrupt external calls.
+- **Holding backend leases across yield without a release plan** — leaks in-flight counts until process restart.
+
+---
+
 ## Examples
 
-KL-1703 provides yield/resume. For bounded downstream usage, use [backend resource coordination](backend-resource-coordination.md) (KL-1704) and release backend leases in the completer goroutine (`defer lease.Release()`). Concrete pool adapters are KL-1705.
+v0.7.0 provides yield/resume. For bounded downstream usage, use [backend resource coordination](backend-resource-coordination.md) (v0.7) and release backend leases in the completer goroutine (`defer lease.Release()`).
 
 ### Slow DB read (yielded)
 
@@ -270,10 +299,10 @@ Continuations are a yield/resume primitive for explicit I/O hand-off, not a gene
 - **Not parallel stages**: stages remain sequential. Continuations only free the worker between two sequential stages.
 - **Not transparent**: callers must explicitly call `NewContinuation` and manage the completer. The runtime does not automatically detect blocking calls.
 - **Not retry-on-resume**: the retry policy applies to the full pipeline, not to individual resume attempts.
-- **Backend leases (KL-1704)**: acquire before yield; `defer lease.Release()` in the goroutine that completes the continuation. See [backend-resource-coordination.md](backend-resource-coordination.md).
-- **Not pool adapters (KL-1705)**: no `database/sql`/HTTP integration in KL-1704.
+- **Backend leases (v0.7)**: acquire before yield; `defer lease.Release()` in the goroutine that completes the continuation. See [backend-resource-coordination.md](backend-resource-coordination.md).
+- **Not pool adapters (v0.7)**: no `database/sql`/HTTP integration in v0.7.
 
-See [request-pipeline.md](request-pipeline.md) for the base pipeline model and [stage-execution-context.md](stage-execution-context.md) for execution context propagation across yield/resume.
+See [v0.7.0 overview](v0.7-advanced-request-pipeline-and-resource-coordination.md), [request-pipeline.md](request-pipeline.md) for the base pipeline model, and [stage-execution-context.md](stage-execution-context.md) for execution context propagation across yield/resume.
 
 ### Troubleshooting
 

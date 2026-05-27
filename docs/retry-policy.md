@@ -4,7 +4,7 @@ Part of [v0.6.0 — Retry, Deadline & Failure Policy](v0.6-retry-deadline-failur
 
 Bounded in-worker retry for `SubmitValue`, `SubmitRequest`, and `SubmitPipeline`. Retry is **opt-in**: the zero value of `RetryPolicy` disables retry.
 
-For pipelines, retry re-runs the **entire** stage list and `Complete` function on each attempt. Per-stage retry is not supported in KL-1701. See [request-pipeline.md](request-pipeline.md).
+For pipelines, retry re-runs the **entire** stage list and `Complete` function on each attempt. Per-stage retry is not supported. See [request-pipeline.md](request-pipeline.md).
 
 When retry is enabled, `StageExecutionContext.Attempt` in each stage context reflects the current 1-based attempt (see [stage-execution-context.md](stage-execution-context.md)).
 

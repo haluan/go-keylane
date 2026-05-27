@@ -1,17 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Haluan Irsad
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Example: pipeline stage yields, async work completes the continuation, pipeline resumes.
-//
-// The continuation model is a handoff primitive only. For backend leases and pool pressure adapters,
-// see docs/backend-resource-coordination.md and docs/backend-pressure-adapters.md.
+// Example: two-stage synchronous SubmitPipeline with Future.Await.
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/haluan/go-keylane"
 )
@@ -21,16 +17,13 @@ type state struct {
 }
 
 type output struct {
-	Sum int
+	Result int
 }
 
 func main() {
 	cfg := keylane.Config{
 		ShardCount: 1, WorkerCount: 2, QueueSizePerLane: 32,
 		LaneQuotas: map[keylane.Lane]int{"default": 1},
-		Continuation: keylane.ContinuationConfig{
-			Enabled: true,
-		},
 	}
 	q, err := keylane.New(cfg)
 	if err != nil {
@@ -46,22 +39,25 @@ func main() {
 	defer func() { _ = q.Stop(context.Background()) }()
 
 	future, err := keylane.SubmitPipeline(ctx, q, keylane.Pipeline[state, output]{
-		Meta: keylane.RequestMeta{Key: "demo", Lane: "default", Operation: "continuation-demo"},
+		Meta: keylane.RequestMeta{Key: "demo", Lane: "default", Operation: "pipeline-basics"},
 		Stages: []keylane.PipelineStage[state]{
 			{
 				Meta: keylane.StageMeta{Name: keylane.StageValidate},
-				RunContinuation: func(_ context.Context, st state) (keylane.StageResult[state], error) {
-					cont, completer := keylane.NewContinuation[state](context.Background())
-					go func() {
-						time.Sleep(5 * time.Millisecond)
-						completer.Complete(state{Value: 7})
-					}()
-					return keylane.StageResult[state]{Continuation: cont}, nil
+				Run: func(_ context.Context, st state) (state, error) {
+					st.Value = 10
+					return st, nil
+				},
+			},
+			{
+				Meta: keylane.StageMeta{Name: keylane.StageBusiness},
+				Run: func(_ context.Context, st state) (state, error) {
+					st.Value *= 2
+					return st, nil
 				},
 			},
 		},
-		Complete: func(_ context.Context, s state) (output, error) {
-			return output{Sum: s.Value}, nil
+		Complete: func(_ context.Context, st state) (output, error) {
+			return output{Result: st.Value}, nil
 		},
 	})
 	if err != nil {
@@ -73,5 +69,5 @@ func main() {
 		fmt.Println("await:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("sum=%d pending=%d\n", out.Sum, q.DebugSnapshot().Continuation.Pending)
+	fmt.Printf("result=%d\n", out.Result)
 }

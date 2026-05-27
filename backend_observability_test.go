@@ -53,7 +53,7 @@ func TestBackendHooksEmitAdmissionAndRelease(t *testing.T) {
 	}
 }
 
-// Backend hooks expose KeyHash only (no raw routing keys) per KL-1704.
+// Backend hooks expose KeyHash only (no raw routing keys).
 func TestBackendHooksAdmissionExecutionMetadata(t *testing.T) {
 	ctx := testTimeout(t)
 	var admitted BackendAdmissionDecision
