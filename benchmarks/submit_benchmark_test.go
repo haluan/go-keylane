@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/haluan/go-keylane"
 )
@@ -130,6 +131,61 @@ func BenchmarkKeylaneSubmitTimingEnabled(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = q.Submit(context.Background(), job)
+	}
+}
+
+func BenchmarkKeylaneSubmitContextCanceled(b *testing.B) {
+	q, _ := makeBenchmarkQueue(b, benchConfigSingleLane())
+	job := keylane.Job{Key: "k", Lane: "default", Run: dummyRun}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = q.Submit(ctx, job)
+	}
+}
+
+func BenchmarkKeylaneSubmitDeadlineExpired(b *testing.B) {
+	q, _ := makeBenchmarkQueue(b, benchConfigSingleLane())
+	job := keylane.Job{Key: "k", Lane: "default", Run: dummyRun}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = q.Submit(ctx, job)
+	}
+}
+
+func BenchmarkKeylaneSubmitDuringShutdown(b *testing.B) {
+	cfg := benchConfigSingleLane()
+	q, err := keylane.New(cfg)
+	if err != nil {
+		b.Fatal(err)
+	}
+	runCtx, runCancel := context.WithCancel(context.Background())
+	if err := q.Start(runCtx); err != nil {
+		runCancel()
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		_ = q.Stop(context.Background())
+		runCancel()
+	})
+	if err := q.Stop(context.Background()); err != nil {
+		b.Fatal(err)
+	}
+
+	job := keylane.Job{Key: "k", Lane: "default", Run: dummyRun}
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = q.Submit(ctx, job)
 	}
 }
 
