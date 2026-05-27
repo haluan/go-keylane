@@ -38,6 +38,23 @@ The library does not register these counters directly; implement them in `OnStag
 
 Do not add `key`, `request_id`, URL path, tenant id, or raw error strings as labels.
 
+See [pipeline-observability.md](pipeline-observability.md) for hook lifecycle ordering.
+
+---
+
+## v0.7 continuation metrics (hook adapters, KL-1703)
+
+Implement in `Hooks.Request.Continuation` callbacks. See [continuations.md](continuations.md).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `keylane_pipeline_continuation_yielded_total` | Counter | `transport`, `operation`, `lane`, `stage` | Stage returned a continuation |
+| `keylane_pipeline_continuation_resumed_total` | Counter | `transport`, `operation`, `lane`, `stage` | Resume job started after completion |
+| `keylane_pipeline_continuation_completed_total` | Counter | `transport`, `operation`, `lane`, `stage` | Continuation resolved successfully |
+| `keylane_pipeline_continuation_failed_total` | Counter | `transport`, `operation`, `lane`, `stage`, `failure_kind` | `Completer.Fail` |
+| `keylane_pipeline_continuation_cancelled_total` | Counter | `transport`, `operation`, `lane`, `stage` | Cancel or deadline while pending |
+| `keylane_pipeline_continuation_late_total` | Counter | `transport`, `operation`, `lane`, `stage` | Resolution after continuation already terminal |
+
 ---
 
 ## v0.7 backend resource metrics (hook adapters, KL-1704)
@@ -48,14 +65,20 @@ KL-1705 pool pressure metrics are implemented via `Hooks.Backend.OnBackendPressu
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `keylane_backend_admission_total` | Counter | `resource`, `backend_lane`, `stage`, `reason` | Admission attempts (`BackendAdmissionDecision.Reason`) |
-| `keylane_backend_admission_accepted_total` | Counter | `resource`, `backend_lane`, `stage` | Accepted acquisitions |
-| `keylane_backend_admission_rejected_total` | Counter | `resource`, `backend_lane`, `stage`, `reason` | Rejected acquisitions (`saturated`, `unknown_resource`, …) |
-| `keylane_backend_inflight` | Gauge | `resource`, `backend_lane` | `InFlight` after admission or release |
-| `keylane_backend_capacity` | Gauge | `resource`, `backend_lane` | Configured `MaxInFlight` |
-| `keylane_backend_held_seconds` | Histogram | `resource`, `backend_lane`, `stage` | `BackendReleaseEvent.HeldFor` |
+| `keylane_backend_admission_total` | Counter | `backend_resource`, `backend_lane`, `stage`, `backend_reason` | Admission attempts (`BackendAdmissionDecision.Reason`) |
+| `keylane_backend_released_total` | Counter | `backend_resource`, `backend_lane`, `stage` | Releases (`OnBackendReleased`) |
+| `keylane_backend_inflight` | Gauge | `backend_resource`, `backend_lane` | `InFlight` after admission or release |
+| `keylane_backend_capacity` | Gauge | `backend_resource`, `backend_lane` | Configured `MaxInFlight` |
+| `keylane_backend_held_duration_seconds` | Histogram | `backend_resource`, `backend_lane`, `stage` | `BackendReleaseEvent.HeldFor` |
 
-Use **backend lane** (`db_read`, `external_api`, …), not request `lane`, for downstream classification. `resource` must be a small static set (`primary-db`, `wallet-api`). Do not label with SQL text, URLs, or request IDs.
+Optional adapter decomposition of `keylane_backend_admission_total`:
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `keylane_backend_admission_accepted_total` | Counter | `backend_resource`, `backend_lane`, `stage` | Accepted acquisitions |
+| `keylane_backend_admission_rejected_total` | Counter | `backend_resource`, `backend_lane`, `stage`, `backend_reason` | Rejected acquisitions (`saturated`, `unknown_resource`, …) |
+
+Use **backend lane** (`db_read`, `external_api`, …), not request `lane`, for downstream classification. `backend_resource` must be a small static set (`primary-db`, `wallet-api`). Do not label with SQL text, URLs, or request IDs.
 
 For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().BackendResources` when `BackendResources.Enabled` and `EnableDebugSnapshot` are true.
 
@@ -63,14 +86,18 @@ For pull diagnostics without a metrics adapter, use `Queue.DebugSnapshot().Backe
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `keylane_backend_pressure_ratio` | Gauge | `resource`, `backend_lane` | `BackendPressureSnapshot.Pressure` (0..1) |
-| `keylane_backend_in_use` | Gauge | `resource`, `backend_lane` | External pool in-use count |
-| `keylane_backend_capacity` | Gauge | `resource`, `backend_lane` | External pool capacity |
-| `keylane_backend_wait_total` | Counter | `resource`, `backend_lane` | Cumulative wait events |
-| `keylane_backend_wait_seconds_total` | Counter | `resource`, `backend_lane` | Cumulative wait time |
-| `keylane_backend_saturated` | Gauge | `resource`, `backend_lane` | 1 when pool saturated |
+| `keylane_backend_pressure_ratio` | Gauge | `backend_resource`, `backend_lane` | `BackendPressureSnapshot.Pressure` (0..1) |
+| `keylane_backend_in_use` | Gauge | `backend_resource`, `backend_lane` | External pool in-use count |
+| `keylane_backend_capacity` | Gauge | `backend_resource`, `backend_lane` | External pool capacity |
+| `keylane_backend_wait_total` | Counter | `backend_resource`, `backend_lane` | Cumulative wait events |
+| `keylane_backend_wait_duration_seconds` | Counter | `backend_resource`, `backend_lane` | Cumulative wait time |
+| `keylane_backend_saturated` | Gauge | `backend_resource`, `backend_lane` | 1 when pool saturated |
 
 Use `Queue.BackendPressure` or `DebugSnapshot.BackendPressure` as the data source.
+
+### v0.7 pipeline production alerts
+
+Recommended continuation, backend, and stage alerts (pseudocode) are in [pipeline-observability.md](pipeline-observability.md#recommended-production-alerts-v07).
 
 ---
 
@@ -111,12 +138,13 @@ shard_id
 action
 reason
 scope
-resource
+backend_resource
 backend_lane
+backend_reason
 stage
 ```
 
-`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation. `backend_lane` and `resource` are separate low-cardinality sets for KL-1704 backend coordination.
+`scheduler` is your deployment name (one value per process). `lane` names must be a small static set configured at queue creation. `backend_lane` and `backend_resource` are separate low-cardinality label sets for KL-1704 backend coordination.
 
 ---
 

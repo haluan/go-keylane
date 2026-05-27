@@ -34,6 +34,20 @@ Do not call `DebugSnapshot()` on every submit. Sample on a timer or admin endpoi
 | `BackendResources` | KL-1704 in-process backend lane inflight (when coordination enabled) |
 | `BackendPressure` | KL-1705 external pool pressure from configured providers |
 
+### v0.7 pipeline diagnostics
+
+| Field | When populated | Use |
+|-------|----------------|-----|
+| `Continuation.Pending` | `Continuation.Enabled` | In-flight async handoffs |
+| `Continuation.MaxPending` | `Continuation.Enabled` | Configured cap |
+| `Continuation.LateCompletions` | `Continuation.Enabled` | Completer called after resolution |
+| `BackendResources[].Lanes[]` | `BackendResources.Enabled` | KL-1704 per-lane `InFlight`, `Capacity`, `Queued`, `Saturated` |
+| `BackendPressure[]` | `PressureProviders` configured + `EnableDebugSnapshot` | External pool pressure ratio per resource/lane (`Pressure`), plus `InUse`, `Capacity`, `Saturated` |
+
+> With `BackendAdmissionReject` (current default), lane `Queued` is always `0`. The field is exported for API stability and matches `BackendAdmissionDecision.Queued` on admission/release hooks. Non-zero `Queued` is reserved for future block/queue admission modes.
+
+When features are disabled, fields are zero values or nil slices; `DebugSnapshot()` must not panic.
+
 Legacy fields (`Pressure`, lane/shard counters, policy versions) remain unchanged from earlier versions.
 
 ---

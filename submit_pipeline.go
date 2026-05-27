@@ -147,7 +147,9 @@ func runPipelineStages[S any, O any](
 		q.emitStageStarted(q.newStageObservationFromExecution(exec, 0, nil))
 
 		var err error
-		state, err = stage.Run(stageCtx, state)
+		state, err = recoverStageRun(func() (S, error) {
+			return stage.Run(stageCtx, state)
+		})
 		stageDur := time.Since(stageStart)
 		endRuntime := priorRuntime + time.Since(pipelineStart)
 		endDeadline := stageDeadlineBudget(reqCtx, queueWait, endRuntime, time.Now())

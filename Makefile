@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race test-adapters ci ci-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure
+.PHONY: all fmt format test test-race test-adapters ci ci-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure bench-pipeline bench-continuation
 
 all: format test
 
@@ -54,3 +54,10 @@ bench-submit:
 bench-gc-pressure:
 	go test -v . -bench 'BenchmarkStatsGCPressure|BenchmarkSubmit' -benchmem
 	go test -v ./internal/core -bench 'BenchmarkStatsGCPressure|BenchmarkProcessShardSingleLane' -benchmem
+
+bench-pipeline:
+	go test -bench='BenchmarkPipeline' -benchmem .
+	go test -bench='BenchmarkBackend' -benchmem .
+
+bench-continuation:
+	go test -bench='BenchmarkPipelineContinuation' -benchmem .

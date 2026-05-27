@@ -46,8 +46,11 @@ func TestPipelineContinuationRequestCancellationWhileYielded(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Wait for the yield, then cancel the request context.
+	// Wait for yield, registration, and late-handler install before cancel.
 	waitForSignal(t, yielded)
+	waitUntil(t, func() bool {
+		return q.DebugSnapshot().Continuation.Pending == 1
+	}, 2*time.Second)
 	reqCancel()
 
 	_, awaitErr := future.Await(ctx)
@@ -65,8 +68,10 @@ func TestPipelineContinuationRequestCancellationWhileYielded(t *testing.T) {
 	if completer.Complete(pState{Val: 99}) {
 		t.Fatal("late Complete should return false after cancellation resolved continuation")
 	}
-	snap := q.DebugSnapshot().Continuation
-	if snap.LateCompletions != 1 {
+	waitUntil(t, func() bool {
+		return q.DebugSnapshot().Continuation.LateCompletions >= 1
+	}, 2*time.Second)
+	if snap := q.DebugSnapshot().Continuation; snap.LateCompletions != 1 {
 		t.Fatalf("LateCompletions = %d, want 1", snap.LateCompletions)
 	}
 
@@ -114,6 +119,9 @@ func TestPipelineContinuationCompleteAfterCancelIgnored(t *testing.T) {
 	}
 
 	waitForSignal(t, yielded)
+	waitUntil(t, func() bool {
+		return q.DebugSnapshot().Continuation.Pending == 1
+	}, 2*time.Second)
 	reqCancel()
 
 	waitUntil(t, func() bool {
@@ -128,8 +136,10 @@ func TestPipelineContinuationCompleteAfterCancelIgnored(t *testing.T) {
 	if completer.Complete(pState{Val: 99}) {
 		t.Fatal("Complete after request cancel must return false")
 	}
-	snap := q.DebugSnapshot().Continuation
-	if snap.LateCompletions < 1 {
+	waitUntil(t, func() bool {
+		return q.DebugSnapshot().Continuation.LateCompletions >= 1
+	}, 2*time.Second)
+	if snap := q.DebugSnapshot().Continuation; snap.LateCompletions < 1 {
 		t.Fatalf("LateCompletions = %d, want at least 1", snap.LateCompletions)
 	}
 

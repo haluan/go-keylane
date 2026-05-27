@@ -47,10 +47,18 @@ type Continuation[S any] struct {
 	// outcome receives exactly one value when the continuation resolves.
 	outcome chan continuationOutcome[S]
 
-	// lateOnce ensures at most one late-completion diagnostic per continuation (resolver vs completer races).
+	// lateOnce ensures at most one late-completion hook per continuation (resolver vs completer races).
 	lateOnce sync.Once
+	// registryLateOnce ensures the registry late counter increments at most once per continuation.
+	registryLateOnce sync.Once
 
 	boundCompleter ContinuationCompleter[S]
+}
+
+func (cont *Continuation[S]) recordLateRegistry(q *Queue) {
+	cont.registryLateOnce.Do(func() {
+		q.continuationReg.recordLate()
+	})
 }
 
 // recordLateCompletion increments late-completion diagnostics at most once for this continuation.
@@ -58,19 +66,33 @@ func (cont *Continuation[S]) recordLateCompletion(q *Queue, exec StageExecutionC
 	if kind == continuationOutcomeCancel {
 		return
 	}
+	cont.recordLateRegistry(q)
 	cont.lateOnce.Do(func() {
-		q.continuationReg.recordLate()
 		if err == nil {
 			err = ErrContinuationLate
 		}
-		lateObs := continuationObsFromExec(
-			cont.ID, exec, time.Since(cont.yieldedAt), 0,
-			classifyOutcomeRequestOutcome(kind),
-			classifyOutcomeFailureKind(kind),
-			err,
-		)
-		q.emitContinuationLate(lateObs)
+		q.emitContinuationLate(cont.lateObservation(exec, kind, err))
 	})
+}
+
+// recordLateCompleterIgnored counts a completer call after the continuation is already terminal.
+func (cont *Continuation[S]) recordLateCompleterIgnored(q *Queue, exec StageExecutionContext) {
+	cont.recordLateRegistry(q)
+	cont.lateOnce.Do(func() {
+		q.emitContinuationLate(cont.lateObservation(exec, continuationOutcomeComplete, ErrContinuationLate))
+	})
+}
+
+func (cont *Continuation[S]) lateObservation(exec StageExecutionContext, kind ContinuationOutcomeKind, err error) ContinuationObservation {
+	if err == nil {
+		err = ErrContinuationLate
+	}
+	return continuationObsFromExec(
+		cont.ID, exec, time.Since(cont.yieldedAt), 0,
+		classifyOutcomeRequestOutcome(kind),
+		classifyOutcomeFailureKind(kind),
+		err,
+	)
 }
 
 // StageResult is returned by a ContinuationStageFunc.
@@ -112,16 +134,21 @@ func (cont *Continuation[S]) requestContextErr() error {
 }
 
 type continuationCompleter[S any] struct {
-	once sync.Once
-	mu   sync.Mutex
-	cont *Continuation[S]
-	late func()
+	once  sync.Once
+	mu    sync.Mutex
+	cont  *Continuation[S]
+	late  func()
+	queue *Queue
+	exec  StageExecutionContext
 }
 
 func (c *continuationCompleter[S]) invokeLate() {
 	c.mu.Lock()
-	late := c.late
+	q, exec, late := c.queue, c.exec, c.late
 	c.mu.Unlock()
+	if q != nil && c.cont != nil {
+		c.cont.recordLateCompleterIgnored(q, exec)
+	}
 	if late != nil {
 		late()
 	}
@@ -181,10 +208,14 @@ func (c *continuationCompleter[S]) Cancel(err error) bool {
 	return c.deliver(continuationOutcome[S]{kind: continuationOutcomeCancel, err: errToSend})
 }
 
-// setContinuationLateHandler registers a callback when Complete/Fail/Cancel runs after resolution.
-func setContinuationLateHandler[S any](c ContinuationCompleter[S], late func()) {
+// setContinuationLateHandler registers late-completion accounting for a completer.
+// When q is non-nil, ignored Complete/Fail calls increment registry diagnostics via recordLateCompleterIgnored.
+// An optional late hook runs after registry accounting (used by tests with a standalone registry).
+func setContinuationLateHandler[S any](c ContinuationCompleter[S], q *Queue, exec StageExecutionContext, late func()) {
 	if cc, ok := c.(*continuationCompleter[S]); ok {
 		cc.mu.Lock()
+		cc.queue = q
+		cc.exec = exec
 		cc.late = late
 		cc.mu.Unlock()
 	}

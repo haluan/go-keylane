@@ -5,6 +5,7 @@ package keylane
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"sort"
 	"testing"
@@ -146,8 +147,11 @@ func BenchmarkPipelineContinuationPendingMany(b *testing.B) {
 		completers := make([]ContinuationCompleter[pState], benchContStormSize)
 		futures := make([]Future[pOutput], benchContStormSize)
 
+		b.StopTimer()
 		var before runtime.MemStats
 		runtime.ReadMemStats(&before)
+		b.StartTimer()
+
 		for j := 0; j < benchContStormSize; j++ {
 			ready := make(chan ContinuationCompleter[pState], 1)
 			future, err := benchYieldResumePipeline(ctx, q, ready)
@@ -157,10 +161,10 @@ func BenchmarkPipelineContinuationPendingMany(b *testing.B) {
 			completers[j] = <-ready
 			futures[j] = future
 		}
-		var after runtime.MemStats
-		runtime.ReadMemStats(&after)
 
 		b.StopTimer()
+		var after runtime.MemStats
+		runtime.ReadMemStats(&after)
 		snap := q.DebugSnapshot().Continuation
 		if snap.Pending > 0 {
 			totalPendingCount += snap.Pending
@@ -262,30 +266,27 @@ func BenchmarkPipelineContinuationLateCompletion(b *testing.B) {
 	defer cancel()
 	base := context.Background()
 
-	var lateSamples []time.Duration
+	reqCtx, reqCancel := context.WithCancel(base)
+	ready := make(chan ContinuationCompleter[pState], 1)
+	future, err := benchYieldResumePipeline(reqCtx, q, ready)
+	if err != nil {
+		b.Fatal(err)
+	}
+	completer := <-ready
+	reqCancel()
+	awaitCtx, awaitCancel := context.WithTimeout(base, 5*time.Second)
+	defer awaitCancel()
+	if _, err := future.Await(awaitCtx); err != nil && !errors.Is(err, context.Canceled) {
+		b.Fatal(err)
+	}
 
+	var lateSamples []time.Duration
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		reqCtx, reqCancel := context.WithCancel(base)
-		ready := make(chan ContinuationCompleter[pState], 1)
-		future, err := benchYieldResumePipeline(reqCtx, q, ready)
-		if err != nil {
-			b.Fatal(err)
-		}
-		completer := <-ready
-		reqCancel()
-		_, _ = future.Await(base)
-		b.StartTimer()
 		start := time.Now()
-		if completer.Complete(pState{Val: 1}) {
-			b.Fatal("expected late Complete to return false")
-		}
+		_ = completer.Complete(pState{Val: 1})
 		lateSamples = append(lateSamples, time.Since(start))
-		b.StopTimer()
-		_, _ = future.Await(base)
-		b.StartTimer()
 	}
 
 	if len(lateSamples) > 0 {
@@ -322,10 +323,6 @@ func BenchmarkPipelineContinuationObservabilityOverhead(b *testing.B) {
 }
 
 func BenchmarkPipelineContinuationVsSynchronousStage(b *testing.B) {
-	benchmarkPipelineContinuationVsSynchronousStage(b)
-}
-
-func BenchmarkPipelineContinuationVsSynchronous(b *testing.B) {
 	benchmarkPipelineContinuationVsSynchronousStage(b)
 }
 

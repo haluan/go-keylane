@@ -74,6 +74,59 @@ func TestValidateBackendPressureSnapshotRejectsEmptyResource(t *testing.T) {
 	}
 }
 
+func TestValidateBackendPressureSnapshotRejectsURLLikeResource(t *testing.T) {
+	err := ValidateBackendPressureSnapshot(BackendPressureSnapshot{
+		Resource: "https://primary-db",
+		Lane:     BackendLaneDBRead,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestValidateBackendPressureSnapshotRejectsOverlongLane(t *testing.T) {
+	longLane := BackendLane(string(make([]byte, 129)))
+	err := ValidateBackendPressureSnapshot(BackendPressureSnapshot{
+		Resource: "primary-db",
+		Lane:     longLane,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+type invalidLabelPressureProvider struct{}
+
+func (invalidLabelPressureProvider) BackendPressure(context.Context) BackendPressureSnapshot {
+	return BackendPressureSnapshot{
+		Resource: "https://evil-db",
+		Lane:     BackendLaneDBRead,
+	}
+}
+
+func TestBackendResourceConfigRejectsInvalidPressureProviderLabels(t *testing.T) {
+	err := ValidateBackendResourceConfig(BackendResourceConfig{
+		PressureProviders: []BackendPressureProvider{invalidLabelPressureProvider{}},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestCollectProviderPressureSkipsInvalidSnapshot(t *testing.T) {
+	ctx := testTimeout(t)
+	q := newStartedTestQueue(t, ctx)
+	if _, ok := q.collectProviderPressure(ctx, invalidLabelPressureProvider{}); ok {
+		t.Fatal("expected invalid provider snapshot to be skipped")
+	}
+	snap, ok := q.collectProviderPressure(ctx, staticPressureProvider{snap: BackendPressureSnapshot{
+		Resource: "primary-db", Lane: BackendLaneDBRead, InUse: 1, Capacity: 4,
+	}})
+	if !ok || snap.Resource != "primary-db" {
+		t.Fatalf("snap = %+v ok = %v", snap, ok)
+	}
+}
+
 func TestBackendResourceConfigRejectsNilPressureProvider(t *testing.T) {
 	err := ValidateBackendResourceConfig(BackendResourceConfig{
 		PressureProviders: []BackendPressureProvider{nil},

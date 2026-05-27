@@ -140,3 +140,8 @@ Backend hooks expose `KeyHash` (not raw routing keys) for correlation with hot-k
 ## Pool pressure adapters (KL-1705)
 
 KL-1704 coordinates in-process leases only. For external pool telemetry (`database/sql`, custom API semaphores), see [backend-pressure-adapters.md](backend-pressure-adapters.md).
+
+### Troubleshooting
+
+- **Stage fails with saturated backend**: `OnStageFailed` plus `OnBackendAdmission` with `Reason: saturated`; see admission hooks in [pipeline-observability.md](pipeline-observability.md).
+- **Inflight vs capacity**: `DebugSnapshot.BackendResources` lane `InFlight` / `Saturated` — integration coverage in `pipeline_integration_test.go` ([pipeline-testing.md](pipeline-testing.md)).

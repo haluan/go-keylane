@@ -49,6 +49,7 @@ func startedQueueWithRequestHooks(t *testing.T, hooks RequestHooks) (*Queue, con
 	if err := q.Start(ctx); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
+	t.Cleanup(func() { stopTestQueue(t, q) })
 	return q, ctx
 }
 
