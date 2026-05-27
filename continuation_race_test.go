@@ -99,6 +99,7 @@ func TestPipelineContinuationCancelDoesNotBlockCompleter(t *testing.T) {
 		go func() {
 			defer func() { done <- struct{}{} }()
 			reqCtx, reqCancel := context.WithCancel(context.Background())
+			defer reqCancel()
 			yielded := make(chan struct{})
 			var completer ContinuationCompleter[pState]
 			future, err := SubmitPipeline(reqCtx, q, Pipeline[pState, pOutput]{
@@ -209,6 +210,7 @@ func TestPipelineContinuationCancelCompleteRace(t *testing.T) {
 			defer wg.Done()
 			q := newContinuationTestQueue(t, ctx, 4)
 			reqCtx, reqCancel := context.WithCancel(context.Background())
+			defer reqCancel()
 			yielded := make(chan struct{})
 			var completer ContinuationCompleter[pState]
 
