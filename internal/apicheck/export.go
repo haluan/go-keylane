@@ -59,8 +59,15 @@ func ListExports(importPath string) ([]string, error) {
 	return out, nil
 }
 
+const rootModulePath = "github.com/haluan/go-keylane"
+
 func packageDir(importPath string) (string, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return "", fmt.Errorf("finding repo root: %w", err)
+	}
 	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", importPath)
+	cmd.Dir = moduleRootForPackage(root, importPath)
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -69,6 +76,36 @@ func packageDir(importPath string) (string, error) {
 		return "", fmt.Errorf("go list %s: %w", importPath, err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func repoRoot() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	dir := wd
+	for i := 0; i < 8; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		dir = filepath.Dir(dir)
+	}
+	return wd, nil
+}
+
+func moduleRootForPackage(root, importPath string) string {
+	if importPath == rootModulePath {
+		return root
+	}
+	rel := filepath.FromSlash(strings.TrimPrefix(importPath, rootModulePath+"/"))
+	dir := filepath.Join(root, rel)
+	for dir != root {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+	return root
 }
 
 func collectExports(f *ast.File, names map[string]struct{}) {
