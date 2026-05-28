@@ -18,6 +18,25 @@ go get github.com/haluan/go-keylane
 
 ---
 
+## v0.8 adoption (recommended)
+
+Start with the canonical example and walkthrough:
+
+```bash
+go run ./examples/production-minimal
+```
+
+- [production-minimal example](examples/production-minimal/) · [walkthrough](docs/production-minimal.md)
+- [examples guide](docs/examples.md) · [migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
+- `ProductionDefaults()` + `ValidateConfig` before `New`
+- [observability contract](docs/observability-contract.md) · [lifecycle / shutdown](docs/runtime-lifecycle-hardening.md) · [performance baselines](docs/performance-regression.md)
+
+Compile-check all examples: `make verify-examples`.
+
+**Not a workflow engine, distributed queue, or exactly-once system** — in-process lane-sharded concurrency control only. State is lost on process restart.
+
+---
+
 ## Core Concepts
 
 - **Key**: A business identity (e.g., tenant ID, customer ID, order ID) used to route execution deterministically.
@@ -29,6 +48,8 @@ go get github.com/haluan/go-keylane
 ---
 
 ## Fire-and-Forget Example
+
+> Prefer [examples/production-minimal](examples/production-minimal/) (`ProductionDefaults`, `ValidateConfig`, graceful `Stop` with drain). The snippet below uses a hand-rolled `Config` for illustration.
 
 ```go
 package main
@@ -86,6 +107,8 @@ func main() {
 ---
 
 ## SubmitValue & Await Example
+
+> See also [examples/submit-value-await](examples/submit-value-await/) and [docs/production-minimal.md](docs/production-minimal.md).
 
 ```go
 package main
@@ -343,6 +366,9 @@ cd tracing/otel && go test ./...
 
 ### v0.8 API stability and configuration
 
+- [Examples Guide](docs/examples.md)
+- [Production-Minimal Walkthrough](docs/production-minimal.md)
+- [API Compatibility](docs/api-compatibility.md)
 - [API Stability](docs/api-stability.md)
 - [Public API Inventory](docs/public-api-inventory.md)
 - [Config Validation](docs/config-validation.md)
@@ -350,6 +376,8 @@ cd tracing/otel && go test ./...
 - [Production Defaults](docs/production-defaults.md)
 - [Compatibility Rules](docs/compatibility-rules.md)
 - [Observability Contract](docs/observability-contract.md)
+- [Runtime Lifecycle Hardening](docs/runtime-lifecycle-hardening.md)
+- [Performance Regression](docs/performance-regression.md)
 - [Migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
 
 ### v0.7.0 pipelines, continuations & backend coordination

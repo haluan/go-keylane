@@ -1,4 +1,4 @@
-.PHONY: all fmt format test test-race test-adapters ci ci-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure bench-pipeline bench-continuation bench-baseline bench-compare
+.PHONY: all fmt format test test-race test-adapters ci ci-race bench bench-production bench-low-alloc bench-core bench-submit bench-gc-pressure bench-pipeline bench-continuation bench-baseline bench-compare verify-examples
 
 all: format test
 
@@ -68,3 +68,7 @@ bench-baseline:
 bench-compare:
 	@test -n "$(OLD)" && test -n "$(NEW)" || (echo "usage: make bench-compare OLD=old.txt NEW=new.txt"; exit 1)
 	./benchmarks/scripts/compare-baseline.sh "$(OLD)" "$(NEW)"
+
+verify-examples:
+	chmod +x ./scripts/verify-examples.sh
+	./scripts/verify-examples.sh

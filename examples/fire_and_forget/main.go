@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Haluan Irsad
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// Legacy example (hand-rolled Config). Prefer examples/production-minimal for v0.8.
 package main
 
 import (
