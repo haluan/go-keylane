@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.8 (pre-v1.0) — v0.7 pipelines, continuations, and backend coordination on top of v0.6 retry/deadline/failure policy. See [API stability](docs/api-stability.md) and [public API inventory](docs/public-api-inventory.md).
+> Status: v0.8.0 (pre-v1.0) — v0.7 pipelines, continuations, and backend coordination on top of v0.6 retry/deadline/failure policy. See [API stability](docs/api-stability.md) and [public API inventory](docs/public-api-inventory.md).
 
 ---
 
@@ -18,7 +18,7 @@ go get github.com/haluan/go-keylane
 
 ---
 
-## v0.8 adoption (recommended)
+## v0.8.0 adoption (recommended)
 
 Start with the canonical example and walkthrough:
 
@@ -27,6 +27,7 @@ go run ./examples/production-minimal
 ```
 
 - [production-minimal example](examples/production-minimal/) · [walkthrough](docs/production-minimal.md)
+- [production hardening hub](docs/production-hardening.md) · [v0.8.0 release notes](docs/releases/v0.8.0.md)
 - [examples guide](docs/examples.md) · [migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
 - `ProductionDefaults()` + `ValidateConfig` before `New`
 - [observability contract](docs/observability-contract.md) · [lifecycle / shutdown](docs/runtime-lifecycle-hardening.md) · [performance baselines](docs/performance-regression.md)
@@ -364,8 +365,10 @@ cd tracing/otel && go test ./...
 
 ## Documentation
 
-### v0.8 API stability and configuration
+### v0.8.0 API stability and configuration
 
+- [Production Hardening](docs/production-hardening.md)
+- [v0.8.0 Release Notes](docs/releases/v0.8.0.md)
 - [Examples Guide](docs/examples.md)
 - [Production-Minimal Walkthrough](docs/production-minimal.md)
 - [API Compatibility](docs/api-compatibility.md)
@@ -457,6 +460,11 @@ cd tracing/otel && go test ./...
 - [Glossary of Terms](docs/glossary.md)
 
 ---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the development process
+and contribution expectations.
 
 ## License
 

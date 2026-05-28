@@ -1,6 +1,6 @@
-# Runtime lifecycle hardening (KL-1806)
+# Runtime lifecycle hardening
 
-This document is the v0.8 contract for panic isolation, shutdown, goroutine lifecycle, race safety, and late completion behavior.
+This document is the v0.8.0 contract for panic isolation, shutdown, goroutine lifecycle, race safety, and late completion behavior.
 
 Related: [phase-5-backpressure-and-shutdown.md](phase-5-backpressure-and-shutdown.md), [production-hardening.md](production-hardening.md), [observability-contract.md](observability-contract.md).
 
@@ -14,6 +14,22 @@ Related: [phase-5-backpressure-and-shutdown.md](phase-5-backpressure-and-shutdow
 - Continuations tolerate late completion safely.
 - Backend leases are released on panic, cancellation, and shutdown paths.
 - Race detector cleanliness is part of the production contract (`go test -race ./...`).
+
+## Guarantee levels
+
+| Behavior | Level | Notes |
+|----------|-------|-------|
+| Job panic → worker survives | **Guaranteed** (in-process) | `ErrJobPanicked`; lane `Panicked` counter |
+| Hook panic isolation | **Guaranteed** | `HookPanicsRecovered()` |
+| Submit after `Stop` → `ErrStopped` | **Guaranteed** | `errors.Is(err, keylane.ErrStopped)` |
+| `Stop` idempotent | **Guaranteed** | Safe repeated calls |
+| Drain with `WithDrain(true)` | **Best-effort** | Bounded by stop context deadline |
+| Await after shutdown | **Best-effort** | Must not block forever; see leak tests |
+| Continuation late `Complete` | **Best-effort** | No panic; `LateCompletions` when counted |
+| Backend `Release` idempotent | **Guaranteed** | Double release safe |
+| Lease release after job/stage panic | **Guaranteed** | `defer lease.Release()` paths |
+| Cross-pod / distributed shutdown | **Not supported** | Single-process scope only |
+| Exactly-once execution | **Not supported** | See [failure-policy.md](failure-policy.md) |
 
 ## Panic boundaries
 
@@ -85,7 +101,7 @@ Tests: `continuation_cancellation_test.go`, `continuation_deadline_test.go`, `Te
 | Job panics | `StatsGCPressure().Lanes[].Counters.Panicked` |
 | Continuation late | `DebugSnapshot().Continuation.LateCompletions` |
 
-Do not export panic messages or raw keys as metric labels (KL-1804).
+Do not export panic messages or raw keys as metric labels.
 
 ## Race detector
 

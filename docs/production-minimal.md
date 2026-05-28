@@ -1,6 +1,6 @@
 # Production-minimal example
 
-The [production-minimal](../examples/production-minimal/) example is the recommended v0.8 starting point for new integrations.
+The [production-minimal](../examples/production-minimal/) example is the recommended v0.8.0 starting point for new integrations.
 
 ```bash
 go run ./examples/production-minimal

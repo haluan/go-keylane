@@ -1,6 +1,6 @@
 # Performance regression review
 
-KL-1805 defines how go-keylane measures and compares performance across releases. Benchmarks are **review triggers**, not CI pass/fail gates and not product SLAs.
+This document defines how go-keylane measures and compares performance across releases. Benchmarks are **review triggers**, not CI pass/fail gates and not product SLAs.
 
 ## Goals
 
@@ -14,7 +14,7 @@ KL-1805 defines how go-keylane measures and compares performance across releases
 
 See also [benchmarks/README.md](../benchmarks/README.md), [benchmarks.md](benchmarks.md), and [observability-contract.md](observability-contract.md).
 
-## v0.8 baseline
+## v0.8.0 baseline
 
 The v0.8.0 baseline is captured with:
 
@@ -180,15 +180,15 @@ When citing performance in v0.8+ release notes:
 
 Example statement (v0.8):
 
-> v0.8 introduces a documented benchmark baseline and regression review process for scheduler, Future/Await, lane fairness, shard pressure, pipeline, continuation, backend resource, and observability paths.
+> v0.8.0 introduces a documented benchmark baseline and regression review process for scheduler, Future/Await, lane fairness, shard pressure, pipeline, continuation, backend resource, and observability paths.
 
 ## Compatibility
 
 Performance work must not break:
 
-- Public API compatibility (KL-1801)
-- Configuration validation (KL-1802)
-- Production safety defaults (KL-1803)
-- Observability contract stability (KL-1804)
+- Public API compatibility
+- Configuration validation
+- Production safety defaults
+- Observability contract stability
 
 Do not add benchmark-only code paths or weaken production defaults to improve benchmark numbers.

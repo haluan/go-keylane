@@ -1,6 +1,6 @@
 # Observability contract (v0.8)
 
-This document defines production-safe observability expectations and **compatibility guarantees** for v0.8. It complements [config-validation.md](config-validation.md), [production-defaults.md](production-defaults.md), and KL-1804 contract tests.
+This document defines production-safe observability expectations and **compatibility guarantees** for v0.8. It complements [config-validation.md](config-validation.md), [production-defaults.md](production-defaults.md), and observability contract tests.
 
 Programmatic inventory: `keylane.StableMetricDescriptors()`, `keylane.ExperimentalMetricPatterns()`, `keylane.ForbiddenMetricLabelNames()`, and `otel.StableTraceAttributeKeys()`.
 
@@ -27,7 +27,7 @@ Programmatic inventory: `keylane.StableMetricDescriptors()`, `keylane.Experiment
 
 ---
 
-## Production defaults (KL-1803)
+## Production defaults
 
 | Area | Production default |
 |------|-------------------|
@@ -228,6 +228,6 @@ Avoid alerting on `hot_key_candidate_count` alone; combine with `PressureSummary
 
 - [metrics.md](metrics.md) — full metric reference and hook adapter patterns
 - [metrics-prometheus.md](metrics-prometheus.md) — collector quick start
-- [production-hardening.md](production-hardening.md) — cross-cutting v0.8 governance
+- [production-hardening.md](production-hardening.md) — cross-cutting v0.8.0 governance
 - [compatibility-rules.md](compatibility-rules.md)
 - [releases/v0.8.0.md](releases/v0.8.0.md)

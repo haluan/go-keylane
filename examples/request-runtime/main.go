@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Haluan Irsad
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// v0.8 request-runtime: bounded lanes, rejection under pressure, timeouts, graceful shutdown.
+// v0.8.0 request-runtime: bounded lanes, rejection under pressure, timeouts, graceful shutdown.
 // For HTTP integration use httpkeylane.Middleware — see docs/http-middleware.md.
 package main
 

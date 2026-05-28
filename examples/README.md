@@ -11,7 +11,7 @@ Verify all examples compile:
 
 ---
 
-## v0.8 production path (start here)
+## v0.8.0 production path (start here)
 
 | Example | Run | Expected |
 |---------|-----|----------|
@@ -29,7 +29,7 @@ For HTTP services, see [docs/http-middleware.md](../docs/http-middleware.md) aft
 
 ---
 
-## v0.8 opt-in / experimental
+## v0.8.0 opt-in / experimental
 
 > **Experimental:** enable only after validating semantics for your workload.
 
@@ -60,7 +60,7 @@ Deeper dives (v0.7 style, still valid):
 
 ---
 
-## Legacy examples (pre–v0.8 config style)
+## Legacy examples (pre–v0.8.0 config style)
 
 These use hand-rolled `Config` instead of `ProductionDefaults()`. Prefer [production-minimal](production-minimal/) for new integrations.
 

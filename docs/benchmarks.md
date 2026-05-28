@@ -11,9 +11,9 @@ This document describes the commands and methodology for running and analyzing b
 
 See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](../benchmarks/README.md).
 
-## v0.8 baseline and regression review (KL-1805)
+## v0.8.0 baseline and regression review
 
-v0.8 adds a documented benchmark baseline and PR review process:
+v0.8.0 adds a documented benchmark baseline and PR review process:
 
 - [performance-regression.md](performance-regression.md) — thresholds, checklist, `benchstat` workflow
 - [benchmarks/baselines/v0.8.0.md](../benchmarks/baselines/v0.8.0.md) — stable benchmark set

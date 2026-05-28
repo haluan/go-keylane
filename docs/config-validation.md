@@ -8,7 +8,7 @@ Keylane validates configuration on the **cold path** before workers start. Use t
 
 | Function | Purpose |
 |----------|---------|
-| `Config.Validate()` | Returns the first fatal error (backward compatible with pre-v0.8 code). |
+| `Config.Validate()` | Returns the first fatal error (backward compatible with pre-v0.8.0 code). |
 | `ValidateConfig(cfg)` | Returns a `ValidationReport` with errors and warnings. |
 | `NormalizeConfig(cfg)` | Returns a redacted `NormalizedConfig` snapshot after normalization. |
 | `Queue.ConfigValidationWarnings()` | Warnings recorded when the queue was constructed. |
@@ -47,6 +47,63 @@ for _, w := range q.ConfigValidationWarnings() {
 | `ValidationWarning` | No | Risky but allowed combinations (high worker count, raw key exposure, retry without idempotency hooks). |
 
 Warnings are sorted deterministically by `Code`, then `Path`, then `Message`.
+
+---
+
+## Validation outcomes (examples)
+
+### Valid config
+
+`ProductionDefaults()` passes validation with no fatal errors:
+
+```go
+cfg := keylane.ProductionDefaults()
+report := keylane.ValidateConfig(cfg)
+// report.HasErrors() == false
+q, err := keylane.New(cfg) // err == nil when no fatal issues
+```
+
+### Valid config with warnings
+
+Risky but allowed settings produce `ValidationWarning` (queue still constructs):
+
+```go
+cfg := keylane.ProductionDefaults()
+cfg.WorkerCount = 512 // likely >> GOMAXPROCS*4
+cfg.Observability.ExposeRawRequestIdentifiers = true
+
+report := keylane.ValidateConfig(cfg)
+// report.HasWarnings() == true
+// Codes may include:
+//   KL_CONFIG_WORKER_COUNT_EXCEEDS_GOMAXPROCS
+//   KL_CONFIG_RAW_REQUEST_IDENTIFIERS_IN_HOOKS
+
+q, err := keylane.New(cfg) // succeeds; review q.ConfigValidationWarnings()
+```
+
+### Invalid config
+
+Fatal errors block `New`:
+
+```go
+cfg := keylane.ProductionDefaults()
+cfg.ShardCount = 0 // KL_CONFIG_INVALID_SHARD_COUNT
+
+report := keylane.ValidateConfig(cfg)
+// report.HasErrors() == true
+
+_, err := keylane.New(cfg) // err != nil
+```
+
+```go
+cfg := keylane.ProductionDefaults()
+cfg.Retry.Enabled = true
+cfg.Retry.MaxAttempts = 300 // KL_CONFIG_UNBOUNDED_RETRY
+
+_, err := keylane.New(cfg) // ErrInvalidRetryPolicy
+```
+
+See [examples/production-minimal](../examples/production-minimal/) for a full startup flow.
 
 ---
 

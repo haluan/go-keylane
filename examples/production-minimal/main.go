@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Haluan Irsad
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// v0.8 production-minimal: ProductionDefaults, ValidateConfig, SubmitValue, Await, graceful Stop.
+// v0.8.0 production-minimal: ProductionDefaults, ValidateConfig, SubmitValue, Await, graceful Stop.
 // Start here for new integrations. See docs/production-minimal.md.
 package main
 

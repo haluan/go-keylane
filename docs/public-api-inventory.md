@@ -1,6 +1,6 @@
-# Public API inventory (KL-1801)
+# Public API inventory
 
-Exported symbol review for v0.8 / v1.0. **Categories** match [api-stability.md](api-stability.md).
+Exported symbol review for v0.8.0 / v1.0. **Categories** match [api-stability.md](api-stability.md).
 
 Machine-readable export lists (559 + 38 + 5 + 3 symbols) live in:
 
@@ -23,14 +23,14 @@ Guard: `go test ./internal/apicheck/...`
 |--------|----------|-------|
 | `Queue`, `New`, `Start`, `Stop`, `Submit`, `TrySubmit` | Stable Candidate | Primary entry points |
 | `Config`, `Config.Validate` | Stable Candidate | Core fields required; optional subsystems zero-disable |
-| `ValidateConfig`, `ValidationReport`, `ValidationIssue` | Stable Candidate | KL-1802 structured validation |
+| `ValidateConfig`, `ValidationReport`, `ValidationIssue` | Stable Candidate | structured validation |
 | `NormalizeConfig`, `NormalizedConfig`, `ConfigVersionV1` | Stable Candidate | Support/debug snapshots |
 | `Queue.ConfigValidationWarnings` | Stable Candidate | Non-fatal warnings from `New` |
-| `ProductionDefaults`, `ExplainDefaults`, `ExplainDefaultsWithMode` | Stable Candidate | KL-1803 production default inspection |
-| `StableMetricDescriptors`, `ExperimentalMetricPatterns` | Stable Candidate | KL-1804 observability contract inventory |
+| `ProductionDefaults`, `ExplainDefaults`, `ExplainDefaultsWithMode` | Stable Candidate | production default inspection |
+| `StableMetricDescriptors`, `ExperimentalMetricPatterns` | Stable Candidate | observability contract inventory |
 | `MetricDescriptor`, `LabelDescriptor`, `ObservabilityStability` | Stable Candidate | Descriptor types and stability levels |
 | `AllowedDefaultMetricLabelNames`, `ForbiddenMetricLabelNames` | Stable Candidate | Label policy helpers |
-| `HashKey`, `HookPanicsRecovered` | Stable Candidate | KL-1804 routing hash and hook panic diagnostic |
+| `HashKey`, `HookPanicsRecovered` | Stable Candidate | routing hash and hook panic diagnostic |
 | `ObservabilityConfig.ExposeRawRequestIdentifiers` | Stable Candidate | Opt-in raw hook identifiers |
 | `DefaultReport`, `DefaultEntry`, `SafetyMode` | Stable Candidate | Default report types |
 | `SafetyModeProduction`, `SafetyModeDevelopment` | Stable Candidate | ExplainDefaults mode constants |
@@ -187,7 +187,7 @@ Full list: `exports_metrics_prometheus.txt` (5 symbols).
 | Symbol | Category | Notes |
 |--------|----------|-------|
 | `Hooks`, `NewHooks`, `Options` | Stable Candidate | OTEL hook adapter |
-| `StableTraceAttributeKeys` | Stable Candidate | KL-1804 documented span attribute keys |
+| `StableTraceAttributeKeys` | Stable Candidate | documented span attribute keys |
 | `AttrShardID`, `AttrLane`, `AttrOutcome`, … | Stable Candidate | Stable attribute key constants |
 
 Full list: `exports_tracing_otel.txt`.

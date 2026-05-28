@@ -1,6 +1,6 @@
 # Compatibility rules for production defaults (pre-v1.0)
 
-Production defaults are part of the user-facing contract alongside exported configuration fields. KL-1803 defines how default behavior may evolve before v1.0.
+Production defaults are part of the user-facing contract alongside exported configuration fields. This document defines how default behavior may evolve before v1.0.
 
 ---
 

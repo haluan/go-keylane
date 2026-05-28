@@ -46,7 +46,7 @@ See [observability-contract.md](observability-contract.md).
 
 ## Legacy examples
 
-Older examples use hand-rolled `Config` instead of `ProductionDefaults()`. They remain valid but are not the recommended v0.8 entry path:
+Older examples use hand-rolled `Config` instead of `ProductionDefaults()`. They remain valid but are not the recommended v0.8.0 entry path:
 
 - [fire_and_forget](../examples/fire_and_forget/)
 - [submit_value](../examples/submit_value/)

@@ -1,8 +1,8 @@
-# API stability (v0.8 pre-v1.0)
+# API stability (v0.8.0 pre-v1.0)
 
-KL-1801 defines how `go-keylane` treats its public API before a v1.0 compatibility promise.
+This document defines how `go-keylane` treats its public API before a v1.0 compatibility promise.
 
-> **v0.8 is pre-v1.0.** Exported APIs may still change in minor releases until v1.0. After v1.0, stable APIs are expected to remain source-compatible unless a major release documents a breaking change.
+> **v0.8.0 is pre-v1.0.** Exported APIs may still change in minor releases until v1.0. After v1.0, stable APIs are expected to remain source-compatible unless a major release documents a breaking change.
 
 ---
 
@@ -17,6 +17,31 @@ KL-1801 defines how `go-keylane` treats its public API before a v1.0 compatibili
 | **Remove Before v1.0** | Planned removal before v1.0; do not adopt in new code. |
 
 See the full inventory: [public-api-inventory.md](public-api-inventory.md).
+
+---
+
+## Choosing APIs
+
+Use this table to distinguish **safe-to-adopt** surfaces from **experimental** extensions:
+
+| User goal | Prefer (stable candidate) | Avoid unless accepting churn |
+|-----------|---------------------------|------------------------------|
+| Queue + submit/await | `New`, `Start`, `Stop`, `Submit`, `SubmitValue`, `ProductionDefaults`, `ValidateConfig` | — |
+| HTTP integration | `httpkeylane.Middleware` and helpers | — |
+| Prometheus / OTEL | `metrics/prometheus`, `tracing/otel` adapters | Custom label names outside contract |
+| Retry / deadline / failure | `RetryPolicy`, `ClassifyFailure`, `SubmitRequest` | Undocumented failure string matching |
+| Pipelines / continuations / backend | Documented experimental APIs (see inventory) | Treat as evaluation-only before v1.0 |
+| Internal-looking exports | Check inventory category first | `Remove Before v1.0` symbols |
+
+Classification guide:
+
+```text
+safe-to-adopt API        → Stable Candidate in inventory
+experimental extension   → Experimental in Go doc + inventory
+internal or accidental   → Internal Candidate; do not import in app code
+```
+
+What **examples** may demonstrate vs what **production** should use: [api-compatibility.md](api-compatibility.md).
 
 ---
 
@@ -60,7 +85,7 @@ When `Continuation.Enabled` is true and `MaxPending == 0`, `New` applies `Defaul
 
 Core scheduler fields (`ShardCount`, `WorkerCount`, `QueueSizePerLane`, `LaneQuotas`) are **required**; a bare zero `Config` does not construct a queue. See [production-defaults.md](production-defaults.md) and [config-validation.md](config-validation.md) for per-field detail.
 
-### Config validation API (KL-1802, stable candidate)
+### Config validation API (stable candidate)
 
 | Symbol | Role |
 |--------|------|
@@ -69,7 +94,7 @@ Core scheduler fields (`ShardCount`, `WorkerCount`, `QueueSizePerLane`, `LaneQuo
 | `ConfigVersionV1` | Active config schema version |
 | `Queue.ConfigValidationWarnings` | Non-fatal warnings from `New` |
 
-### Production defaults API (KL-1803, stable candidate)
+### Production defaults API (stable candidate)
 
 | Symbol | Role |
 |--------|------|
@@ -101,6 +126,8 @@ See [internal/apicheck/README.md](../internal/apicheck/README.md).
 
 ## Related
 
+- [api-compatibility.md](api-compatibility.md)
+- [production-hardening.md](production-hardening.md)
 - [public-api-inventory.md](public-api-inventory.md)
 - [configuration.md](configuration.md)
 - [config-validation.md](config-validation.md)

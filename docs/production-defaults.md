@@ -1,6 +1,6 @@
 # Production defaults
 
-This guide defines **production-safe defaults** for v0.8 and recommended configuration bundles.
+This guide defines **production-safe defaults** for v0.8.0 and recommended configuration bundles.
 
 A bare zero `keylane.Config` is **not** sufficient to construct a queue—core scheduler fields must be set explicitly. For a conservative starting point, use `ProductionDefaults()`.
 

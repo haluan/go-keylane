@@ -1,6 +1,6 @@
-# v0.8 production benchmark suite
+# v0.8.0 production benchmark suite
 
-Repeatable `go test -bench` coverage for Keylane v0.8 with stable `BenchmarkKeylane*`, `BenchmarkFairness*`, and `BenchmarkGCPressure*` names in this package, plus documented guardrails in the root module and `internal/core`.
+Repeatable `go test -bench` coverage for Keylane v0.8.0 with stable `BenchmarkKeylane*`, `BenchmarkFairness*`, and `BenchmarkGCPressure*` names in this package, plus documented guardrails in the root module and `internal/core`.
 
 See [docs/performance-regression.md](../docs/performance-regression.md) for baseline capture, `benchstat` comparison, and PR review thresholds.
 
@@ -11,7 +11,7 @@ See [docs/performance-regression.md](../docs/performance-regression.md) for base
 
 Bounded concurrency and pooling are mechanisms that contribute to shaping that pressure; they are not a guarantee against runtime GC pauses.
 
-## v0.8 benchmark catalog (KL-1805)
+## v0.8.0 benchmark catalog (KL-1805)
 
 | Area | Package | Bench regex / names | Comparison tier |
 |------|---------|---------------------|-----------------|
