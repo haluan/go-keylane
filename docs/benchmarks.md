@@ -11,6 +11,19 @@ This document describes the commands and methodology for running and analyzing b
 
 See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](../benchmarks/README.md).
 
+## v0.8.0 baseline and regression review
+
+v0.8.0 adds a documented benchmark baseline and PR review process:
+
+- [performance-regression.md](performance-regression.md) — thresholds, checklist, `benchstat` workflow
+- [benchmarks/baselines/v0.8.0.md](../benchmarks/baselines/v0.8.0.md) — stable benchmark set
+- `./benchmarks/scripts/run-baseline.sh` — capture + refresh `v0.8.0.json`
+
+```bash
+make bench-baseline
+make bench-compare OLD=/tmp/go-keylane-v0.7.0.txt NEW=/tmp/go-keylane-bench-v0.8.0.txt
+```
+
 > [!WARNING]
 > **Environment-Specific Warning**:
 > Benchmark metrics (`ns/op`, `B/op`, `allocs/op`) are highly environment-sensitive and depend on your machine's CPU architecture, active system workloads, operating system, and Go compiler version.
@@ -20,7 +33,7 @@ See [gc-pressure-shaping.md](gc-pressure-shaping.md) and [benchmarks/README.md](
 
 ## 1. Running Benchmarks
 
-### Production benchmark suite (v02.)
+### Production benchmark suite (v0.8)
 Scenario and API benchmarks with stable names live under [`benchmarks/README.md`](../benchmarks/README.md).
 
 ```bash

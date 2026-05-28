@@ -118,18 +118,21 @@ func (s *Scheduler) processShard(ctx context.Context, shardID int) {
 				}
 			}
 
-			err := job.Run(runCtx)
+			err := runJobRecoveringPanic(job.Run, runCtx)
 			if needRunDuration {
 				runDuration = time.Since(startedAt)
 			}
 
 			if s.Obs.EnableCounters {
 				counters := &s.laneCounters[job.LaneID]
-				if err == nil {
+				switch {
+				case err == nil:
 					counters.completedTotal.Add(1)
-				} else if errors.Is(err, context.Canceled) {
+				case errors.Is(err, context.Canceled):
 					counters.canceled.Add(1)
-				} else {
+				case errors.Is(err, ErrJobPanicked):
+					counters.panicked.Add(1)
+				default:
 					counters.failedTotal.Add(1)
 				}
 			}

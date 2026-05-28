@@ -78,7 +78,7 @@ func (q *Queue) emitBackendAdmission(dec BackendAdmissionDecision) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(dec) })
+	callRequestHook(func() { fn(q.redactBackendAdmissionDecision(dec)) })
 }
 
 func (q *Queue) emitBackendReleased(ev BackendReleaseEvent) {
@@ -89,5 +89,5 @@ func (q *Queue) emitBackendReleased(ev BackendReleaseEvent) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(ev) })
+	callRequestHook(func() { fn(q.redactBackendReleaseEvent(ev)) })
 }

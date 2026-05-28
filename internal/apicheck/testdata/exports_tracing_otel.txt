@@ -1,0 +1,13 @@
+AttrInflight
+AttrLane
+AttrOutcome
+AttrPressure
+AttrQueueDepth
+AttrQueueWaitMS
+AttrRunMS
+AttrShardID
+AttrSlowThresh
+MergeAttributes
+NewHooks
+Options
+StableTraceAttributeKeys

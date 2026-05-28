@@ -28,7 +28,9 @@ var errPipelineBudgetExhaustedBeforeStage error = pipelineBudgetExhaustedSentine
 
 // SubmitPipeline submits a multi-stage pipeline into the queue and returns a Future for the output.
 // It reuses SubmitRequest admission, overload, retry, deadline budget, and future completion semantics.
-// Stages run sequentially in-worker; non-blocking continuation is not supported in v0.7.
+// Stages run sequentially in-worker; optional RunContinuation stages require Continuation.Enabled on the Queue.
+//
+// Experimental: may change before v1.0.
 func SubmitPipeline[S any, O any](
 	ctx context.Context,
 	q *Queue,

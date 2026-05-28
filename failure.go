@@ -157,6 +157,9 @@ func classifyDefault(err error) Failure {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return TimeoutFailure(err)
 	}
+	if errors.Is(err, ErrJobPanicked) {
+		return PanicFailure(err)
+	}
 	if isOverloadError(err) {
 		return OverloadedFailure(err)
 	}

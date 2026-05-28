@@ -65,7 +65,7 @@ for _, hs := range snap.HotShards {
 - **`Rejected`**: Failed admission (includes queue-full and stopped-queue cases).
 - **`QueueFull`**: Rejections due to bounded lane capacity.
 - **`Completed`**, **`Failed`**, **`Canceled`**: Terminal worker outcomes (`context.Canceled` counts as canceled, not failed).
-- **`Panicked`**: Reserved; always zero until panic recovery exists.
+- **`Panicked`**: Jobs whose `Run` function panicked and were recovered by the worker (`StatsGCPressure` lane counters).
 
 Counters are best-effort under concurrency and are not durable audit logs.
 
@@ -202,7 +202,7 @@ Observability: keylane.ObservabilityConfig{
 - **Lock Isolation**: Hooks execute **outside** shard and scheduler locks.
 - **Nil Safety**: Nil hooks are skipped with a branch only.
 - **Hook panics**: Hook panics are recovered so a bad observer cannot kill worker goroutines.
-- **User panics**: User job panic recovery is not implemented; timing hooks are not guaranteed for panicking jobs.
+- **User panics**: Worker recovers job panics as `ErrJobPanicked`; `JobOutcomePanicked` is emitted when timing hooks run. Stage panics use pipeline stage recovery.
 
 ---
 

@@ -78,6 +78,38 @@ func TestClassifyRequestOutcome(t *testing.T) {
 	}
 }
 
+func TestObservationForErrorNilQueueRedacts(t *testing.T) {
+	meta := RequestMeta{RequestID: "rid-nil", Key: "tenant-nil", Lane: "default"}
+	obs := ObservationForError(nil, meta, ErrQueueFull)
+	if obs.Key != "" || obs.RequestID != "" {
+		t.Fatalf("obs = %+v, want redacted Key and RequestID", obs)
+	}
+	if obs.KeyHash != HashKey("tenant-nil") {
+		t.Fatalf("KeyHash = %d, want %d", obs.KeyHash, HashKey("tenant-nil"))
+	}
+	if obs.Outcome != RequestOutcomeRejected {
+		t.Errorf("Outcome = %q, want rejected", obs.Outcome)
+	}
+}
+
+func TestObservationForErrorRedactsByDefault(t *testing.T) {
+	q, err := New(Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 8,
+		LaneQuotas: map[Lane]int{"default": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := RequestMeta{RequestID: "rid-1", Key: "tenant-a", Lane: "default"}
+	obs := ObservationForError(q, meta, ErrQueueFull)
+	if obs.Key != "" || obs.RequestID != "" {
+		t.Fatalf("obs = %+v, want redacted Key and RequestID", obs)
+	}
+	if obs.KeyHash != HashKey("tenant-a") {
+		t.Fatalf("KeyHash = %d, want %d", obs.KeyHash, HashKey("tenant-a"))
+	}
+}
+
 func TestRequestHooksTimingMatchesOnJobTiming(t *testing.T) {
 	var jobTiming JobTimingEvent
 	var completed RequestObservation
@@ -430,11 +462,11 @@ func waitRequestObservation(t *testing.T, ch <-chan RequestObservation) RequestO
 
 func assertRequestMetaEqual(t *testing.T, got, want RequestMeta) {
 	t.Helper()
-	if got.RequestID != want.RequestID {
-		t.Errorf("RequestID = %q, want %q", got.RequestID, want.RequestID)
+	if got.RequestID != "" {
+		t.Errorf("RequestID = %q, want empty (redacted)", got.RequestID)
 	}
-	if got.Key != want.Key {
-		t.Errorf("Key = %q, want %q", got.Key, want.Key)
+	if got.Key != "" {
+		t.Errorf("Key = %q, want empty (redacted)", got.Key)
 	}
 	if got.Lane != want.Lane {
 		t.Errorf("Lane = %q, want %q", got.Lane, want.Lane)
@@ -449,11 +481,51 @@ func assertRequestMetaEqual(t *testing.T, got, want RequestMeta) {
 
 func assertObservationRouting(t *testing.T, obs RequestObservation, key string, lane Lane) {
 	t.Helper()
-	if obs.Key != key {
-		t.Errorf("Key = %q, want %q", obs.Key, key)
+	if obs.Key != "" {
+		t.Errorf("Key = %q, want empty (redacted)", obs.Key)
+	}
+	if obs.KeyHash != HashKey(key) {
+		t.Errorf("KeyHash = %d, want %d", obs.KeyHash, HashKey(key))
 	}
 	if obs.Lane != lane {
 		t.Errorf("Lane = %q, want %q", obs.Lane, lane)
+	}
+}
+
+func TestRequestHooksExposeRawIdentifiersWhenEnabled(t *testing.T) {
+	spy := newRequestHookSpy()
+	ctx := testTimeout(t)
+	cfg := newTestConfig()
+	cfg.Observability = DefaultObservabilityConfig()
+	cfg.Observability.ExposeRawRequestIdentifiers = true
+	cfg.Observability.Hooks.Request = spy.hooks()
+	q, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { stopTestQueue(t, q) })
+
+	meta := RequestMeta{RequestID: "rid-raw", Key: "tenant-a", Lane: "default"}
+	future, err := SubmitRequest(ctx, q, Request[struct{}, struct{}]{
+		Meta: meta, Input: struct{}{},
+		Handle: func(context.Context, struct{}) (struct{}, error) { return struct{}{}, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := future.Await(ctx); err != nil {
+		t.Fatal(err)
+	}
+	queued := waitRequestMeta(t, spy.queued)
+	if queued.Key != meta.Key || queued.RequestID != meta.RequestID {
+		t.Fatalf("queued = %+v, want raw identifiers", queued)
+	}
+	started := waitRequestObservation(t, spy.started)
+	if started.Key != meta.Key || started.RequestID != meta.RequestID {
+		t.Fatalf("started = %+v, want raw identifiers", started)
 	}
 }
 

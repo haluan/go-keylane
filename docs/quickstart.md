@@ -16,26 +16,25 @@ go get github.com/haluan/go-keylane
 
 ## 2. Configuration Setup
 
-Creating a queue starts with instantiating a `keylane.Config` struct. This sets shard counts, worker thread limits, lane capacities, and execution quotas:
+For v0.8, start with production-safe defaults and validate before constructing the queue:
 
 ```go
 import "github.com/haluan/go-keylane"
 
-cfg := keylane.Config{
-    ShardCount:       8,              // Divide keys into 8 isolated hash shards
-    WorkerCount:      2,              // Run 2 parallel execution worker goroutines
-    QueueSizePerLane: 100,            // Bounded lane buffer capacity
-    LaneQuotas: map[keylane.Lane]int{
-        "payment": 3,                // Heavy priority lane
-        "webhook": 1,                // Light background lane
-    },
+cfg := keylane.ProductionDefaults()
+// Tune lanes and capacity for your service, then validate:
+report := keylane.ValidateConfig(cfg)
+if report.HasErrors() {
+    panic(report.Err())
 }
 
 q, err := keylane.New(cfg)
 if err != nil {
-    panic(err) // Handle invalid configuration
+    panic(err)
 }
 ```
+
+Hand-rolled `Config` is fine for learning. Set `ShardCount`, `WorkerCount`, `QueueSizePerLane`, and `LaneQuotas` explicitly. See [production-minimal.md](production-minimal.md) and [production-hardening.md](production-hardening.md).
 
 ---
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Example: safe retry succeeds; unsafe mutation suppresses retry.
+// Explicit opt-in: Retry.Enabled must be true for retry behavior (disabled by default in ProductionDefaults).
 package main
 
 import (

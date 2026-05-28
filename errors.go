@@ -35,4 +35,5 @@ var (
 	ErrQueueNotStarted              = core.ErrQueueNotStarted
 	ErrQueueAlreadyStarted          = core.ErrQueueAlreadyStarted
 	ErrStopped                      = core.ErrStopped
+	ErrJobPanicked                  = core.ErrJobPanicked
 )

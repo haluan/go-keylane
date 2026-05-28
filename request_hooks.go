@@ -34,7 +34,7 @@ func (q *Queue) emitRequestQueued(meta RequestMeta) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(meta) })
+	callRequestHook(func() { fn(q.redactRequestMeta(meta)) })
 }
 
 func (q *Queue) emitRequestStarted(obs RequestObservation) {
@@ -45,7 +45,7 @@ func (q *Queue) emitRequestStarted(obs RequestObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactRequestObservation(obs)) })
 }
 
 func (q *Queue) emitRequestCompleted(obs RequestObservation) {
@@ -56,7 +56,7 @@ func (q *Queue) emitRequestCompleted(obs RequestObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactRequestObservation(obs)) })
 }
 
 func (q *Queue) emitRequestRejected(obs RequestObservation) {
@@ -67,7 +67,7 @@ func (q *Queue) emitRequestRejected(obs RequestObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactRequestObservation(obs)) })
 }
 
 func (q *Queue) emitFailureEvent(obs RequestObservation, err error) {
@@ -104,7 +104,7 @@ func (q *Queue) emitStageStarted(obs StageObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactStageObservation(obs)) })
 }
 
 func (q *Queue) emitStageCompleted(obs StageObservation) {
@@ -115,7 +115,7 @@ func (q *Queue) emitStageCompleted(obs StageObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactStageObservation(obs)) })
 }
 
 func (q *Queue) emitStageFailed(obs StageObservation) {
@@ -126,5 +126,5 @@ func (q *Queue) emitStageFailed(obs StageObservation) {
 	if fn == nil {
 		return
 	}
-	callRequestHook(func() { fn(obs) })
+	callRequestHook(func() { fn(q.redactStageObservation(obs)) })
 }

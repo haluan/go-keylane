@@ -117,7 +117,7 @@ Raw keys appear in snapshots **only** when `HotKey.ExposeRawKey` is enabled (not
 
 ## Privacy
 
-Default observability uses **`KeyHash` only** in hot key and mitigation snapshots. Hooks follow the same rule unless `ExposeRawKey` is explicitly enabled.
+Default observability uses **`KeyHash` only** in hot key and mitigation snapshots. Request hook payloads and `ObservationForError` redact `Key` and `RequestID` unless `Observability.ExposeRawRequestIdentifiers` is enabled. `HotKey.ExposeRawKey` controls raw keys in debug snapshots only (separate from hook redaction).
 
 ---
 

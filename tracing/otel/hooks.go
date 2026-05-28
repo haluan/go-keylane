@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package otel provides OpenTelemetry hooks for keylane schedulers.
+//
+// Stable Candidate optional adapter; span attributes use low-cardinality fields only.
 package otel
 
 import (

@@ -11,8 +11,10 @@ type ContinuationObservation struct {
 
 	RequestID string
 	Key       string
-	Lane      Lane
-	ShardID   int
+	// KeyHash is always set when Key was non-empty at emission time (even when Key is redacted).
+	KeyHash uint64
+	Lane    Lane
+	ShardID int
 
 	Transport string
 	Operation string
@@ -86,7 +88,7 @@ func (q *Queue) emitContinuationYielded(obs ContinuationObservation) {
 	if hooks.OnContinuationYielded == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationYielded(obs) })
+	callHook(func() { hooks.OnContinuationYielded(q.redactContinuationObservation(obs)) })
 }
 
 func (q *Queue) emitContinuationResumed(obs ContinuationObservation) {
@@ -97,7 +99,7 @@ func (q *Queue) emitContinuationResumed(obs ContinuationObservation) {
 	if hooks.OnContinuationResumed == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationResumed(obs) })
+	callHook(func() { hooks.OnContinuationResumed(q.redactContinuationObservation(obs)) })
 }
 
 func (q *Queue) emitContinuationCompleted(obs ContinuationObservation) {
@@ -108,7 +110,7 @@ func (q *Queue) emitContinuationCompleted(obs ContinuationObservation) {
 	if hooks.OnContinuationCompleted == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationCompleted(obs) })
+	callHook(func() { hooks.OnContinuationCompleted(q.redactContinuationObservation(obs)) })
 }
 
 func (q *Queue) emitContinuationFailed(obs ContinuationObservation) {
@@ -119,7 +121,7 @@ func (q *Queue) emitContinuationFailed(obs ContinuationObservation) {
 	if hooks.OnContinuationFailed == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationFailed(obs) })
+	callHook(func() { hooks.OnContinuationFailed(q.redactContinuationObservation(obs)) })
 }
 
 func (q *Queue) emitContinuationCancelled(obs ContinuationObservation) {
@@ -130,7 +132,7 @@ func (q *Queue) emitContinuationCancelled(obs ContinuationObservation) {
 	if hooks.OnContinuationCancelled == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationCancelled(obs) })
+	callHook(func() { hooks.OnContinuationCancelled(q.redactContinuationObservation(obs)) })
 }
 
 func (q *Queue) emitContinuationLate(obs ContinuationObservation) {
@@ -141,5 +143,5 @@ func (q *Queue) emitContinuationLate(obs ContinuationObservation) {
 	if hooks.OnContinuationLate == nil {
 		return
 	}
-	callHook(func() { hooks.OnContinuationLate(obs) })
+	callHook(func() { hooks.OnContinuationLate(q.redactContinuationObservation(obs)) })
 }

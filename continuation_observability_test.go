@@ -59,6 +59,35 @@ func startedQueueWithContinuationHooks(t *testing.T, cont ContinuationHooks) (*Q
 	return q, ctx
 }
 
+func TestContinuationHookPanicRecovered(t *testing.T) {
+	q, ctx := startedQueueWithContinuationHooks(t, ContinuationHooks{
+		OnContinuationYielded: func(ContinuationObservation) { panic("continuation hook panic") },
+	})
+
+	ready := make(chan ContinuationCompleter[pState], 1)
+	future, err := SubmitPipeline(ctx, q, Pipeline[pState, pOutput]{
+		Meta: RequestMeta{Key: "k", Lane: "default"},
+		Stages: []PipelineStage[pState]{
+			{
+				Meta: StageMeta{Name: StageValidate},
+				RunContinuation: func(_ context.Context, st pState) (StageResult[pState], error) {
+					cont, c := NewContinuation[pState](context.Background())
+					ready <- c
+					return StageResult[pState]{Continuation: cont}, nil
+				},
+			},
+		},
+		Complete: validPipelineComplete(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	(<-ready).Complete(pState{Val: 1})
+	if _, err := future.Await(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestContinuationHooksYieldResumeCompleted(t *testing.T) {
 	spy := &continuationHookSpy{}
 	q, ctx := startedQueueWithContinuationHooks(t, spy.hooks())

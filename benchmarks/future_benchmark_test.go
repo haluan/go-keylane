@@ -107,6 +107,30 @@ func BenchmarkKeylaneAwaitBlocking(b *testing.B) {
 	}
 }
 
+const benchAwaitFollowers = 16
+
+func BenchmarkKeylaneAwaitManyFollowersCompleted(b *testing.B) {
+	q, _ := makeBenchmarkQueue(b, benchConfigSingleLane())
+	job := keylane.ValueJob[int]{Key: "k", Lane: "default", Run: dummyValueRun}
+	ctx := context.Background()
+
+	f, err := keylane.SubmitValue(ctx, q, job)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if _, err := f.Await(ctx); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < benchAwaitFollowers; j++ {
+			_, _ = f.Await(ctx)
+		}
+	}
+}
+
 func BenchmarkKeylaneAwaitTimeout(b *testing.B) {
 	q, cancel := makeBenchmarkQueue(b, benchConfigSingleLane())
 	ctx := context.Background()

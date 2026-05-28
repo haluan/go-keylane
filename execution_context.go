@@ -10,6 +10,8 @@ import (
 
 // StageExecutionContext is immutable request/stage execution metadata stored in context.Context.
 // It is not a replacement for context.Context; use StageExecutionFromContext to read it.
+//
+// Experimental: may change before v1.0. RequestID and Key are for correlated logs, not metric labels.
 type StageExecutionContext struct {
 	RequestID string
 	Key       string

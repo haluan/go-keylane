@@ -133,8 +133,11 @@ func TestIntegrationObsSubmitRequestPreservesRequestObservation(t *testing.T) {
 
 	started := waitRequestObservation(t, spy.started)
 	assertObservationRouting(t, started, meta.Key, meta.Lane)
-	if started.RequestID != meta.RequestID {
-		t.Errorf("started RequestID = %q, want %q", started.RequestID, meta.RequestID)
+	if started.RequestID != "" {
+		t.Errorf("started RequestID = %q, want empty (redacted)", started.RequestID)
+	}
+	if started.KeyHash != HashKey(meta.Key) {
+		t.Errorf("started KeyHash = %d, want %d", started.KeyHash, HashKey(meta.Key))
 	}
 	if started.ShardID != q.ShardIDForKey(meta.Key) {
 		t.Errorf("ShardID = %d, want %d", started.ShardID, q.ShardIDForKey(meta.Key))
@@ -148,8 +151,11 @@ func TestIntegrationObsSubmitRequestPreservesRequestObservation(t *testing.T) {
 		t.Fatalf("OnCompleted calls = %d, want 1", completedCount.Load())
 	}
 	assertObservationRouting(t, completed, meta.Key, meta.Lane)
-	if completed.RequestID != meta.RequestID {
-		t.Errorf("completed RequestID = %q, want %q", completed.RequestID, meta.RequestID)
+	if completed.RequestID != "" {
+		t.Errorf("completed RequestID = %q, want empty (redacted)", completed.RequestID)
+	}
+	if completed.KeyHash != HashKey(meta.Key) {
+		t.Errorf("completed KeyHash = %d, want %d", completed.KeyHash, HashKey(meta.Key))
 	}
 	if completed.ShardID != q.ShardIDForKey(meta.Key) {
 		t.Errorf("completed ShardID = %d, want %d", completed.ShardID, q.ShardIDForKey(meta.Key))
@@ -211,8 +217,11 @@ func TestIntegrationObsSubmitRequestFailedClassifiesFailureKind(t *testing.T) {
 
 	completed := waitRequestObservation(t, spy.completed)
 	assertObservationRouting(t, completed, meta.Key, meta.Lane)
-	if completed.RequestID != meta.RequestID {
-		t.Errorf("RequestID = %q, want %q", completed.RequestID, meta.RequestID)
+	if completed.RequestID != "" {
+		t.Errorf("RequestID = %q, want empty (redacted)", completed.RequestID)
+	}
+	if completed.KeyHash != HashKey(meta.Key) {
+		t.Errorf("KeyHash = %d, want %d", completed.KeyHash, HashKey(meta.Key))
 	}
 	if completed.Outcome != RequestOutcomeFailed {
 		t.Errorf("Outcome = %q, want failed", completed.Outcome)

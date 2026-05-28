@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Example: in-process backend resource coordination inside a pipeline stage.
+// Explicit opt-in: BackendResources.Enabled must be true (disabled by default in ProductionDefaults).
 package main
 
 import (

@@ -32,34 +32,17 @@ type Queue struct {
 	continuationReg        *continuationRegistry
 	backendCoord           *backendCoordinator
 	backendPressureProvs   []BackendPressureProvider
+	validationWarnings     []ValidationIssue
 }
 
 // New creates a new Queue instance with the specified configuration.
 func New(config Config) (*Queue, error) {
-	hotKey := config.HotKey
-	NormalizeHotKeyConfig(&hotKey)
-	config.HotKey = hotKey
-	perKey := config.PerKeyAdmission
-	NormalizePerKeyAdmissionConfig(&perKey)
-	config.PerKeyAdmission = perKey
-	shardPressure := config.ShardPressure
-	NormalizeShardPressureConfig(&shardPressure)
-	config.ShardPressure = shardPressure
-	autoscaling := config.AutoscalingSignal
-	NormalizeAutoscalingSignalConfig(&autoscaling)
-	config.AutoscalingSignal = autoscaling
-	retry := config.Retry
-	NormalizeRetryPolicy(&retry)
-	config.Retry = retry
-	idempotency := config.Idempotency
-	NormalizeIdempotencyPolicy(&idempotency)
-	config.Idempotency = idempotency
-	suppression := config.RetrySuppression
-	NormalizeRetrySuppressionPolicy(&suppression)
-	config.RetrySuppression = suppression
-	if err := config.Validate(); err != nil {
-		return nil, err
+	report := ValidateConfig(config)
+	if report.HasErrors() {
+		return nil, report.Err()
 	}
+	normalizeConfigInPlace(&config)
+	warnings := validationWarningsFromReport(report)
 
 	// Convert map[Lane]int to map[string]int for LaneRegistry
 	quotas := make(map[string]int, len(config.LaneQuotas))
@@ -99,20 +82,26 @@ func New(config Config) (*Queue, error) {
 		retryPolicy:            config.Retry,
 		idempotencyPolicy:      config.Idempotency,
 		retrySuppression:       config.RetrySuppression,
+		validationWarnings:     warnings,
 	}
 	q.initAdaptiveController()
-	contCfg := config.Continuation
-	NormalizeContinuationConfig(&contCfg)
-	config.Continuation = contCfg
-	if contCfg.Enabled {
-		q.continuationReg = newContinuationRegistry(contCfg)
+	if config.Continuation.Enabled {
+		q.continuationReg = newContinuationRegistry(config.Continuation)
 	}
-	brCfg := config.BackendResources
-	NormalizeBackendResourceConfig(&brCfg)
-	config.BackendResources = brCfg
-	q.backendCoord = newBackendCoordinator(brCfg)
-	q.backendPressureProvs = copyBackendPressureProviders(brCfg.PressureProviders)
+	q.backendCoord = newBackendCoordinator(config.BackendResources)
+	q.backendPressureProvs = copyBackendPressureProviders(config.BackendResources.PressureProviders)
 	return q, nil
+}
+
+// ConfigValidationWarnings returns non-fatal validation warnings from Queue construction.
+// The slice is a copy; callers may mutate it without affecting the Queue.
+func (q *Queue) ConfigValidationWarnings() []ValidationIssue {
+	if len(q.validationWarnings) == 0 {
+		return nil
+	}
+	out := make([]ValidationIssue, len(q.validationWarnings))
+	copy(out, q.validationWarnings)
+	return out
 }
 
 // Start launches the worker goroutines.
@@ -268,27 +257,31 @@ func wireSchedulerObservability(sched *core.Scheduler, obs ObservabilityConfig) 
 	if obs.Hooks.OnJobTiming != nil {
 		h := obs.Hooks.OnJobTiming
 		sched.Obs.OnJobTiming = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration time.Duration, outcome core.JobOutcome) {
-			h(JobTimingEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Outcome:     JobOutcome(outcome),
+			callHook(func() {
+				h(JobTimingEvent{
+					ShardID:     shardID,
+					LaneID:      uint16(laneID),
+					Lane:        Lane(laneName),
+					QueueWait:   queueWait,
+					RunDuration: runDuration,
+					Outcome:     JobOutcome(outcome),
+				})
 			})
 		}
 	}
 	if obs.Hooks.OnSlowJob != nil {
 		h := obs.Hooks.OnSlowJob
 		sched.Obs.OnSlowJob = func(shardID int, laneID core.LaneID, laneName string, queueWait, runDuration, threshold time.Duration, outcome core.JobOutcome) {
-			h(SlowJobEvent{
-				ShardID:     shardID,
-				LaneID:      uint16(laneID),
-				Lane:        Lane(laneName),
-				QueueWait:   queueWait,
-				RunDuration: runDuration,
-				Threshold:   threshold,
-				Outcome:     JobOutcome(outcome),
+			callHook(func() {
+				h(SlowJobEvent{
+					ShardID:     shardID,
+					LaneID:      uint16(laneID),
+					Lane:        Lane(laneName),
+					QueueWait:   queueWait,
+					RunDuration: runDuration,
+					Threshold:   threshold,
+					Outcome:     JobOutcome(outcome),
+				})
 			})
 		}
 	}

@@ -2,6 +2,8 @@
 
 v0.5 features are configured on `keylane.Config`. All v0.5 subsystems are **additive** and backward compatible: zero values disable rich diagnostics while core queue behavior continues.
 
+**Validation and versioning (v0.8):** [config-validation.md](config-validation.md), [config-versioning.md](config-versioning.md), [production-defaults.md](production-defaults.md).
+
 For capacity sizing (workers, shards, queue size), see [production-tuning.md](production-tuning.md).
 
 ---
@@ -199,6 +201,10 @@ cfg.AutoscalingSignal = keylane.AutoscalingSignalConfig{}
 Core submit, admission, and overload behavior from v0.3/v0.4 is unchanged.
 
 ---
+
+## API stability and zero values
+
+Config fields follow [api-stability.md](api-stability.md): zero values disable optional subsystems unless documented otherwise (for example `Continuation.MaxPending` when `Enabled` is true). See [public-api-inventory.md](public-api-inventory.md).
 
 ## Related docs
 

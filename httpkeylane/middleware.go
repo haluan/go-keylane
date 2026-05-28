@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Haluan Irsad
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// Package httpkeylane integrates go-keylane with net/http via Middleware.
+//
+// Stable Candidate adapter surface; core semantics remain in package keylane.
 package httpkeylane
 
 import (

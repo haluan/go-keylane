@@ -3,11 +3,25 @@
 
 package keylane
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
+
+var hookPanicsRecovered atomic.Uint64
+
+// HookPanicsRecovered returns the number of user hook panics recovered since process start.
+func HookPanicsRecovered() uint64 {
+	return hookPanicsRecovered.Load()
+}
 
 // callHook invokes fn and recovers panics so observer failures do not break callers.
 func callHook(fn func()) {
-	defer func() { _ = recover() }()
+	defer func() {
+		if recover() != nil {
+			hookPanicsRecovered.Add(1)
+		}
+	}()
 	fn()
 }
 
@@ -120,6 +134,6 @@ const (
 	JobOutcomeFailed
 	// JobOutcomeCanceled indicates the job returned context.Canceled or was skipped due to worker cancel.
 	JobOutcomeCanceled
-	// JobOutcomePanicked is reserved for panic recovery; not emitted until panic recovery exists.
+	// JobOutcomePanicked indicates the job Run function panicked and the worker recovered.
 	JobOutcomePanicked
 )

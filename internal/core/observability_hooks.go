@@ -26,6 +26,9 @@ func jobOutcomeFromError(err error) JobOutcome {
 	if errors.Is(err, context.Canceled) {
 		return JobOutcomeCanceled
 	}
+	if errors.Is(err, ErrJobPanicked) {
+		return JobOutcomePanicked
+	}
 	return JobOutcomeFailed
 }
 

@@ -1,0 +1,77 @@
+{
+  "version": "v0.8.0",
+  "go_version": "go1.26.0",
+  "date": "2026-05-25",
+  "commit": "run benchmarks/scripts/run-baseline.sh to refresh",
+  "platform": {
+    "os": "documented-at-capture",
+    "arch": "documented-at-capture",
+    "cpu": "documented-at-capture",
+    "gomaxprocs": 0
+  },
+  "benchmarks": [
+    {
+      "name": "BenchmarkKeylaneSubmit",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkKeylaneSubmitValue",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkKeylaneAwaitCompleted",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkKeylaneSubmitOneHotKey",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkGCPressureSubmitBurst",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkFairnessKeylaneManyKeys",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "run ./benchmarks/scripts/run-baseline.sh to replace with measured value"
+    },
+    {
+      "name": "BenchmarkSubmitHotPathAllocGuardrail",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "root package; run ./benchmarks/scripts/run-baseline.sh to replace"
+    },
+    {
+      "name": "BenchmarkPipelineSingleStage",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "root package; run ./benchmarks/scripts/run-baseline.sh to replace"
+    },
+    {
+      "name": "BenchmarkBackendAcquireReleaseDisabled",
+      "ns_per_op": 0,
+      "bytes_per_op": 0,
+      "allocs_per_op": 0,
+      "notes": "root package; run ./benchmarks/scripts/run-baseline.sh to replace"
+    }
+  ]
+}

@@ -140,7 +140,9 @@ func SubmitRequest[I any, O any](
 				out, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
 				handlerCtx := ContextWithStageExecution(reqCtx, baseExec)
-				out, err = handle(handlerCtx, input)
+				out, err = recoverValueJobRun(func(ctx context.Context) (O, error) {
+					return handle(ctx, input)
+				}, handlerCtx)
 				beforeHandler = false
 			}
 

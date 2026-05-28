@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package prometheus exposes a pull-based Prometheus collector for keylane queues.
+//
+// Stable Candidate optional adapter; metric names and labels follow docs/metrics.md.
 package prometheus
 
 import (

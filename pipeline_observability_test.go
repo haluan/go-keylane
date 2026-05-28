@@ -179,12 +179,22 @@ func TestStageObservationLowCardinalityStageName(t *testing.T) {
 		StageMeta{Name: StageDBRead}, 0, 1,
 		DeadlineBudgetSnapshot{Remaining: time.Second},
 	)
-	obs := newStageObservationFromExecution(exec, time.Second, nil, FailurePolicy{})
+	q, _ := New(Config{
+		ShardCount: 1, WorkerCount: 1, QueueSizePerLane: 8,
+		LaneQuotas: map[Lane]int{"default": 1},
+	})
+	obs := q.redactStageObservation(newStageObservationFromExecution(exec, time.Second, nil, FailurePolicy{}))
 	if obs.Stage != StageDBRead {
 		t.Fatalf("stage = %q", obs.Stage)
 	}
-	if obs.Key != "tenant-secret" {
-		t.Fatal("key present for debugging but must not be used as metric label")
+	if obs.Key != "" {
+		t.Fatalf("Key = %q, want empty (redacted from hook payload)", obs.Key)
+	}
+	if obs.KeyHash != HashKey("tenant-secret") {
+		t.Fatalf("KeyHash = %d, want %d", obs.KeyHash, HashKey("tenant-secret"))
+	}
+	if obs.Execution.Key != "" {
+		t.Fatal("execution key must be redacted in hook payload")
 	}
 }
 

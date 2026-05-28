@@ -59,11 +59,13 @@ func SubmitValue[T any](
 
 			if retryPolicy.Enabled {
 				opts := buildRunWithRetryOpts(q, job.Key, job.Lane, q.ShardIDForKey(job.Key), job.Idempotency, job.RetrySuppression)
-				res := runValueJobWithRetry(ctx, policy, retryPolicy, opts, handlerStartBudget, job.Run)
+				res := runValueJobWithRetry(ctx, policy, retryPolicy, opts, handlerStartBudget, func(c context.Context) (T, error) {
+					return recoverValueJobRun(job.Run, c)
+				})
 				future.setRetryOutcome(res.retryAttempts, res.retryFinal, res.retryTracked)
 				val, err, beforeHandler = res.val, res.err, res.beforeHandler
 			} else {
-				val, err = job.Run(ctx)
+				val, err = recoverValueJobRun(job.Run, ctx)
 				beforeHandler = false
 			}
 

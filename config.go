@@ -4,10 +4,12 @@
 package keylane
 
 import (
-	"fmt"
 	"time"
 )
 
+// Config configures a Queue: shard routing, workers, lane quotas, and optional subsystems.
+// Zero values disable optional features (continuations, backend resources, hot keys, retry, etc.).
+// Call Validate before New when setting non-default subsystem configs.
 type Config struct {
 	ShardCount       int
 	WorkerCount      int
@@ -57,7 +59,10 @@ type Config struct {
 }
 
 // ContinuationConfig configures the bounded in-memory continuation registry.
-// Zero value disables continuations; stages using RunContinuation will return ErrContinuationDisabled.
+//
+// Experimental: may change before v1.0.
+//
+// Zero value disables continuations; stages using RunContinuation will return ErrContinuationDisabled at submit.
 type ContinuationConfig struct {
 	// Enabled must be true to allow continuation stages.
 	Enabled bool
@@ -69,7 +74,7 @@ type ContinuationConfig struct {
 	// MaxPendingPerShard is an optional per-shard cap. Zero means no per-shard override.
 	MaxPendingPerShard int
 
-	// CompletionRetention is reserved for future completed-continuation diagnostics.
+	// CompletionRetention is reserved for future completed-continuation diagnostics (currently unused).
 	CompletionRetention time.Duration
 }
 
@@ -91,6 +96,9 @@ type ObservabilityConfig struct {
 	EnableDebugSnapshot bool
 	// LowAllocationMode applies LowAllocationObservabilityConfig at queue construction.
 	LowAllocationMode bool
+	// ExposeRawRequestIdentifiers includes raw Key and RequestID in hook payloads when true.
+	// Default false: hooks receive KeyHash only for correlation; do not use raw values as metric labels.
+	ExposeRawRequestIdentifiers bool
 
 	// TrackQueueWait enables v1 Stats() queue-wait counters (EnqueuedAt); independent of EnableQueueWaitTiming.
 	TrackQueueWait   bool
@@ -99,91 +107,13 @@ type ObservabilityConfig struct {
 }
 
 // Validate ensures the configuration is valid.
+// Invalid explicit values are rejected before normalization defaults are applied.
+// For structured errors and warnings, use ValidateConfig.
 func (c Config) Validate() error {
-	if c.ShardCount < 1 {
-		return fmt.Errorf("%w: ShardCount must be at least 1", ErrInvalidShardCount)
-	}
-	if c.WorkerCount < 1 {
-		return fmt.Errorf("%w: WorkerCount must be at least 1", ErrInvalidWorkerCount)
-	}
-	if c.QueueSizePerLane < 1 {
-		return fmt.Errorf("%w: QueueSizePerLane must be at least 1", ErrInvalidQueueSize)
-	}
-	if len(c.LaneQuotas) == 0 {
-		return ErrMissingLaneQuotas
-	}
-	for lane, quota := range c.LaneQuotas {
-		if lane == "" {
-			return fmt.Errorf("%w: lane name cannot be empty", ErrInvalidLane)
-		}
-		if quota < 1 {
-			return fmt.Errorf("%w: quota for lane %q must be at least 1", ErrInvalidLaneQuota, lane)
-		}
-	}
-	if err := ValidateAdaptiveQuotaPolicy(c.AdaptiveQuota, c.LaneQuotas); err != nil {
+	if err := validateConfigBeforeNormalize(c); err != nil {
 		return err
 	}
-	hk := c.HotKey
-	NormalizeHotKeyConfig(&hk)
-	if err := ValidateHotKeyConfig(hk); err != nil {
-		return err
-	}
-	pk := c.PerKeyAdmission
-	NormalizePerKeyAdmissionConfig(&pk)
-	if err := ValidatePerKeyAdmissionConfig(pk, hk); err != nil {
-		return err
-	}
-	sp := c.ShardPressure
-	NormalizeShardPressureConfig(&sp)
-	if err := ValidateShardPressureConfig(sp); err != nil {
-		return err
-	}
-	as := c.AutoscalingSignal
-	NormalizeAutoscalingSignalConfig(&as)
-	if err := ValidateAutoscalingSignalConfig(as); err != nil {
-		return err
-	}
-	if err := validateConfigRetry(c); err != nil {
-		return err
-	}
-	if err := validateConfigIdempotency(c); err != nil {
-		return err
-	}
-	if err := validateConfigRetrySuppression(c); err != nil {
-		return err
-	}
-	if err := validateConfigContinuation(c); err != nil {
-		return err
-	}
-	return validateConfigBackendResources(c)
-}
-
-func validateConfigBackendResources(c Config) error {
-	br := c.BackendResources
-	NormalizeBackendResourceConfig(&br)
-	return ValidateBackendResourceConfig(br)
-}
-
-func validateConfigContinuation(c Config) error {
-	cont := c.Continuation
-	NormalizeContinuationConfig(&cont)
-	return ValidateContinuationConfig(cont)
-}
-
-func validateConfigRetry(c Config) error {
-	retry := c.Retry
-	NormalizeRetryPolicy(&retry)
-	return ValidateRetryPolicy(retry)
-}
-
-func validateConfigIdempotency(c Config) error {
-	idem := c.Idempotency
-	NormalizeIdempotencyPolicy(&idem)
-	return ValidateIdempotencyPolicy(idem)
-}
-
-func validateConfigRetrySuppression(c Config) error {
-	sup := c.RetrySuppression
-	NormalizeRetrySuppressionPolicy(&sup)
-	return ValidateRetrySuppressionPolicy(sup)
+	cp := c
+	normalizeConfigInPlace(&cp)
+	return validateNormalizedConfig(cp)
 }

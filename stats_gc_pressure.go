@@ -83,8 +83,7 @@ type LaneCountersGCPressure struct {
 	// that return context.Canceled and jobs skipped when a worker context is canceled.
 	// Answers: how often is work for this lane canceled?
 	Canceled uint64
-	// Panicked counts jobs recovered from a user panic. Panic recovery is not implemented;
-	// this field is always zero.
+	// Panicked counts accepted jobs whose Run function panicked and were recovered by the worker.
 	Panicked uint64
 }
 

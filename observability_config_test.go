@@ -40,6 +40,27 @@ func TestResolveObservabilityConfigPreservesAdaptiveTracingFlag(t *testing.T) {
 	}
 }
 
+func TestResolveObservabilityConfigPreservesExposeRawRequestIdentifiers(t *testing.T) {
+	got := ResolveObservabilityConfig(ObservabilityConfig{
+		ExposeRawRequestIdentifiers: true,
+	})
+	if !got.ExposeRawRequestIdentifiers {
+		t.Fatal("ExposeRawRequestIdentifiers discarded when only flag is set")
+	}
+}
+
+func TestResolveObservabilityConfigPreservesExposeRawWithLegacyHooks(t *testing.T) {
+	got := ResolveObservabilityConfig(ObservabilityConfig{
+		ExposeRawRequestIdentifiers: true,
+		Hooks: Hooks{
+			OnJobTiming: func(JobTimingEvent) {},
+		},
+	})
+	if !got.ExposeRawRequestIdentifiers {
+		t.Fatal("ExposeRawRequestIdentifiers discarded in legacy-only merge")
+	}
+}
+
 func TestNewPreservesV04HookWithoutLegacyFields(t *testing.T) {
 	var events atomic.Int32
 	q, err := New(Config{

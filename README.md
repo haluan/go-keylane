@@ -4,7 +4,7 @@
 
 A Go library for routing jobs by key into deterministic execution lanes, improving fairness, isolation, and tail-latency control in high-throughput backend services.
 
-> Status: v0.7.0 — advanced request pipelines, continuations, and backend resource coordination on top of v0.6 retry/deadline/failure policy. Public APIs may still evolve before a stable v1.0.
+> Status: v0.8.0 (pre-v1.0) — v0.7 pipelines, continuations, and backend coordination on top of v0.6 retry/deadline/failure policy. See [API stability](docs/api-stability.md) and [public API inventory](docs/public-api-inventory.md).
 
 ---
 
@@ -15,6 +15,26 @@ To start using `go-keylane` in your project, install the module via Go CLI:
 ```bash
 go get github.com/haluan/go-keylane
 ```
+
+---
+
+## v0.8.0 adoption (recommended)
+
+Start with the canonical example and walkthrough:
+
+```bash
+go run ./examples/production-minimal
+```
+
+- [production-minimal example](examples/production-minimal/) · [walkthrough](docs/production-minimal.md)
+- [production hardening hub](docs/production-hardening.md) · [v0.8.0 release notes](docs/releases/v0.8.0.md)
+- [examples guide](docs/examples.md) · [migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
+- `ProductionDefaults()` + `ValidateConfig` before `New`
+- [observability contract](docs/observability-contract.md) · [lifecycle / shutdown](docs/runtime-lifecycle-hardening.md) · [performance baselines](docs/performance-regression.md)
+
+Compile-check all examples: `make verify-examples`.
+
+**Not a workflow engine, distributed queue, or exactly-once system** — in-process lane-sharded concurrency control only. State is lost on process restart.
 
 ---
 
@@ -29,6 +49,8 @@ go get github.com/haluan/go-keylane
 ---
 
 ## Fire-and-Forget Example
+
+> Prefer [examples/production-minimal](examples/production-minimal/) (`ProductionDefaults`, `ValidateConfig`, graceful `Stop` with drain). The snippet below uses a hand-rolled `Config` for illustration.
 
 ```go
 package main
@@ -86,6 +108,8 @@ func main() {
 ---
 
 ## SubmitValue & Await Example
+
+> See also [examples/submit-value-await](examples/submit-value-await/) and [docs/production-minimal.md](docs/production-minimal.md).
 
 ```go
 package main
@@ -341,6 +365,24 @@ cd tracing/otel && go test ./...
 
 ## Documentation
 
+### v0.8.0 API stability and configuration
+
+- [Production Hardening](docs/production-hardening.md)
+- [v0.8.0 Release Notes](docs/releases/v0.8.0.md)
+- [Examples Guide](docs/examples.md)
+- [Production-Minimal Walkthrough](docs/production-minimal.md)
+- [API Compatibility](docs/api-compatibility.md)
+- [API Stability](docs/api-stability.md)
+- [Public API Inventory](docs/public-api-inventory.md)
+- [Config Validation](docs/config-validation.md)
+- [Config Versioning](docs/config-versioning.md)
+- [Production Defaults](docs/production-defaults.md)
+- [Compatibility Rules](docs/compatibility-rules.md)
+- [Observability Contract](docs/observability-contract.md)
+- [Runtime Lifecycle Hardening](docs/runtime-lifecycle-hardening.md)
+- [Performance Regression](docs/performance-regression.md)
+- [Migration v0.7 → v0.8](docs/migration/v0.7-to-v0.8.md)
+
 ### v0.7.0 pipelines, continuations & backend coordination
 
 - [v0.7.0 Overview](docs/v0.7-advanced-request-pipeline-and-resource-coordination.md)
@@ -418,6 +460,11 @@ cd tracing/otel && go test ./...
 - [Glossary of Terms](docs/glossary.md)
 
 ---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on the development process
+and contribution expectations.
 
 ## License
 
